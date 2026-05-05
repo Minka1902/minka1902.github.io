@@ -11,7 +11,9 @@
       "Bash(npm run *)",
       "Bash(Select-String -Pattern \"App\\\\.|main\\\\.\")",
       "Bash(npm test *)",
-      "Bash(npx vitest *)"
+      "Bash(npx vitest *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\User\\\\Desktop\\\\dev\\\\pack-ops\\\\PackOps\" -Force)",
+      "Bash(Select-Object Name, PSIsContainer)"
     ]
   }
 }

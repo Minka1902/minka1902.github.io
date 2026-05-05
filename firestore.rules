@@ -1,0 +1,52 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{userId} {
+      allow read, write: if request.auth.uid == userId;
+    }
+
+    function isMainHuman(dogId) {
+      return get(/databases/$(database)/documents/dogs/$(dogId)).data.mainHumanId == request.auth.uid;
+    }
+    function isApproved(dogId) {
+      return exists(/databases/$(database)/documents/dogs/$(dogId)/humans/$(request.auth.uid));
+    }
+    function hasAccess(dogId) {
+      return isMainHuman(dogId) || isApproved(dogId);
+    }
+
+    match /dogs/{dogId} {
+      allow read:          if hasAccess(dogId);
+      allow create:        if request.auth != null;
+      allow update, delete: if isMainHuman(dogId);
+
+      match /routines/{id}            { allow read, write: if hasAccess(dogId); }
+      match /trainingSessions/{id}    { allow read, write: if hasAccess(dogId); }
+      match /trainingTemplates/{id}   { allow read, write: if hasAccess(dogId); }
+      match /medicalVaccinations/{id} { allow read, write: if hasAccess(dogId); }
+      match /medicalMedications/{id}  { allow read, write: if hasAccess(dogId); }
+      match /medicalFleaTick/{id}     { allow read, write: if hasAccess(dogId); }
+      match /medicalDeworming/{id}    { allow read, write: if hasAccess(dogId); }
+      match /medicalAllergies/{id}    { allow read, write: if hasAccess(dogId); }
+      match /medicalDiagnoses/{id}    { allow read, write: if hasAccess(dogId); }
+      match /medicalSurgeries/{id}    { allow read, write: if hasAccess(dogId); }
+      match /humans/{humanId}         {
+        allow read:  if hasAccess(dogId);
+        allow write: if isMainHuman(dogId);
+      }
+      match /pendingHumans/{humanId}  {
+        allow read:   if isMainHuman(dogId) || request.auth.uid == humanId;
+        allow create: if request.auth.uid == humanId;
+        allow delete: if isMainHuman(dogId) || request.auth.uid == humanId;
+      }
+      match /devices/{id}             { allow read, write: if hasAccess(dogId); }
+    }
+
+    match /publicDogCards/{dogId} {
+      allow read:  if true;
+      allow write: if request.auth != null &&
+        get(/databases/$(database)/documents/dogs/$(dogId)).data.mainHumanId == request.auth.uid;
+    }
+  }
+}
