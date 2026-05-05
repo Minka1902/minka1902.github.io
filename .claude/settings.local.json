@@ -1,7 +1,17 @@
 {
+  "env": {
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "100000"
+  },
   "permissions": {
     "allow": [
-      "Bash(git *)"
+      "Bash(git *)",
+      "WebFetch(domain:github.com)",
+      "Bash(npm install *)",
+      "Bash(npm list *)",
+      "Bash(npm run *)",
+      "Bash(Select-String -Pattern \"App\\\\.|main\\\\.\")",
+      "Bash(npm test *)",
+      "Bash(npx vitest *)"
     ]
   }
 }
