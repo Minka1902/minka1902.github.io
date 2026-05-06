@@ -59,7 +59,9 @@
       "Bash(node run.js /c/Users/User/AppData/Local/Temp/playwright-test-packops4.js)",
       "Bash(node run.js /c/Users/User/AppData/Local/Temp/playwright-tour.js)",
       "Bash(node run.js /c/Users/User/AppData/Local/Temp/playwright-tour2.js)",
-      "Bash(node run.js /c/Users/User/AppData/Local/Temp/playwright-tour3.js)"
+      "Bash(node run.js /c/Users/User/AppData/Local/Temp/playwright-tour3.js)",
+      "Bash(npm show *)",
+      "Bash(node *)"
     ]
   }
 }

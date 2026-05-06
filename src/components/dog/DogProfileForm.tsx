@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import BreedAutocomplete from './BreedAutocomplete';
 import type { Dog } from '@/types';
 
 type DogFormFields = Omit<Dog, 'id' | 'createdAt' | 'updatedAt' | 'mainHumanId'>;
@@ -66,7 +67,7 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
       </div>
       <div className="space-y-1">
         <Label htmlFor="breed">Breed</Label>
-        <Input id="breed" value={breed} onChange={e => setBreed(e.target.value)} />
+        <BreedAutocomplete id="breed" value={breed} onChange={setBreed} />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1">
