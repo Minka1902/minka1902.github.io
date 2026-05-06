@@ -6,6 +6,13 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Strips undefined values so Firestore doesn't reject the document
+export function stripUndefined<T extends object>(obj: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => v !== undefined)
+  ) as Partial<T>;
+}
+
 export const toMs    = (date: Date) => date.getTime();
 export const fromMs  = (ms: number) => new Date(ms);
 export const dayStart = (ms: number) => startOfDay(fromMs(ms)).getTime();

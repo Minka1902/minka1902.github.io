@@ -40,7 +40,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+    const { user: fbUser } = await signInWithEmailAndPassword(auth, email, password);
+    setFirebaseUser(fbUser);
+    const snap = await getDoc(doc(db, 'users', fbUser.uid));
+    if (snap.exists()) {
+      setUser(snap.data() as UserProfile);
+    }
   };
 
   const register = async (email: string, password: string, displayName: string) => {

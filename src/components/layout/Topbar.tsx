@@ -25,7 +25,7 @@ export default function Topbar() {
       <DropdownMenu>
         <DropdownMenuTrigger className="rounded-full outline-none">
           <Avatar className="h-8 w-8 cursor-pointer hover:opacity-80 transition-opacity">
-            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+            <AvatarFallback className="text-xs bg-primary text-primary-foreground">{initials}</AvatarFallback>
           </Avatar>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">

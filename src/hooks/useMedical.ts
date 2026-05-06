@@ -4,6 +4,7 @@ import { db } from '@/lib/firebase';
 import { medicalCol } from '@/lib/firestore';
 import { useAuth } from '@/hooks/useAuth';
 import { MEDICAL_CATEGORIES } from '@/lib/constants';
+import { stripUndefined } from '@/lib/utils';
 import type { MedicalRecord, MedicalCategory } from '@/types';
 
 export function useMedical(dogId: string, category: MedicalCategory) {
@@ -20,15 +21,15 @@ export function useMedical(dogId: string, category: MedicalCategory) {
 
   const addRecord = async (data: Omit<MedicalRecord, 'id'>) => {
     const now = Date.now();
-    await addDoc(medicalCol(dogId, category), {
+    await addDoc(medicalCol(dogId, category), stripUndefined({
       ...data, dogId, createdBy: user!.uid, createdByName: user!.displayName,
       createdAt: now, updatedAt: now,
-    });
+    }));
   };
 
   const updateRecord = async (recordId: string, data: Partial<MedicalRecord>) => {
     const collectionName = MEDICAL_CATEGORIES.find(c => c.category === category)!.collectionName;
-    await updateDoc(doc(db, 'dogs', dogId, collectionName, recordId), { ...data, updatedAt: Date.now() });
+    await updateDoc(doc(db, 'dogs', dogId, collectionName, recordId), stripUndefined({ ...data, updatedAt: Date.now() }));
   };
 
   const deleteRecord = async (recordId: string) => {

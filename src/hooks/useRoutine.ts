@@ -3,7 +3,7 @@ import { addDoc, onSnapshot, query, where, orderBy, deleteDoc, doc } from 'fireb
 import { db } from '@/lib/firebase';
 import { routinesCol } from '@/lib/firestore';
 import { useAuth } from '@/hooks/useAuth';
-import { dayStart, dayEnd } from '@/lib/utils';
+import { dayStart, dayEnd, stripUndefined } from '@/lib/utils';
 import type { RoutineLog, RoutineType } from '@/types';
 
 export function useRoutine(dogId: string) {
@@ -26,11 +26,11 @@ export function useRoutine(dogId: string) {
   }, [dogId]);
 
   const logRoutine = async (type: RoutineType, extras: Partial<RoutineLog> = {}) => {
-    await addDoc(routinesCol(dogId), {
+    await addDoc(routinesCol(dogId), stripUndefined({
       dogId, type, timestamp: Date.now(),
       loggedBy: user!.uid, loggedByName: user!.displayName,
       source: 'manual', ...extras,
-    });
+    }));
   };
 
   const deleteLog = async (logId: string) => {

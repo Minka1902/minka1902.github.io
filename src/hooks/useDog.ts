@@ -4,6 +4,7 @@ import { addDoc, doc, updateDoc, collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { useDog } from '@/contexts/DogContext';
+import { stripUndefined } from '@/lib/utils';
 import type { Dog } from '@/types';
 
 export function useDogActions() {
@@ -14,17 +15,17 @@ export function useDogActions() {
     data: Omit<Dog, 'id' | 'createdAt' | 'updatedAt' | 'mainHumanId'>
   ): Promise<string> => {
     const now = Date.now();
-    const ref = await addDoc(collection(db, 'dogs'), {
+    const ref = await addDoc(collection(db, 'dogs'), stripUndefined({
       ...data,
       mainHumanId: user!.uid,
       createdAt: now,
       updatedAt: now,
-    });
+    }));
     return ref.id;
   };
 
   const updateDog = async (dogId: string, data: Partial<Dog>): Promise<void> => {
-    await updateDoc(doc(db, 'dogs', dogId), { ...data, updatedAt: Date.now() });
+    await updateDoc(doc(db, 'dogs', dogId), stripUndefined({ ...data, updatedAt: Date.now() }));
   };
 
   return { createDog, updateDog, dogs };

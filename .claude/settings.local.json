@@ -49,7 +49,17 @@
       "Bash(dir C:\\\\Users\\\\User\\\\Desktop\\\\dev\\\\pack-ops\\\\PackOps\\\\src\\\\tests *)",
       "Bash(dir \"C:\\\\Users\\\\User\\\\Desktop\\\\dev\\\\pack-ops\\\\PackOps\\\\src\\\\pages\\\\dog\")",
       "Bash(dir \"C:\\\\Users\\\\User\\\\Desktop\\\\dev\\\\pack-ops\\\\PackOps\\\\src\\\\components\\\\ui\")",
-      "Bash(dir \"C:\\\\Users\\\\User\\\\Desktop\\\\dev\\\\pack-ops\\\\PackOps\\\\src\\\\components\\\\dog\")"
+      "Bash(dir \"C:\\\\Users\\\\User\\\\Desktop\\\\dev\\\\pack-ops\\\\PackOps\\\\src\\\\components\\\\dog\")",
+      "Bash(claude plugins *)",
+      "Bash(xargs cat)",
+      "Bash(node -e \"require\\('./lib/helpers'\\).detectDevServers\\(\\).then\\(servers => console.log\\(JSON.stringify\\(servers\\)\\)\\)\")",
+      "Bash(node run.js /c/Users/User/AppData/Local/Temp/playwright-test-packops.js)",
+      "Bash(node run.js /c/Users/User/AppData/Local/Temp/playwright-test-packops2.js)",
+      "Bash(node run.js /c/Users/User/AppData/Local/Temp/playwright-test-packops3.js)",
+      "Bash(node run.js /c/Users/User/AppData/Local/Temp/playwright-test-packops4.js)",
+      "Bash(node run.js /c/Users/User/AppData/Local/Temp/playwright-tour.js)",
+      "Bash(node run.js /c/Users/User/AppData/Local/Temp/playwright-tour2.js)",
+      "Bash(node run.js /c/Users/User/AppData/Local/Temp/playwright-tour3.js)"
     ]
   }
 }
