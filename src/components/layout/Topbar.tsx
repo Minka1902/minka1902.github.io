@@ -9,7 +9,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Menu, PlusCircle } from 'lucide-react';
+import { Menu, Moon, PlusCircle, Sun } from 'lucide-react';
+import { useTheme } from '@/hooks/useTheme';
+import { Button } from '@/components/ui/button';
 
 interface Props {
   onMenuClick: () => void;
@@ -18,6 +20,7 @@ interface Props {
 export default function Topbar({ onMenuClick }: Props) {
   const { user, logout } = useAuth();
   const { dogs, activeDog, setActiveDog } = useDog();
+  const { theme, toggle } = useTheme();
 
   const initials = user?.displayName
     ?.split(' ')
@@ -62,6 +65,9 @@ export default function Topbar({ onMenuClick }: Props) {
       </div>
 
       <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">
+          {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+        </Button>
         <AlertBell />
         <DropdownMenu>
           <DropdownMenuTrigger className="rounded-full outline-none">
