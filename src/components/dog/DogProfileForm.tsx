@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
 import BreedAutocomplete from './BreedAutocomplete';
 import type { Dog } from '@/types';
 
@@ -60,65 +62,100 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
-      <div className="space-y-1">
-        <Label htmlFor="dog-name">Dog's Name</Label>
-        <Input id="dog-name" value={name} onChange={e => setName(e.target.value)} required />
-      </div>
-      <div className="space-y-1">
-        <Label htmlFor="breed">Breed</Label>
-        <BreedAutocomplete id="breed" value={breed} onChange={setBreed} />
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1">
-          <Label>Sex</Label>
-          <Select value={sex} onValueChange={v => setSex(v as Dog['sex'])}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="male">Male</SelectItem>
-              <SelectItem value="female">Female</SelectItem>
-              <SelectItem value="unknown">Unknown</SelectItem>
-            </SelectContent>
-          </Select>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Basic info */}
+      <div className="space-y-4">
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Basic Info</p>
+        <div className="space-y-1.5">
+          <Label htmlFor="dog-name">Name <span className="text-destructive">*</span></Label>
+          <Input id="dog-name" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Rex" required />
         </div>
-        <div className="space-y-1">
-          <Label htmlFor="weight">Weight (kg)</Label>
-          <Input id="weight" type="number" step="0.1" value={weightKg} onChange={e => setWeightKg(e.target.value)} />
+        <div className="space-y-1.5">
+          <Label htmlFor="breed">Breed</Label>
+          <BreedAutocomplete id="breed" value={breed} onChange={setBreed} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label>Sex</Label>
+            <Select value={sex} onValueChange={v => setSex(v as Dog['sex'])}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="male">Male</SelectItem>
+                <SelectItem value="female">Female</SelectItem>
+                <SelectItem value="unknown">Unknown</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="weight">Weight (kg)</Label>
+            <Input id="weight" type="number" step="0.1" min="0" value={weightKg} onChange={e => setWeightKg(e.target.value)} placeholder="e.g. 28.5" />
+          </div>
+        </div>
+        <div className="flex items-center justify-between rounded-lg border px-4 py-3">
+          <div>
+            <p className="text-sm font-medium">Mixed breed</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Check if this dog is a mix</p>
+          </div>
+          <Switch checked={isMix} onCheckedChange={setIsMix} />
         </div>
       </div>
-      <div className="flex items-center gap-2">
-        <input id="isMix" type="checkbox" checked={isMix} onChange={e => setIsMix(e.target.checked)} className="h-4 w-4" />
-        <Label htmlFor="isMix">Mixed breed</Label>
+
+      <Separator />
+
+      {/* Identity */}
+      <div className="space-y-4">
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Identity</p>
+        <div className="space-y-1.5">
+          <Label htmlFor="chipId">Microchip ID</Label>
+          <Input id="chipId" value={chipId} onChange={e => setChipId(e.target.value)} placeholder="15-digit chip number" />
+        </div>
       </div>
-      <div className="space-y-1">
-        <Label htmlFor="chipId">Microchip ID</Label>
-        <Input id="chipId" value={chipId} onChange={e => setChipId(e.target.value)} />
+
+      <Separator />
+
+      {/* Contact & Organization */}
+      <div className="space-y-4">
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Contact & Organization</p>
+        <div className="space-y-1.5">
+          <Label htmlFor="rescueOrg">Rescue Organization</Label>
+          <Input id="rescueOrg" value={rescueOrg} onChange={e => setRescueOrg(e.target.value)} placeholder="e.g. Happy Paws Rescue" />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="emergencyContact">Emergency Contact</Label>
+          <Input id="emergencyContact" value={emergencyContact} onChange={e => setEmergencyContact(e.target.value)} placeholder="Name and phone number" />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="homeAddress">Home Address</Label>
+          <Input id="homeAddress" value={homeAddress} onChange={e => setHomeAddress(e.target.value)} placeholder="Street address" />
+        </div>
       </div>
-      <div className="space-y-1">
-        <Label htmlFor="rescueOrg">Rescue Organization</Label>
-        <Input id="rescueOrg" value={rescueOrg} onChange={e => setRescueOrg(e.target.value)} />
+
+      <Separator />
+
+      {/* Notes */}
+      <div className="space-y-4">
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Notes</p>
+        <div className="space-y-1.5">
+          <Label htmlFor="behaviorNotes">Behavior Notes</Label>
+          <textarea
+            id="behaviorNotes"
+            value={behaviorNotes}
+            onChange={e => setBehaviorNotes(e.target.value)}
+            rows={4}
+            placeholder="Temperament, triggers, training progress…"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none transition-colors"
+          />
+        </div>
       </div>
-      <div className="space-y-1">
-        <Label htmlFor="emergencyContact">Emergency Contact</Label>
-        <Input id="emergencyContact" value={emergencyContact} onChange={e => setEmergencyContact(e.target.value)} />
+
+      <div className="flex gap-3 pt-2">
+        <Button type="submit" disabled={submitting}>
+          {submitting ? 'Saving…' : dogId ? 'Save Changes' : 'Add Dog'}
+        </Button>
+        <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+          Cancel
+        </Button>
       </div>
-      <div className="space-y-1">
-        <Label htmlFor="homeAddress">Home Address</Label>
-        <Input id="homeAddress" value={homeAddress} onChange={e => setHomeAddress(e.target.value)} />
-      </div>
-      <div className="space-y-1">
-        <Label htmlFor="behaviorNotes">Behavior Notes</Label>
-        <textarea
-          id="behaviorNotes"
-          value={behaviorNotes}
-          onChange={e => setBehaviorNotes(e.target.value)}
-          rows={3}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-        />
-      </div>
-      <Button type="submit" disabled={submitting}>
-        {submitting ? 'Saving…' : 'Save Dog'}
-      </Button>
     </form>
   );
 }
