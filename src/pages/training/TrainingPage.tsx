@@ -30,7 +30,7 @@ export default function TrainingPage() {
           </div>
           <div className="text-center">
             <p className="font-semibold">No sessions yet</p>
-            <p className="text-sm text-muted-foreground mt-1">Log {activeDog.name}'s first training session to start tracking progress.</p>
+            <p className="text-sm text-muted-foreground mt-1">Log <span className="capitalize">{activeDog.name}</span>'s first training session to start tracking progress.</p>
           </div>
           <Link to="/training/new" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'gap-2')}>
             <PlusCircle className="h-4 w-4" /> Log First Session

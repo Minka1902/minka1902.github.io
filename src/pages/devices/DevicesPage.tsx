@@ -35,7 +35,7 @@ export default function DevicesPage() {
           </div>
           <div className="text-center">
             <p className="font-semibold">No devices linked</p>
-            <p className="text-sm text-muted-foreground mt-1">Link a GPS collar or activity tracker to see {activeDog.name}'s data here.</p>
+            <p className="text-sm text-muted-foreground mt-1">Link a GPS collar or activity tracker to see <span className="capitalize">{activeDog.name}</span>'s data here.</p>
           </div>
           <Button variant="outline" size="sm" onClick={() => setShowForm(true)} className="gap-1.5">
             <PlusCircle className="h-4 w-4" /> Link First Device

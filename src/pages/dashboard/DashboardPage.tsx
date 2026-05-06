@@ -44,7 +44,7 @@ export default function DashboardPage() {
       {/* Dog header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{activeDog.name}</h1>
+          <h1 className="text-3xl font-bold tracking-tight capitalize">{activeDog.name}</h1>
           {activeDog.breed && (
             <p className="text-sm text-muted-foreground mt-0.5">{activeDog.breed}{activeDog.isMix ? ' mix' : ''}</p>
           )}

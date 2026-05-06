@@ -24,7 +24,7 @@ export default function DogCard({ dog, isMain }: Props) {
           )}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <p className="font-semibold truncate">{dog.name}</p>
+              <p className="font-semibold truncate capitalize">{dog.name}</p>
               {isMain && <Badge variant="outline" className="text-xs">Main</Badge>}
             </div>
             {dog.breed && <p className="text-sm text-muted-foreground truncate">{dog.breed}{dog.isMix ? ' mix' : ''}</p>}

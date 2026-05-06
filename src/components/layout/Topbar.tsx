@@ -76,7 +76,7 @@ export default function Topbar({ onMenuClick }: Props) {
             </Avatar>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem disabled className="text-xs">{user?.displayName}</DropdownMenuItem>
+            <DropdownMenuItem disabled className="text-xs capitalize">{user?.displayName}</DropdownMenuItem>
             <DropdownMenuItem disabled className="text-xs text-muted-foreground">{user?.email}</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => window.location.href = '/settings'}>Settings</DropdownMenuItem>

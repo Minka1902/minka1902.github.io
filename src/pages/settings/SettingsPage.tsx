@@ -43,7 +43,7 @@ export default function SettingsPage() {
               </AvatarFallback>
             </Avatar>
             <div>
-              <p className="font-semibold">{user?.displayName}</p>
+              <p className="font-semibold capitalize">{user?.displayName}</p>
               <p className="text-sm text-muted-foreground">{user?.email}</p>
             </div>
           </div>
@@ -67,7 +67,7 @@ export default function SettingsPage() {
                     <PawPrint className="h-4 w-4 text-primary" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium">{dog.name}</p>
+                    <p className="text-sm font-medium capitalize">{dog.name}</p>
                     {dog.breed && <p className="text-xs text-muted-foreground">{dog.breed}</p>}
                   </div>
                 </div>

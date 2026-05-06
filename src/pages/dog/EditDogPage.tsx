@@ -14,7 +14,7 @@ export default function EditDogPage() {
     <div className="max-w-2xl mx-auto">
       <Card>
         <CardHeader>
-          <CardTitle>Edit {dog.name}</CardTitle>
+          <CardTitle>Edit <span className="capitalize">{dog.name}</span></CardTitle>
         </CardHeader>
         <CardContent>
           <DogProfileForm dogId={dog.id} initial={dog} />

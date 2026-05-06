@@ -39,10 +39,10 @@ export default function PublicQRPage() {
         {card.photoURL && (
           <img src={card.photoURL} alt={card.name} className="w-32 h-32 rounded-full object-cover mx-auto" />
         )}
-        <h1 className="text-3xl font-bold">{card.name}</h1>
+        <h1 className="text-3xl font-bold capitalize">{card.name}</h1>
         <p className="text-muted-foreground">If found, please contact:</p>
         <div className="space-y-2 text-sm">
-          <p className="font-medium">{card.mainHumanName}</p>
+          <p className="font-medium capitalize">{card.mainHumanName}</p>
           {card.phone && <p>{card.phone}</p>}
           {card.address && <p className="text-muted-foreground">{card.address}</p>}
           {card.rescueOrg && <p className="text-muted-foreground">{card.rescueOrg}</p>}

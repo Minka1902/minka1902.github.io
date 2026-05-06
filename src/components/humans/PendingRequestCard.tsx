@@ -17,7 +17,7 @@ export default function PendingRequestCard({ request, onApprove, onReject }: Pro
           {request.displayName.slice(0, 2).toUpperCase()}
         </div>
         <div className="flex-1">
-          <p className="font-medium">{request.displayName}</p>
+          <p className="font-medium capitalize">{request.displayName}</p>
           <p className="text-sm text-muted-foreground">{request.email}</p>
         </div>
         <RoleBadge role={request.requestedRole} />

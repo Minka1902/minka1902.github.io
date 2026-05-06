@@ -37,7 +37,7 @@ export function SidebarContent({ onClose }: SidebarContentProps) {
       {activeDog && (
         <div className="px-4 py-3 border-b bg-muted/30">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-0.5">Active dog</p>
-          <p className="text-sm font-semibold truncate">{activeDog.name}</p>
+          <p className="text-sm font-semibold truncate capitalize">{activeDog.name}</p>
           {activeDog.breed && (
             <p className="text-xs text-muted-foreground truncate">{activeDog.breed}</p>
           )}

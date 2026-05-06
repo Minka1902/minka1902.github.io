@@ -15,7 +15,7 @@ export default function HumanCard({ human, canRevoke, onRevoke }: Props) {
         {human.displayName.slice(0, 2).toUpperCase()}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold truncate">{human.displayName}</p>
+        <p className="text-sm font-semibold truncate capitalize">{human.displayName}</p>
         <p className="text-xs text-muted-foreground truncate">{human.email}</p>
       </div>
       <RoleBadge role={human.role} />

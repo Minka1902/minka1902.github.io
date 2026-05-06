@@ -31,9 +31,9 @@ export default function QRPage() {
           <div className="rounded-2xl bg-white p-4 shadow-sm border">
             <QRCodeDisplay dogId={activeDog.id} size={200} />
           </div>
-          <p className="mt-4 text-sm font-medium">{dog.name}</p>
+          <p className="mt-4 text-sm font-medium capitalize">{dog.name}</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Scan to see {dog.name}'s public card
+            Scan to see <span className="capitalize">{dog.name}</span>'s public card
           </p>
         </div>
         <Separator />

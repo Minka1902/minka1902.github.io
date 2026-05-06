@@ -63,7 +63,7 @@ export default function HumansPage() {
             </div>
             <div className="text-center">
               <p className="font-medium text-sm">Just you so far</p>
-              <p className="text-sm text-muted-foreground mt-1">Invite caregivers, trainers, or walkers to join {activeDog.name}'s team.</p>
+              <p className="text-sm text-muted-foreground mt-1">Invite caregivers, trainers, or walkers to join <span className="capitalize">{activeDog.name}</span>'s team.</p>
             </div>
           </div>
         ) : (
