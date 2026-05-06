@@ -53,18 +53,18 @@ export default function TrainingSessionForm({ dogId, template, onTrainingTypeCha
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-w-lg">
-      <div className="space-y-1">
-        <Label>Training Type</Label>
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium">Training Type</Label>
         <TrainingTypeSelector value={trainingType} onChange={handleTypeChange} />
       </div>
-      <div className="space-y-1">
-        <Label htmlFor="objective">Objective</Label>
-        <Input id="objective" value={objective} onChange={e => setObjective(e.target.value)} required />
+      <div className="space-y-1.5">
+        <Label htmlFor="objective" className="text-sm font-medium">Objective <span className="text-destructive">*</span></Label>
+        <Input id="objective" placeholder="e.g. Reliable sit-stay at 6 feet" value={objective} onChange={e => setObjective(e.target.value)} required />
       </div>
-      <div className="space-y-1">
-        <Label htmlFor="location">Location</Label>
-        <Input id="location" value={location} onChange={e => setLocation(e.target.value)} />
+      <div className="space-y-1.5">
+        <Label htmlFor="location" className="text-sm font-medium">Location <span className="text-muted-foreground font-normal">(optional)</span></Label>
+        <Input id="location" placeholder="e.g. Backyard, training facility" value={location} onChange={e => setLocation(e.target.value)} />
       </div>
 
       <TrainingTypeSpecificFields
@@ -73,12 +73,15 @@ export default function TrainingSessionForm({ dogId, template, onTrainingTypeCha
         onChange={setTypeSpecificData}
       />
 
-      {template && (
-        <p className="text-xs text-muted-foreground">Pre-filled from template</p>
-      )}
-      <Button type="submit" disabled={submitting}>
-        {submitting ? 'Saving…' : 'Save Session'}
-      </Button>
+      <div className="flex items-center justify-between pt-2">
+        {template
+          ? <p className="text-xs text-muted-foreground">Pre-filled from saved template</p>
+          : <span />
+        }
+        <Button type="submit" disabled={submitting}>
+          {submitting ? 'Saving…' : 'Save Session'}
+        </Button>
+      </div>
     </form>
   );
 }

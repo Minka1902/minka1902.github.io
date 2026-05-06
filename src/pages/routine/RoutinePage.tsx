@@ -12,19 +12,21 @@ export default function RoutinePage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-2xl mx-auto space-y-5">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Routine</h1>
-        <span className="text-sm text-muted-foreground">{fmtDate(Date.now())}</span>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Routine</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{fmtDate(Date.now())}</p>
+        </div>
       </div>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Quick Log</CardTitle></CardHeader>
+        <CardHeader className="pb-3"><CardTitle className="text-base">Quick Log</CardTitle></CardHeader>
         <CardContent><QuickLogBar /></CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Today's Activity</CardTitle></CardHeader>
+        <CardHeader className="pb-3"><CardTitle className="text-base">Today's Activity</CardTitle></CardHeader>
         <CardContent>
           <RoutineTimeline dogId={activeDog.id} canDelete />
         </CardContent>

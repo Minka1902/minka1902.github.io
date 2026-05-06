@@ -1,42 +1,66 @@
 import { NavLink } from 'react-router-dom';
 import {
-  Home, Activity, Dumbbell, Stethoscope, Users, Cpu, QrCode, Settings,
+  Home, Activity, Dumbbell, Stethoscope, Users, Cpu, QrCode, Settings, PawPrint,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useDog } from '@/contexts/DogContext';
 
 const NAV = [
   { to: '/',        label: 'Dashboard', icon: Home },
   { to: '/routine', label: 'Routine',   icon: Activity },
   { to: '/training',label: 'Training',  icon: Dumbbell },
   { to: '/medical', label: 'Medical',   icon: Stethoscope },
-  { to: '/humans',  label: 'Humans',    icon: Users },
+  { to: '/humans',  label: 'Team',      icon: Users },
   { to: '/devices', label: 'Devices',   icon: Cpu },
   { to: '/qr',      label: 'QR Code',   icon: QrCode },
   { to: '/settings',label: 'Settings',  icon: Settings },
 ] as const;
 
 export default function Sidebar() {
+  const { activeDog } = useDog();
+
   return (
-    <aside className="w-56 shrink-0 border-r bg-background flex flex-col py-4 gap-1">
-      <div className="px-4 mb-4 font-bold text-lg tracking-tight">PackOps</div>
-      {NAV.map(({ to, label, icon: Icon }) => (
-        <NavLink
-          key={to}
-          to={to}
-          end={to === '/'}
-          className={({ isActive }) =>
-            cn(
-              'flex items-center gap-3 px-4 py-2 text-sm rounded-lg mx-2 transition-colors',
-              isActive
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted',
-            )
-          }
-        >
-          <Icon className="h-4 w-4 shrink-0" />
-          {label}
-        </NavLink>
-      ))}
+    <aside className="w-60 shrink-0 border-r bg-background flex flex-col">
+      {/* Brand */}
+      <div className="flex items-center gap-2.5 px-5 py-5 border-b">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <PawPrint className="h-4 w-4" />
+        </div>
+        <span className="font-bold text-lg tracking-tight">PackOps</span>
+      </div>
+
+      {/* Active dog context */}
+      {activeDog && (
+        <div className="px-4 py-3 border-b bg-muted/30">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-0.5">Active dog</p>
+          <p className="text-sm font-semibold truncate">{activeDog.name}</p>
+          {activeDog.breed && (
+            <p className="text-xs text-muted-foreground truncate">{activeDog.breed}</p>
+          )}
+        </div>
+      )}
+
+      {/* Nav */}
+      <nav className="flex-1 py-3 space-y-0.5 px-2">
+        {NAV.map(({ to, label, icon: Icon }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={to === '/'}
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors',
+                isActive
+                  ? 'bg-primary text-primary-foreground font-medium'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted',
+              )
+            }
+          >
+            <Icon className="h-4 w-4 shrink-0" />
+            {label}
+          </NavLink>
+        ))}
+      </nav>
     </aside>
   );
 }

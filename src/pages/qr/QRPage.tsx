@@ -1,9 +1,12 @@
+import { Printer } from 'lucide-react';
 import { useDog } from '@/contexts/DogContext';
 import { useQR } from '@/hooks/useQR';
 import QRCodeDisplay from '@/components/qr/QRCodeDisplay';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 
 export default function QRPage() {
   const { activeDog, isMainHuman } = useDog();
@@ -16,43 +19,62 @@ export default function QRPage() {
 
   return (
     <div className="max-w-md mx-auto space-y-6">
-      <h1 className="text-2xl font-bold">QR Code</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold tracking-tight">QR Code</h1>
+        <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-1.5">
+          <Printer className="h-4 w-4" /> Print
+        </Button>
+      </div>
 
-      <Card className="flex flex-col items-center py-6">
-        <QRCodeDisplay dogId={activeDog.id} size={220} />
-        <p className="mt-4 text-sm text-muted-foreground text-center">
-          Scan to see {dog.name}'s public card
-        </p>
+      <Card className="overflow-hidden">
+        <div className="flex flex-col items-center py-8 px-6 bg-gradient-to-b from-muted/30 to-background">
+          <div className="rounded-2xl bg-white p-4 shadow-sm border">
+            <QRCodeDisplay dogId={activeDog.id} size={200} />
+          </div>
+          <p className="mt-4 text-sm font-medium">{dog.name}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Scan to see {dog.name}'s public card
+          </p>
+        </div>
+        <Separator />
+        <CardContent className="pt-3 pb-3">
+          <div className="flex items-center justify-between">
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${dog.qrPublic ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-muted text-muted-foreground'}`}>
+              {dog.qrPublic ? 'Active — publicly scannable' : 'Inactive — card not public'}
+            </span>
+          </div>
+        </CardContent>
       </Card>
 
       {isMain && (
         <Card>
-          <CardHeader><CardTitle className="text-base">Visibility Settings</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-base">Visibility Settings</CardTitle>
+            <CardDescription>Control what people see when they scan the QR code.</CardDescription>
+          </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
-              <Label>QR Code Active</Label>
+              <div>
+                <Label className="font-medium">QR Code Active</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">Allow anyone to scan and view the public card</p>
+              </div>
               <Switch checked={dog.qrPublic} onCheckedChange={toggleQRPublic} />
             </div>
-            <div className="flex items-center justify-between">
-              <Label>Show Address</Label>
-              <Switch
-                checked={vis.showAddress}
-                onCheckedChange={v => updateQRVisibility({ ...vis, showAddress: v })}
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label>Show Phone Number</Label>
-              <Switch
-                checked={vis.showPhone}
-                onCheckedChange={v => updateQRVisibility({ ...vis, showPhone: v })}
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label>Show Rescue Org</Label>
-              <Switch
-                checked={vis.showRescueOrg}
-                onCheckedChange={v => updateQRVisibility({ ...vis, showRescueOrg: v })}
-              />
+            <Separator />
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Show on public card</p>
+              <div className="flex items-center justify-between">
+                <Label className="font-normal">Home address</Label>
+                <Switch checked={vis.showAddress} onCheckedChange={v => updateQRVisibility({ ...vis, showAddress: v })} />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label className="font-normal">Phone number</Label>
+                <Switch checked={vis.showPhone} onCheckedChange={v => updateQRVisibility({ ...vis, showPhone: v })} />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label className="font-normal">Rescue organization</Label>
+                <Switch checked={vis.showRescueOrg} onCheckedChange={v => updateQRVisibility({ ...vis, showRescueOrg: v })} />
+              </div>
             </div>
           </CardContent>
         </Card>

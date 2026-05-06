@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Cpu, PlusCircle } from 'lucide-react';
 import { useDog } from '@/contexts/DogContext';
 import { useDevices } from '@/hooks/useDevice';
 import DeviceCard from '@/components/devices/DeviceCard';
@@ -19,28 +20,37 @@ export default function DevicesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 max-w-3xl mx-auto">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Devices</h1>
-        <Button onClick={() => setShowForm(true)}>Link Device</Button>
+        <h1 className="text-2xl font-bold tracking-tight">Devices</h1>
+        <Button size="sm" onClick={() => setShowForm(true)} className="gap-1.5">
+          <PlusCircle className="h-4 w-4" /> Link Device
+        </Button>
       </div>
 
       {devices.length === 0 ? (
-        <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">
-            No devices linked yet. Link a GPS collar or activity tracker.
-          </CardContent>
-        </Card>
+        <div className="flex flex-col items-center justify-center py-20 gap-4 rounded-xl border border-dashed bg-background">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+            <Cpu className="h-7 w-7 text-muted-foreground" />
+          </div>
+          <div className="text-center">
+            <p className="font-semibold">No devices linked</p>
+            <p className="text-sm text-muted-foreground mt-1">Link a GPS collar or activity tracker to see {activeDog.name}'s data here.</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setShowForm(true)} className="gap-1.5">
+            <PlusCircle className="h-4 w-4" /> Link First Device
+          </Button>
+        </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {devices.map(device => (
             <div key={device.id} className="space-y-2">
               <DeviceCard device={device} onUnlink={unlinkDevice} />
-              <Card>
-                <CardHeader className="pb-1 pt-3">
-                  <CardTitle className="text-xs text-muted-foreground">Latest Activity (stub)</CardTitle>
+              <Card className="border-dashed">
+                <CardHeader className="pb-1 pt-3 px-4">
+                  <CardTitle className="text-xs font-medium text-muted-foreground">Latest Activity</CardTitle>
                 </CardHeader>
-                <CardContent className="pb-3">
+                <CardContent className="pb-3 px-4">
                   {getStubActivity(device.id).map(a => (
                     <DeviceActivitySummary key={a.timestamp} activity={a} />
                   ))}

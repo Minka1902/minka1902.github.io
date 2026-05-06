@@ -61,7 +61,9 @@
       "Bash(node run.js /c/Users/User/AppData/Local/Temp/playwright-tour2.js)",
       "Bash(node run.js /c/Users/User/AppData/Local/Temp/playwright-tour3.js)",
       "Bash(npm show *)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(npx playwright *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173/)"
     ]
   }
 }
