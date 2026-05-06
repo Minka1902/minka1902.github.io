@@ -75,14 +75,16 @@ export default function MedicalPage() {
     <div className="max-w-3xl mx-auto space-y-5">
       <h1 className="text-2xl font-bold tracking-tight">Medical</h1>
       <Tabs defaultValue="vaccination">
-        <TabsList className="flex-wrap h-auto gap-1 p-1">
-          <TabsTrigger value="due" className="gap-1.5">
-            <CalendarClock className="h-3.5 w-3.5" /> Due Soon
-          </TabsTrigger>
-          {MEDICAL_CATEGORIES.map(c => (
-            <TabsTrigger key={c.category} value={c.category}>{c.label}</TabsTrigger>
-          ))}
-        </TabsList>
+        <div className="overflow-x-auto pb-1">
+          <TabsList className="h-auto gap-1 p-1 w-max">
+            <TabsTrigger value="due" className="gap-1.5 whitespace-nowrap">
+              <CalendarClock className="h-3.5 w-3.5" /> Due Soon
+            </TabsTrigger>
+            {MEDICAL_CATEGORIES.map(c => (
+              <TabsTrigger key={c.category} value={c.category} className="whitespace-nowrap">{c.label}</TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
         <TabsContent value="due" className="mt-5">
           <DueTab dogId={activeDog.id} />
         </TabsContent>

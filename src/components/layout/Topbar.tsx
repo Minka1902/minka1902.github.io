@@ -9,9 +9,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { PlusCircle } from 'lucide-react';
+import { Menu, PlusCircle } from 'lucide-react';
 
-export default function Topbar() {
+interface Props {
+  onMenuClick: () => void;
+}
+
+export default function Topbar({ onMenuClick }: Props) {
   const { user, logout } = useAuth();
   const { dogs, activeDog, setActiveDog } = useDog();
 
@@ -23,9 +27,16 @@ export default function Topbar() {
     .toUpperCase() ?? '?';
 
   return (
-    <header className="h-14 border-b flex items-center justify-between px-5 bg-background shrink-0">
-      {/* Dog switcher */}
+    <header className="h-14 border-b flex items-center justify-between px-3 sm:px-5 bg-background shrink-0">
+      {/* Hamburger (mobile only) + Dog switcher */}
       <div className="flex items-center gap-2">
+        <button
+          onClick={onMenuClick}
+          className="lg:hidden p-2 -ml-1 rounded-md hover:bg-muted transition-colors"
+          aria-label="Open menu"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
         {dogs.length > 1 && (
           <DropdownMenu>
             <DropdownMenuTrigger className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors outline-none">

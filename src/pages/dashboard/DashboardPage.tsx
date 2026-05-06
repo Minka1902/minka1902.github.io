@@ -4,6 +4,7 @@ import { useDog } from '@/contexts/DogContext';
 import { useAlerts } from '@/hooks/useAlerts';
 import QuickLogBar from '@/components/routine/QuickLogBar';
 import RoutineTimeline from '@/components/routine/RoutineTimeline';
+import DayRecapStrip from '@/components/routine/DayRecapStrip';
 import AlertPanel from '@/components/alerts/AlertPanel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
@@ -54,6 +55,8 @@ export default function DashboardPage() {
       </div>
 
       {alerts.length > 0 && <AlertPanel alerts={alerts} />}
+
+      <DayRecapStrip dogId={activeDog.id} />
 
       <Card>
         <CardHeader className="pb-3">

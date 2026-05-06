@@ -16,11 +16,15 @@ const NAV = [
   { to: '/settings',label: 'Settings',  icon: Settings },
 ] as const;
 
-export default function Sidebar() {
+interface SidebarContentProps {
+  onClose?: () => void;
+}
+
+export function SidebarContent({ onClose }: SidebarContentProps) {
   const { activeDog } = useDog();
 
   return (
-    <aside className="w-60 shrink-0 border-r bg-background flex flex-col">
+    <>
       {/* Brand */}
       <div className="flex items-center gap-2.5 px-5 py-5 border-b">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
@@ -47,6 +51,7 @@ export default function Sidebar() {
             key={to}
             to={to}
             end={to === '/'}
+            onClick={onClose}
             className={({ isActive }) =>
               cn(
                 'flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors',
@@ -61,6 +66,14 @@ export default function Sidebar() {
           </NavLink>
         ))}
       </nav>
+    </>
+  );
+}
+
+export default function Sidebar() {
+  return (
+    <aside className="hidden lg:flex w-60 shrink-0 border-r bg-background flex-col">
+      <SidebarContent />
     </aside>
   );
 }
