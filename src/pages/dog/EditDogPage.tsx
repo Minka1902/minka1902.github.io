@@ -1,3 +1,25 @@
+import { useParams, Navigate } from 'react-router-dom';
+import { useDog } from '@/contexts/DogContext';
+import DogProfileForm from '@/components/dog/DogProfileForm';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
 export default function EditDogPage() {
-  return <div>Edit Dog</div>;
+  const { dogId } = useParams<{ dogId: string }>();
+  const { dogs } = useDog();
+  const dog = dogs.find(d => d.id === dogId);
+
+  if (!dog) return <Navigate to="/" replace />;
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <Card>
+        <CardHeader>
+          <CardTitle>Edit {dog.name}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DogProfileForm dogId={dog.id} initial={dog} />
+        </CardContent>
+      </Card>
+    </div>
+  );
 }

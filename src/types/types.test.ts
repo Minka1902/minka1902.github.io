@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import type { Dog, RoutineLog, TrainingSession, MedicalRecord, Device, Alert } from '@/types';
+import type { Dog, RoutineLog } from '@/types';
 
 describe('Types', () => {
   test('types compile', () => {

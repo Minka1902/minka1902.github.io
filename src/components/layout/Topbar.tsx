@@ -1,5 +1,4 @@
 import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -21,12 +20,10 @@ export default function Topbar() {
     <header className="h-14 border-b flex items-center justify-between px-4 bg-background shrink-0">
       <div className="text-sm text-muted-foreground">PackOps</div>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <Avatar className="h-8 w-8">
-              <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-            </Avatar>
-          </Button>
+        <DropdownMenuTrigger className="rounded-full outline-none">
+          <Avatar className="h-8 w-8 cursor-pointer hover:opacity-80 transition-opacity">
+            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+          </Avatar>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem disabled>{user?.email}</DropdownMenuItem>

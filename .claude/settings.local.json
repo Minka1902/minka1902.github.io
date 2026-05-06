@@ -40,7 +40,16 @@
       "Bash(powershell *)",
       "Bash(node -e \"console.log\\(process.arch\\)\")",
       "Bash(node -e ' *)",
-      "Bash(NODE_OPTIONS=\"--max-old-space-size=4096\" npx vitest run --reporter=verbose src/contexts/__tests__/AuthContext.test.tsx)"
+      "Bash(NODE_OPTIONS=\"--max-old-space-size=4096\" npx vitest run --reporter=verbose src/contexts/__tests__/AuthContext.test.tsx)",
+      "Bash(dir C:\\\\Users\\\\User\\\\Desktop\\\\dev\\\\pack-ops\\\\PackOps\\\\src *)",
+      "Bash(dir C:\\\\Users\\\\User\\\\Desktop\\\\dev\\\\pack-ops\\\\PackOps *)",
+      "Bash(dir \"C:\\\\Users\\\\User\\\\Desktop\\\\dev\\\\pack-ops\\\\PackOps\\\\src\\\\hooks\")",
+      "Bash(dir \"C:\\\\Users\\\\User\\\\Desktop\\\\dev\\\\pack-ops\\\\PackOps\\\\src\\\\pages\")",
+      "Bash(dir \"C:\\\\Users\\\\User\\\\Desktop\\\\dev\\\\pack-ops\\\\PackOps\\\\src\\\\components\")",
+      "Bash(dir C:\\\\Users\\\\User\\\\Desktop\\\\dev\\\\pack-ops\\\\PackOps\\\\src\\\\tests *)",
+      "Bash(dir \"C:\\\\Users\\\\User\\\\Desktop\\\\dev\\\\pack-ops\\\\PackOps\\\\src\\\\pages\\\\dog\")",
+      "Bash(dir \"C:\\\\Users\\\\User\\\\Desktop\\\\dev\\\\pack-ops\\\\PackOps\\\\src\\\\components\\\\ui\")",
+      "Bash(dir \"C:\\\\Users\\\\User\\\\Desktop\\\\dev\\\\pack-ops\\\\PackOps\\\\src\\\\components\\\\dog\")"
     ]
   }
 }
