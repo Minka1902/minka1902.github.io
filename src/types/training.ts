@@ -32,6 +32,7 @@ export interface TrainingSession {
   notes?: string;
   exercises: TrainingSessionExercise[];
   templateUsed: boolean;
+  typeSpecificData?: Record<string, string | number | boolean>;
   completedAt?: number;
   createdAt: number;
   updatedAt: number;

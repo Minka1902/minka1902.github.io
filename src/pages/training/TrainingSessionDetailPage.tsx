@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TRAINING_TYPES } from '@/lib/constants';
 import { fmtDate, fmtTime } from '@/lib/utils';
+import TrainingTypeSpecificFields from '@/components/training/TrainingTypeSpecificFields';
 
 export default function TrainingSessionDetailPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -44,6 +45,15 @@ export default function TrainingSessionDetailPage() {
             <p className="font-medium">Logged</p>
             <p className="text-muted-foreground">{fmtTime(session.createdAt)}</p>
           </div>
+
+          {session.typeSpecificData && Object.keys(session.typeSpecificData).length > 0 && (
+            <TrainingTypeSpecificFields
+              trainingType={session.trainingType}
+              values={session.typeSpecificData}
+              onChange={() => {}}
+              readOnly
+            />
+          )}
         </CardContent>
       </Card>
     </div>

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import TrainingTypeSelector from './TrainingTypeSelector';
+import TrainingTypeSpecificFields from './TrainingTypeSpecificFields';
 import type { TrainingTemplate, TrainingType } from '@/types';
 
 interface Props {
@@ -21,11 +22,17 @@ export default function TrainingSessionForm({ dogId, template, onTrainingTypeCha
   const [trainingType, setTrainingType] = useState<TrainingType>('obedience');
   const [objective, setObjective] = useState('');
   const [location, setLocation] = useState('');
+  const [typeSpecificData, setTypeSpecificData] = useState<Record<string, string | number | boolean>>({});
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     setObjective(template?.objective ?? '');
   }, [template]);
+
+  // Reset type-specific fields when type changes
+  useEffect(() => {
+    setTypeSpecificData({});
+  }, [trainingType]);
 
   const handleTypeChange = (type: TrainingType) => {
     setTrainingType(type);
@@ -37,7 +44,8 @@ export default function TrainingSessionForm({ dogId, template, onTrainingTypeCha
     setSubmitting(true);
     const now = Date.now();
     await createSession({
-      dogId, trainingType, objective, location: location || undefined, exercises: [],
+      dogId, trainingType, objective, location: location || undefined,
+      exercises: [], typeSpecificData,
       trainerId: user!.uid, trainerName: user!.displayName,
       scheduledAt: now, templateUsed: !!template, createdAt: now, updatedAt: now,
     });
@@ -58,6 +66,13 @@ export default function TrainingSessionForm({ dogId, template, onTrainingTypeCha
         <Label htmlFor="location">Location</Label>
         <Input id="location" value={location} onChange={e => setLocation(e.target.value)} />
       </div>
+
+      <TrainingTypeSpecificFields
+        trainingType={trainingType}
+        values={typeSpecificData}
+        onChange={setTypeSpecificData}
+      />
+
       {template && (
         <p className="text-xs text-muted-foreground">Pre-filled from template</p>
       )}
