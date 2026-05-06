@@ -2,15 +2,19 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useDog } from '@/contexts/DogContext';
+import { useNavConfig } from '@/hooks/useNavConfig';
+import { NAV_ITEMS } from '@/lib/nav';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { PawPrint, ExternalLink, LogOut } from 'lucide-react';
 
 export default function SettingsPage() {
   const { user, logout } = useAuth();
   const { dogs } = useDog();
+  const { selected, toggle, max } = useNavConfig();
   const [signingOut, setSigningOut] = useState(false);
 
   const initials = user?.displayName
@@ -81,12 +85,39 @@ export default function SettingsPage() {
             ))
           )}
           <Separator />
-          <Link
-            to="/dogs/new"
-            className="text-sm text-primary hover:underline"
-          >
+          <Link to="/dogs/new" className="text-sm text-primary hover:underline">
             + Add another dog
           </Link>
+        </CardContent>
+      </Card>
+
+      {/* Mobile Navigation */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Mobile Navigation</CardTitle>
+          <CardDescription>
+            Choose up to {max} pages for your bottom nav bar.{' '}
+            <span className="font-medium text-foreground">{selected.length}/{max} selected</span>
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-1">
+          {NAV_ITEMS.map(({ to, label, icon: Icon }) => {
+            const isOn = selected.includes(to);
+            const atMax = selected.length >= max && !isOn;
+            return (
+              <div key={to} className="flex items-center justify-between py-2">
+                <div className="flex items-center gap-3">
+                  <Icon className="h-4 w-4 text-muted-foreground" />
+                  <span className={`text-sm ${atMax ? 'text-muted-foreground' : ''}`}>{label}</span>
+                </div>
+                <Switch
+                  checked={isOn}
+                  onCheckedChange={() => toggle(to)}
+                  disabled={atMax}
+                />
+              </div>
+            );
+          })}
         </CardContent>
       </Card>
 

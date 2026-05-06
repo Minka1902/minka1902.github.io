@@ -1,20 +1,8 @@
 import { NavLink } from 'react-router-dom';
-import {
-  Home, Activity, Dumbbell, Stethoscope, Users, Cpu, QrCode, Settings, PawPrint,
-} from 'lucide-react';
+import { PawPrint } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDog } from '@/contexts/DogContext';
-
-const NAV = [
-  { to: '/',        label: 'Dashboard', icon: Home },
-  { to: '/routine', label: 'Routine',   icon: Activity },
-  { to: '/training',label: 'Training',  icon: Dumbbell },
-  { to: '/medical', label: 'Medical',   icon: Stethoscope },
-  { to: '/humans',  label: 'Team',      icon: Users },
-  { to: '/devices', label: 'Devices',   icon: Cpu },
-  { to: '/qr',      label: 'QR Code',   icon: QrCode },
-  { to: '/settings',label: 'Settings',  icon: Settings },
-] as const;
+import { SIDEBAR_NAV } from '@/lib/nav';
 
 interface SidebarContentProps {
   onClose?: () => void;
@@ -46,7 +34,7 @@ export function SidebarContent({ onClose }: SidebarContentProps) {
 
       {/* Nav */}
       <nav className="flex-1 py-3 space-y-0.5 px-2">
-        {NAV.map(({ to, label, icon: Icon }) => (
+        {SIDEBAR_NAV.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}

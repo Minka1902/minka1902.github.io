@@ -35,7 +35,7 @@ export default function Topbar({ onMenuClick }: Props) {
       <div className="flex items-center gap-2">
         <button
           onClick={onMenuClick}
-          className="lg:hidden p-2 -ml-1 rounded-md hover:bg-muted transition-colors"
+          className="hidden md:flex lg:hidden items-center p-2 -ml-1 rounded-md hover:bg-muted transition-colors"
           aria-label="Open menu"
         >
           <Menu className="h-5 w-5" />
