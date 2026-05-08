@@ -30,6 +30,7 @@ export default function HumansPage() {
   const [addRole, setAddRole] = useState<HumanRole>('caregiver');
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState<string | null>(null);
+  const [addError, setAddError] = useState<string | null>(null);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,11 +62,17 @@ export default function HumansPage() {
   const handleAdd = async () => {
     if (!searchResult || searchResult === 'not-found') return;
     setAdding(true);
-    await addHumanDirectly(searchResult.uid, searchResult.displayName, searchResult.email, addRole);
-    setAdded(searchResult.displayName);
-    setSearchResult(null);
-    setSearchTerm('');
-    setAdding(false);
+    setAddError(null);
+    try {
+      await addHumanDirectly(searchResult.uid, searchResult.displayName, searchResult.email, addRole);
+      setAdded(searchResult.displayName);
+      setSearchResult(null);
+      setSearchTerm('');
+    } catch (err) {
+      setAddError(`Failed to add: ${(err as Error).message}`);
+    } finally {
+      setAdding(false);
+    }
   };
 
   if (!activeDog) {
@@ -101,6 +108,9 @@ export default function HumansPage() {
 
             {added && (
               <p className="text-sm text-green-600 dark:text-green-400">{added} added to the team.</p>
+            )}
+            {addError && (
+              <p className="text-sm text-destructive">{addError}</p>
             )}
 
             {searchResult === 'not-found' && (

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { onSnapshot, setDoc, doc, writeBatch, deleteDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { onSnapshot, setDoc, doc, writeBatch, deleteDoc, arrayUnion, arrayRemove, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { humansCol, pendingCol } from '@/lib/firestore';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,10 +16,9 @@ export function useHumans(dogId: string) {
   }, [dogId]);
 
   const revokeHuman = async (userId: string) => {
-    const batch = writeBatch(db);
-    batch.delete(doc(db, 'dogs', dogId, 'humans', userId));
-    batch.update(doc(db, 'dogs', dogId), { memberUserIds: arrayRemove(userId) });
-    await batch.commit();
+    await deleteDoc(doc(db, 'dogs', dogId, 'humans', userId));
+    // Best-effort: remove from memberUserIds (non-fatal if it fails)
+    await updateDoc(doc(db, 'dogs', dogId), { memberUserIds: arrayRemove(userId) }).catch(console.error);
   };
 
   return { humans, revokeHuman };
@@ -52,17 +51,17 @@ export function usePendingHumans(dogId: string) {
       userId, displayName, email, role, approvedAt: Date.now(), approvedBy: user!.uid,
     });
     batch.delete(doc(db, 'dogs', dogId, 'pendingHumans', userId));
-    batch.update(doc(db, 'dogs', dogId), { memberUserIds: arrayUnion(userId) });
     await batch.commit();
+    // Write memberUserIds separately with merge so it works even if the field never existed
+    await setDoc(doc(db, 'dogs', dogId), { memberUserIds: arrayUnion(userId) }, { merge: true });
   };
 
   const addHumanDirectly = async (userId: string, displayName: string, email: string, role: HumanRole) => {
-    const batch = writeBatch(db);
-    batch.set(doc(db, 'dogs', dogId, 'humans', userId), {
+    await setDoc(doc(db, 'dogs', dogId, 'humans', userId), {
       userId, displayName, email, role, approvedAt: Date.now(), approvedBy: user!.uid,
     });
-    batch.update(doc(db, 'dogs', dogId), { memberUserIds: arrayUnion(userId) });
-    await batch.commit();
+    // Use setDoc + merge so memberUserIds is created even if it doesn't exist yet
+    await setDoc(doc(db, 'dogs', dogId), { memberUserIds: arrayUnion(userId) }, { merge: true });
   };
 
   const rejectHuman = async (userId: string) => {
