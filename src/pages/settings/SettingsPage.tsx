@@ -1,21 +1,32 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { useDog } from '@/contexts/DogContext';
 import { useNavConfig } from '@/hooks/useNavConfig';
 import { NAV_ITEMS } from '@/lib/nav';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { PawPrint, ExternalLink, LogOut } from 'lucide-react';
+import { PawPrint, ExternalLink, LogOut, Check } from 'lucide-react';
 
 export default function SettingsPage() {
   const { user, logout } = useAuth();
   const { dogs } = useDog();
   const { selected, toggle, max } = useNavConfig();
   const [signingOut, setSigningOut] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [savingPhone, setSavingPhone] = useState(false);
+  const [phoneSaved, setPhoneSaved] = useState(false);
+
+  useEffect(() => {
+    setPhone(user?.phoneNumber ?? '');
+  }, [user?.phoneNumber]);
 
   const initials = user?.displayName
     ?.split(' ')
@@ -27,6 +38,20 @@ export default function SettingsPage() {
   const handleLogout = async () => {
     setSigningOut(true);
     await logout();
+  };
+
+  const handleSavePhone = async () => {
+    if (!user) return;
+    setSavingPhone(true);
+    setPhoneSaved(false);
+    const normalized = phone.trim().replace(/[\s\-()]/g, '');
+    await updateDoc(doc(db, 'users', user.uid), {
+      phoneNumber: normalized,
+      updatedAt: Date.now(),
+    });
+    setSavingPhone(false);
+    setPhoneSaved(true);
+    setTimeout(() => setPhoneSaved(false), 2000);
   };
 
   return (
@@ -49,6 +74,31 @@ export default function SettingsPage() {
             <div>
               <p className="font-semibold capitalize">{user?.displayName}</p>
               <p className="text-sm text-muted-foreground">{user?.email}</p>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <Label htmlFor="phone">Phone number</Label>
+            <p className="text-xs text-muted-foreground">
+              Lets other handlers find your dogs by your phone number.
+            </p>
+            <div className="flex gap-2">
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="+1 555 123 4567"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+              />
+              <Button
+                type="button"
+                onClick={handleSavePhone}
+                disabled={savingPhone || phone.trim() === (user?.phoneNumber ?? '')}
+              >
+                {savingPhone ? 'Saving…' : phoneSaved ? <Check className="h-4 w-4" /> : 'Save'}
+              </Button>
             </div>
           </div>
         </CardContent>
