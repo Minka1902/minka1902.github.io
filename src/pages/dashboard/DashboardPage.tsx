@@ -4,6 +4,7 @@ import { useDog } from '@/contexts/DogContext';
 import QuickLogBar from '@/components/routine/QuickLogBar';
 import RoutineTimeline from '@/components/routine/RoutineTimeline';
 import DayRecapStrip from '@/components/routine/DayRecapStrip';
+import LabDog from '@/components/dog/LabDog';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -57,9 +58,10 @@ export default function DashboardPage() {
     <div className="space-y-5 max-w-2xl">
       {/* ── Dog hero header ── */}
       <div
-        className="relative overflow-hidden rounded-2xl px-5 py-5"
+        className="relative overflow-hidden rounded-2xl px-5 pt-4 pb-0"
         style={{
           background: 'linear-gradient(135deg, var(--sidebar) 0%, oklch(0.18 0.018 50) 100%)',
+          minHeight: 148,
         }}
       >
         {/* Dot overlay */}
@@ -70,18 +72,15 @@ export default function DashboardPage() {
             backgroundSize: '20px 20px',
           }}
         />
-        {/* Decorative paw */}
-        <div className="absolute -right-8 -bottom-8 opacity-[0.05]">
-          <PawPrint style={{ width: 160, height: 160, color: 'oklch(0.72 0.158 50)' }} />
-        </div>
 
-        <div className="relative flex items-start justify-between gap-4">
-          <div>
+        <div className="relative flex items-end justify-between gap-2">
+          {/* Text + edit */}
+          <div className="pb-5 flex-1 min-w-0">
             <p className="text-[10px] uppercase tracking-[0.14em] mb-1" style={{ color: 'oklch(1 0 0 / 35%)' }}>
               Active dog
             </p>
             <h1
-              className="text-4xl capitalize leading-none"
+              className="text-4xl capitalize leading-none truncate"
               style={{
                 fontFamily: 'var(--font-heading)',
                 fontVariationSettings: "'SOFT' 20, 'WONK' 0",
@@ -96,18 +95,24 @@ export default function DashboardPage() {
                 {activeDog.breed}{activeDog.isMix ? ' mix' : ''}
               </p>
             )}
+            <Link
+              to={`/dogs/${activeDog.id}/edit`}
+              className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90 active:scale-95"
+              style={{
+                backgroundColor: 'oklch(1 0 0 / 9%)',
+                color: 'oklch(1 0 0 / 60%)',
+                border: '1px solid oklch(1 0 0 / 10%)',
+              }}
+            >
+              <Pencil className="h-3 w-3" />
+              Edit profile
+            </Link>
           </div>
-          <Link
-            to={`/dogs/${activeDog.id}/edit`}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0 mt-1"
-            style={{
-              backgroundColor: 'oklch(1 0 0 / 8%)',
-              color: 'oklch(1 0 0 / 60%)',
-            }}
-          >
-            <Pencil className="h-3 w-3" />
-            Edit
-          </Link>
+
+          {/* 3D Labrador — sits at bottom-right of hero */}
+          <div className="shrink-0 self-end" style={{ marginBottom: -2 }}>
+            <LabDog size={118} />
+          </div>
         </div>
       </div>
 
