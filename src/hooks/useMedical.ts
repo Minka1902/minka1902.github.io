@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { addDoc, onSnapshot, query, orderBy, where, doc, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
+import { addDoc, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { medicalCol } from '@/lib/firestore';
 import { useAuth } from '@/hooks/useAuth';
@@ -42,25 +42,40 @@ export function useMedical(dogId: string, category: MedicalCategory) {
 
 export function useUpcomingDue(dogId: string) {
   const [dueItems, setDueItems] = useState<MedicalRecord[]>([]);
+  // useRef to accumulate live snapshots from all 7 categories
+  const buckets = useState<Map<string, MedicalRecord[]>>(() => new Map())[0];
 
   useEffect(() => {
     if (!dogId) return;
-    const thirtyDaysFromNow = Date.now() + 30 * 24 * 60 * 60 * 1000;
+    buckets.clear();
 
-    Promise.all(
-      MEDICAL_CATEGORIES.map(({ category }) => {
-        const q = query(
-          medicalCol(dogId, category),
-          where('nextDueDate', '<=', thirtyDaysFromNow),
-          orderBy('nextDueDate', 'asc')
-        );
-        return getDocs(q).then(snap =>
-          snap.docs.map(d => ({ id: d.id, ...d.data() } as MedicalRecord))
-        );
-      })
-    ).then(results =>
-      setDueItems(results.flat().sort((a, b) => (a.nextDueDate ?? 0) - (b.nextDueDate ?? 0)))
+    const flush = () => {
+      const thirtyDaysFromNow = Date.now() + 30 * 24 * 60 * 60 * 1000;
+      const items: MedicalRecord[] = [];
+      for (const records of buckets.values()) {
+        for (const r of records) {
+          // Include overdue + due today + due within 30 days
+          if (r.nextDueDate !== undefined && r.nextDueDate <= thirtyDaysFromNow) {
+            items.push(r);
+          }
+        }
+      }
+      items.sort((a, b) => (a.nextDueDate ?? 0) - (b.nextDueDate ?? 0));
+      setDueItems(items);
+    };
+
+    const unsubs = MEDICAL_CATEGORIES.map(({ category }) =>
+      onSnapshot(
+        query(medicalCol(dogId, category), orderBy('date', 'desc')),
+        snap => {
+          buckets.set(category, snap.docs.map(d => ({ id: d.id, ...d.data() } as MedicalRecord)));
+          flush();
+        }
+      )
     );
+
+    return () => unsubs.forEach(u => u());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dogId]);
 
   return dueItems;
