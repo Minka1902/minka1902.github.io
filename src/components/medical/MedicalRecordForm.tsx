@@ -36,9 +36,19 @@ export default function MedicalRecordForm({ dogId, category, onSaved, record }: 
   const [procedure,      setProcedure]      = useState((record as Surgery)?.procedure ?? '');
 
   const [submitting, setSubmitting] = useState(false);
+  const [dateError, setDateError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setDateError('');
+
+    // Date must be today or earlier — the event must have already happened
+    const recordDate = new Date(date).getTime();
+    if (recordDate > Date.now()) {
+      setDateError('The record date cannot be in the future — this event must have already happened.');
+      return;
+    }
+
     setSubmitting(true);
 
     const base = {
@@ -130,7 +140,18 @@ export default function MedicalRecordForm({ dogId, category, onSaved, record }: 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1">
           <Label htmlFor="date">Date</Label>
-          <Input id="date" type="date" value={date} onChange={e => setDate(e.target.value)} required />
+          <Input
+            id="date"
+            type="date"
+            value={date}
+            max={new Date().toISOString().split('T')[0]}
+            onChange={e => { setDate(e.target.value); setDateError(''); }}
+            required
+            className={dateError ? 'border-destructive focus-visible:ring-destructive' : ''}
+          />
+          {dateError && (
+            <p className="text-xs text-destructive mt-1">{dateError}</p>
+          )}
         </div>
         <div className="space-y-1">
           <Label htmlFor="nextDueDate">Next Due</Label>
