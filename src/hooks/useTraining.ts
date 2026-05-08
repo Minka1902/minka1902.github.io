@@ -3,6 +3,7 @@ import { addDoc, onSnapshot, query, orderBy, where, getDocs, setDoc, doc, delete
 import { db } from '@/lib/firebase';
 import { sessionsCol, templatesCol } from '@/lib/firestore';
 import { useAuth } from '@/hooks/useAuth';
+import { stripUndefined } from '@/lib/utils';
 import type { TrainingSession, TrainingTemplate, TrainingType } from '@/types';
 
 export function useTraining(dogId: string) {
@@ -29,18 +30,18 @@ export function useTraining(dogId: string) {
 
   const createSession = async (data: Omit<TrainingSession, 'id'>): Promise<string> => {
     const now = Date.now();
-    const ref = await addDoc(sessionsCol(dogId), {
+    const ref = await addDoc(sessionsCol(dogId), stripUndefined({
       ...data, dogId, trainerId: user!.uid, trainerName: user!.displayName,
       createdAt: now, updatedAt: now,
-    });
+    }));
     const existing = await getTemplate(data.trainingType);
     if (!existing) {
       const templateRef = doc(db, 'dogs', dogId, 'trainingTemplates', `${dogId}_${data.trainingType}`);
-      await setDoc(templateRef, {
+      await setDoc(templateRef, stripUndefined({
         dogId, trainingType: data.trainingType, objective: data.objective,
         setup: data.setup, environment: data.environment, exercises: data.exercises,
         updatedAt: now,
-      });
+      }));
     }
     return ref.id;
   };
