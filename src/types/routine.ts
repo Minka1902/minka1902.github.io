@@ -1,4 +1,4 @@
-export type RoutineType = 'sleep' | 'eat' | 'drink' | 'pee' | 'poop' | 'walk';
+export type RoutineType = 'sleep' | 'eat' | 'drink' | 'pee' | 'poop' | 'walk' | 'custom';
 export type RoutineSource = 'manual' | 'device';
 
 export interface RoutineLog {
@@ -10,8 +10,10 @@ export interface RoutineLog {
   loggedByName: string;
   source: RoutineSource;
   notes?: string;
+  customLabel?: string;
   walkDurationMin?: number;
   walkDistanceKm?: number;
+  walkAvgSpeedKmh?: number;
   sleepDurationMin?: number;
   foodType?: string;
   foodAmountGrams?: number;

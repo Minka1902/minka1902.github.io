@@ -1,13 +1,14 @@
 import type { RoutineType, TrainingType, HumanRole, MedicalCategory } from '@/types';
 
 export const ROUTINE_TYPES: { type: RoutineType; label: string; icon: string }[] = [
-  { type: 'walk',  label: 'Walk',  icon: '🐾' },
-  { type: 'eat',   label: 'Ate',   icon: '🍖' },
-  { type: 'drink', label: 'Drank', icon: '💧' },
-  { type: 'pee',   label: 'Pee',   icon: '🌿' },
-  { type: 'poop',  label: 'Poop',  icon: '💩' },
-  { type: 'sleep', label: 'Sleep', icon: '😴' },
+  { type: 'walk',   label: 'Walk',    icon: '🐾' },
+  { type: 'eat',    label: 'Ate',     icon: '🍖' },
+  { type: 'drink',  label: 'Water',   icon: '💧' },
+  { type: 'sleep',  label: 'Sleep',   icon: '😴' },
+  { type: 'custom', label: 'Custom',  icon: '✏️' },
 ];
+
+export const QUICK_LOG_TYPES = ROUTINE_TYPES; // pee/poop are logged via walk flow only
 
 export const TRAINING_TYPES: { type: TrainingType; label: string }[] = [
   { type: 'obedience',             label: 'Obedience' },

@@ -16,7 +16,9 @@ export default function RoutineLogItem({ log, onDelete }: Props) {
         {routineType?.icon ?? '•'}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold">{routineType?.label ?? log.type}</p>
+        <p className="text-sm font-semibold">
+          {log.type === 'custom' && log.customLabel ? log.customLabel : (routineType?.label ?? log.type)}
+        </p>
         <p className="text-xs text-muted-foreground">
           {fmtTime(log.timestamp)} · {timeAgo(log.timestamp)} · {log.loggedByName}
         </p>
