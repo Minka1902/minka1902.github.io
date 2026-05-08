@@ -41,6 +41,16 @@ export const HUMAN_ROLES: { role: HumanRole; label: string }[] = [
   { role: 'foster',    label: 'Foster' },
 ];
 
+export const MEDICAL_CATEGORY_META: Record<string, { icon: string; color: string }> = {
+  vaccination: { icon: '💉', color: '#6366F1' },
+  medication:  { icon: '💊', color: '#EC4899' },
+  flea_tick:   { icon: '🐜', color: '#14B8A6' },
+  deworming:   { icon: '🪱', color: '#8B5CF6' },
+  allergy:     { icon: '⚠️', color: '#F97316' },
+  diagnosis:   { icon: '🩺', color: '#EF4444' },
+  surgery:     { icon: '🔬', color: '#64748B' },
+};
+
 export const MEDICAL_CATEGORIES: { category: MedicalCategory; label: string; collectionName: string }[] = [
   { category: 'vaccination', label: 'Vaccinations',  collectionName: 'medicalVaccinations' },
   { category: 'medication',  label: 'Medications',   collectionName: 'medicalMedications' },

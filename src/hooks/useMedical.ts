@@ -40,6 +40,54 @@ export function useMedical(dogId: string, category: MedicalCategory) {
   return { records, addRecord, updateRecord, deleteRecord };
 }
 
+export interface MedicalCalendarEvent {
+  record: MedicalRecord;
+  eventType: 'administered' | 'due';
+  eventDate: number;
+}
+
+// Returns medical events whose administered date OR next-due date falls within the window
+export function useMedicalWindow(dogId: string, startMs: number, endMs: number) {
+  const [events, setEvents] = useState<MedicalCalendarEvent[]>([]);
+  const buckets = useState<Map<string, MedicalRecord[]>>(() => new Map())[0];
+
+  useEffect(() => {
+    if (!dogId) return;
+    buckets.clear();
+
+    const flush = () => {
+      const result: MedicalCalendarEvent[] = [];
+      for (const records of buckets.values()) {
+        for (const r of records) {
+          if (r.date >= startMs && r.date <= endMs) {
+            result.push({ record: r, eventType: 'administered', eventDate: r.date });
+          }
+          if (r.nextDueDate && r.nextDueDate >= startMs && r.nextDueDate <= endMs) {
+            result.push({ record: r, eventType: 'due', eventDate: r.nextDueDate });
+          }
+        }
+      }
+      result.sort((a, b) => a.eventDate - b.eventDate);
+      setEvents(result);
+    };
+
+    const unsubs = MEDICAL_CATEGORIES.map(({ category }) =>
+      onSnapshot(
+        query(medicalCol(dogId, category), orderBy('date', 'desc')),
+        snap => {
+          buckets.set(category, snap.docs.map(d => ({ id: d.id, ...d.data() } as MedicalRecord)));
+          flush();
+        }
+      )
+    );
+
+    return () => unsubs.forEach(u => u());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dogId, startMs, endMs]);
+
+  return events;
+}
+
 export function useUpcomingDue(dogId: string) {
   const [dueItems, setDueItems] = useState<MedicalRecord[]>([]);
   // useRef to accumulate live snapshots from all 7 categories
