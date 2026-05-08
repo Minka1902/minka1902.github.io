@@ -1,14 +1,15 @@
 import type { RoutineType, TrainingType, HumanRole, MedicalCategory } from '@/types';
 
-export const ROUTINE_TYPES: { type: RoutineType; label: string; icon: string }[] = [
-  { type: 'walk',   label: 'Walk',    icon: '🐾' },
-  { type: 'eat',    label: 'Ate',     icon: '🍖' },
-  { type: 'drink',  label: 'Water',   icon: '💧' },
-  { type: 'sleep',  label: 'Sleep',   icon: '😴' },
-  { type: 'custom', label: 'Custom',  icon: '✏️' },
+export const ROUTINE_TYPES: { type: RoutineType; label: string; icon: string; color: string }[] = [
+  { type: 'walk',   label: 'Walk',   icon: '🐾', color: '#F59E0B' },
+  { type: 'eat',    label: 'Ate',    icon: '🍖', color: '#10B981' },
+  { type: 'drink',  label: 'Water',  icon: '💧', color: '#3B82F6' },
+  { type: 'pee',    label: 'Pee',    icon: '🌿', color: '#84CC16' },
+  { type: 'poop',   label: 'Poop',   icon: '💩', color: '#A78BFA' },
+  { type: 'custom', label: 'Custom', icon: '✏️', color: '#F97316' },
 ];
 
-export const QUICK_LOG_TYPES = ROUTINE_TYPES; // pee/poop are logged via walk flow only
+export const QUICK_LOG_TYPES = ROUTINE_TYPES.filter(r => r.type !== 'pee' && r.type !== 'poop');
 
 export const TRAINING_TYPES: { type: TrainingType; label: string }[] = [
   { type: 'obedience',             label: 'Obedience' },

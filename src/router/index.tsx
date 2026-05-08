@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router-dom';
 import ProtectedRoute from '@/components/layout/ProtectedRoute';
 import AppShell from '@/components/layout/AppShell';
 import ActiveWalkPage from '@/pages/walk/ActiveWalkPage';
+import WalkSummaryPage from '@/pages/walk/WalkSummaryPage';
 import LoginPage from '@/pages/auth/LoginPage';
 import RegisterPage from '@/pages/auth/RegisterPage';
 import DashboardPage from '@/pages/dashboard/DashboardPage';
@@ -27,7 +28,8 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       // Full-screen walk UI — no AppShell
-      { path: '/walk/active', element: <ActiveWalkPage /> },
+      { path: '/walk/active',  element: <ActiveWalkPage /> },
+      { path: '/walk/summary', element: <WalkSummaryPage /> },
       // Main app with sidebar/topbar/bottom-nav
       {
         element: <AppShell />,

@@ -1,9 +1,7 @@
-import { useEffect, useState, lazy, Suspense } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDog } from '@/contexts/DogContext';
-import { useRoutine } from '@/hooks/useRoutine';
 import { useWalkTracker } from '@/hooks/useWalkTracker';
-import WalkSummarySheet from '@/components/walk/WalkSummarySheet';
 import { X, PawPrint, MapPin, Loader2 } from 'lucide-react';
 
 // Lazy-load the map so Leaflet doesn't pollute the main bundle
@@ -20,9 +18,7 @@ function fmt(seconds: number): string {
 export default function ActiveWalkPage() {
   const navigate = useNavigate();
   const { activeDog } = useDog();
-  const { logRoutine } = useRoutine(activeDog?.id ?? '');
   const tracker = useWalkTracker();
-  const [showSummary, setShowSummary] = useState(false);
 
   useEffect(() => {
     tracker.start();
@@ -43,25 +39,19 @@ export default function ActiveWalkPage() {
   const handleStop = (e: React.MouseEvent) => {
     e.stopPropagation();
     tracker.stop();
-    setShowSummary(true);
+    navigate('/walk/summary', {
+      replace: true,
+      state: {
+        elapsedSeconds: tracker.elapsedSeconds,
+        distanceKm: tracker.distanceKm,
+        avgSpeedKmh: tracker.avgSpeedKmh,
+      },
+    });
   };
 
   const handleCancel = () => {
     if (tracker.elapsedSeconds > 5 && !window.confirm('Cancel this walk? Progress will be lost.')) return;
     tracker.stop();
-    navigate('/');
-  };
-
-  const handleSave = async (peed: boolean, pooped: boolean) => {
-    const now = Date.now();
-    await logRoutine('walk', {
-      walkDurationMin: Math.round(tracker.elapsedSeconds / 60 * 10) / 10,
-      walkDistanceKm: parseFloat(tracker.distanceKm.toFixed(3)),
-      walkAvgSpeedKmh: parseFloat(tracker.avgSpeedKmh.toFixed(2)),
-      timestamp: now,
-    });
-    if (peed) await logRoutine('pee', { timestamp: now });
-    if (pooped) await logRoutine('poop', { timestamp: now });
     navigate('/');
   };
 
@@ -167,17 +157,6 @@ export default function ActiveWalkPage() {
         </div>
       </div>
 
-      {/* Summary sheet */}
-      <WalkSummarySheet
-        open={showSummary}
-        dogName={activeDog?.name ?? 'your dog'}
-        result={{
-          elapsedSeconds: tracker.elapsedSeconds,
-          distanceKm: tracker.distanceKm,
-          avgSpeedKmh: tracker.avgSpeedKmh,
-        }}
-        onSave={handleSave}
-      />
     </div>
   );
 }

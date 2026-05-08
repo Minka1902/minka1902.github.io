@@ -39,3 +39,23 @@ export function useRoutine(dogId: string) {
 
   return { todayLogs, logRoutine, deleteLog };
 }
+
+// Loads all routine logs within a timestamp window (for the calendar view)
+export function useRoutineWindow(dogId: string, startMs: number, endMs: number) {
+  const [logs, setLogs] = useState<RoutineLog[]>([]);
+
+  useEffect(() => {
+    if (!dogId) return;
+    const q = query(
+      routinesCol(dogId),
+      where('timestamp', '>=', startMs),
+      where('timestamp', '<=', endMs),
+      orderBy('timestamp', 'desc')
+    );
+    return onSnapshot(q, snap => {
+      setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() } as RoutineLog)));
+    });
+  }, [dogId, startMs, endMs]);
+
+  return logs;
+}
