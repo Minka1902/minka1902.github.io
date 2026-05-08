@@ -1,18 +1,15 @@
 import { Link } from 'react-router-dom';
-import { PawPrint, PlusCircle } from 'lucide-react';
+import { PawPrint, PlusCircle, Search } from 'lucide-react';
 import { useDog } from '@/contexts/DogContext';
-import { useAlerts } from '@/hooks/useAlerts';
 import QuickLogBar from '@/components/routine/QuickLogBar';
 import RoutineTimeline from '@/components/routine/RoutineTimeline';
 import DayRecapStrip from '@/components/routine/DayRecapStrip';
-import AlertPanel from '@/components/alerts/AlertPanel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export default function DashboardPage() {
   const { activeDog, dogs } = useDog();
-  const alerts = useAlerts(activeDog?.id ?? '');
 
   if (dogs.length === 0) {
     return (
@@ -22,11 +19,16 @@ export default function DashboardPage() {
         </div>
         <div className="text-center">
           <p className="text-lg font-semibold">No dog profile yet</p>
-          <p className="text-sm text-muted-foreground mt-1">Add your dog to get started tracking care and training.</p>
+          <p className="text-sm text-muted-foreground mt-1">Add your dog or join an existing one.</p>
         </div>
-        <Link to="/dogs/new" className={cn(buttonVariants(), 'gap-2')}>
-          <PlusCircle className="h-4 w-4" /> Add Your Dog
-        </Link>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Link to="/dogs/new" className={cn(buttonVariants(), 'gap-2')}>
+            <PlusCircle className="h-4 w-4" /> Add Your Dog
+          </Link>
+          <Link to="/dogs/join" className={cn(buttonVariants({ variant: 'outline' }), 'gap-2')}>
+            <Search className="h-4 w-4" /> Find an Existing Dog
+          </Link>
+        </div>
       </div>
     );
   }
@@ -53,8 +55,6 @@ export default function DashboardPage() {
           Edit profile
         </Link>
       </div>
-
-      {alerts.length > 0 && <AlertPanel alerts={alerts} />}
 
       <DayRecapStrip dogId={activeDog.id} />
 
