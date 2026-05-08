@@ -4,6 +4,7 @@ export interface UserProfile {
   displayName: string;
   photoURL?: string;
   phoneNumber?: string;
+  memberDogIds?: string[];
   createdAt: number;
   updatedAt: number;
 }

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, collectionGroup, query, where, onSnapshot, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import type { Dog } from '@/types';
@@ -30,21 +30,73 @@ export function DogProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const q = query(collection(db, 'dogs'), where('mainHumanId', '==', user.uid));
-    const unsub = onSnapshot(q, snap => {
-      const loadedDogs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Dog));
-      setDogs(loadedDogs);
-      setLoading(false);
+    const mainDogs = new Map<string, Dog>();
+    const memberDogs = new Map<string, Dog>();
+    const memberDogUnsubs = new Map<string, () => void>();
 
+    const flush = () => {
+      const combined = Array.from(new Map([...memberDogs, ...mainDogs]).values());
+      setDogs(combined);
+      setLoading(false);
       const storedId = localStorage.getItem(ACTIVE_DOG_KEY);
-      const restored = loadedDogs.find(d => d.id === storedId) ?? loadedDogs[0] ?? null;
       setActiveDogState(prev => {
-        // Keep current active dog if it's still in the list (avoids resetting on re-renders)
-        if (prev && loadedDogs.find(d => d.id === prev.id)) return prev;
-        return restored;
+        if (prev && combined.find(d => d.id === prev.id)) return combined.find(d => d.id === prev.id)!;
+        return combined.find(d => d.id === storedId) ?? combined[0] ?? null;
       });
-    });
-    return unsub;
+    };
+
+    // 1. Subscribe to dogs where user is main human
+    const mainUnsub = onSnapshot(
+      query(collection(db, 'dogs'), where('mainHumanId', '==', user.uid)),
+      snap => {
+        mainDogs.clear();
+        snap.docs.forEach(d => mainDogs.set(d.id, { id: d.id, ...d.data() } as Dog));
+        flush();
+      }
+    );
+
+    // 2. Subscribe to all humans/* subcollection entries where userId == user.uid
+    //    This fires whenever a main human approves this user for a dog.
+    const memberUnsub = onSnapshot(
+      query(collectionGroup(db, 'humans'), where('userId', '==', user.uid)),
+      snap => {
+        const newIds = new Set(
+          snap.docs.map(d => d.ref.parent.parent?.id).filter(Boolean) as string[]
+        );
+
+        // Remove stale subscriptions
+        for (const [id, unsub] of memberDogUnsubs) {
+          if (!newIds.has(id)) {
+            unsub();
+            memberDogUnsubs.delete(id);
+            memberDogs.delete(id);
+          }
+        }
+
+        // Add new dog subscriptions
+        for (const dogId of newIds) {
+          if (!memberDogUnsubs.has(dogId)) {
+            const dogUnsub = onSnapshot(doc(db, 'dogs', dogId), dogSnap => {
+              if (dogSnap.exists()) {
+                memberDogs.set(dogId, { id: dogId, ...dogSnap.data() } as Dog);
+              } else {
+                memberDogs.delete(dogId);
+              }
+              flush();
+            });
+            memberDogUnsubs.set(dogId, dogUnsub);
+          }
+        }
+
+        flush();
+      }
+    );
+
+    return () => {
+      mainUnsub();
+      memberUnsub();
+      memberDogUnsubs.forEach(unsub => unsub());
+    };
   }, [user]);
 
   const setActiveDog = (dog: Dog) => {

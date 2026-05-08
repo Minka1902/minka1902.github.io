@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { onSnapshot, addDoc, doc, writeBatch, deleteDoc } from 'firebase/firestore';
+import { onSnapshot, setDoc, doc, writeBatch, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { humansCol, pendingCol } from '@/lib/firestore';
 import { useAuth } from '@/hooks/useAuth';
@@ -34,7 +34,7 @@ export function usePendingHumans(dogId: string) {
   }, [dogId]);
 
   const sendJoinRequest = async (targetDogId: string, role: HumanRole) => {
-    await addDoc(pendingCol(targetDogId), {
+    await setDoc(doc(db, 'dogs', targetDogId, 'pendingHumans', user!.uid), {
       userId: user!.uid,
       displayName: user!.displayName,
       email: user!.email,
@@ -52,9 +52,15 @@ export function usePendingHumans(dogId: string) {
     await batch.commit();
   };
 
+  const addHumanDirectly = async (userId: string, displayName: string, email: string, role: HumanRole) => {
+    await setDoc(doc(db, 'dogs', dogId, 'humans', userId), {
+      userId, displayName, email, role, approvedAt: Date.now(), approvedBy: user!.uid,
+    });
+  };
+
   const rejectHuman = async (userId: string) => {
     await deleteDoc(doc(db, 'dogs', dogId, 'pendingHumans', userId));
   };
 
-  return { pending, sendJoinRequest, approveHuman, rejectHuman };
+  return { pending, sendJoinRequest, approveHuman, rejectHuman, addHumanDirectly };
 }

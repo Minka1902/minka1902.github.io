@@ -1,20 +1,72 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, UserPlus, Clock } from 'lucide-react';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { Users, UserPlus, Clock, Search } from 'lucide-react';
 import { useDog } from '@/contexts/DogContext';
 import { useHumans, usePendingHumans } from '@/hooks/useHumans';
 import { useAuth } from '@/hooks/useAuth';
 import HumanCard from '@/components/humans/HumanCard';
 import PendingRequestCard from '@/components/humans/PendingRequestCard';
-import { buttonVariants } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent } from '@/components/ui/card';
+import { HUMAN_ROLES } from '@/lib/constants';
 import { cn } from '@/lib/utils';
+import type { HumanRole, UserProfile } from '@/types';
 
 export default function HumansPage() {
   const { activeDog, isMainHuman } = useDog();
   const { user } = useAuth();
   const dogId = activeDog?.id ?? '';
   const { humans, revokeHuman } = useHumans(dogId);
-  const { pending, approveHuman, rejectHuman } = usePendingHumans(dogId);
+  const { pending, approveHuman, rejectHuman, addHumanDirectly } = usePendingHumans(dogId);
   const isMain = isMainHuman(dogId);
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResult, setSearchResult] = useState<UserProfile | null | 'not-found'>(null);
+  const [searching, setSearching] = useState(false);
+  const [addRole, setAddRole] = useState<HumanRole>('caregiver');
+  const [adding, setAdding] = useState(false);
+  const [added, setAdded] = useState<string | null>(null);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return;
+    setSearching(true);
+    setSearchResult(null);
+    setAdded(null);
+
+    const usersRef = collection(db, 'users');
+    const byEmail = query(usersRef, where('email', '==', term));
+    const byPhone = query(usersRef, where('phoneNumber', '==', term));
+    const [emailSnap, phoneSnap] = await Promise.all([getDocs(byEmail), getDocs(byPhone)]);
+    const docs = [...emailSnap.docs, ...phoneSnap.docs];
+
+    if (docs.length === 0) {
+      setSearchResult('not-found');
+    } else {
+      const found = { uid: docs[0].id, ...docs[0].data() } as UserProfile;
+      if (found.uid === user?.uid) {
+        setSearchResult('not-found');
+      } else {
+        setSearchResult(found);
+      }
+    }
+    setSearching(false);
+  };
+
+  const handleAdd = async () => {
+    if (!searchResult || searchResult === 'not-found') return;
+    setAdding(true);
+    await addHumanDirectly(searchResult.uid, searchResult.displayName, searchResult.email, addRole);
+    setAdded(searchResult.displayName);
+    setSearchResult(null);
+    setSearchTerm('');
+    setAdding(false);
+  };
 
   if (!activeDog) {
     return <div className="text-muted-foreground">No active dog selected.</div>;
@@ -28,6 +80,67 @@ export default function HumansPage() {
           <UserPlus className="h-3.5 w-3.5" /> Join Another Dog
         </Link>
       </div>
+
+      {/* Add caregiver by email/phone (main human only) */}
+      {isMain && (
+        <Card>
+          <CardContent className="pt-4 space-y-3">
+            <p className="text-sm font-medium">Add a team member</p>
+            <form onSubmit={handleSearch} className="flex gap-2">
+              <Input
+                placeholder="Email or phone number…"
+                value={searchTerm}
+                onChange={e => { setSearchTerm(e.target.value); setSearchResult(null); setAdded(null); }}
+                autoComplete="off"
+                className="flex-1"
+              />
+              <Button type="submit" variant="outline" size="icon" disabled={searching} aria-label="Search">
+                <Search className="h-4 w-4" />
+              </Button>
+            </form>
+
+            {added && (
+              <p className="text-sm text-green-600 dark:text-green-400">{added} added to the team.</p>
+            )}
+
+            {searchResult === 'not-found' && (
+              <p className="text-sm text-muted-foreground">No user found with that email or phone.</p>
+            )}
+
+            {searchResult && searchResult !== 'not-found' && (() => {
+              const alreadyMember = humans.some(h => h.userId === searchResult.uid);
+              return (
+                <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
+                  <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold shrink-0">
+                    {searchResult.displayName.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium capitalize truncate">{searchResult.displayName}</p>
+                    <p className="text-xs text-muted-foreground truncate">{searchResult.email}</p>
+                  </div>
+                  {alreadyMember ? (
+                    <p className="text-xs text-muted-foreground">Already a member</p>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Select value={addRole} onValueChange={v => setAddRole(v as HumanRole)}>
+                        <SelectTrigger className="w-28 h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {HUMAN_ROLES.map(r => (
+                            <SelectItem key={r.role} value={r.role}>{r.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button size="sm" onClick={handleAdd} disabled={adding}>
+                        {adding ? 'Adding…' : 'Add'}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Pending requests */}
       {isMain && pending.length > 0 && (
