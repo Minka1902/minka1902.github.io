@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { onSnapshot, setDoc, doc, writeBatch, deleteDoc } from 'firebase/firestore';
+import { onSnapshot, setDoc, doc, writeBatch, deleteDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { humansCol, pendingCol } from '@/lib/firestore';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,7 +16,10 @@ export function useHumans(dogId: string) {
   }, [dogId]);
 
   const revokeHuman = async (userId: string) => {
-    await deleteDoc(doc(db, 'dogs', dogId, 'humans', userId));
+    const batch = writeBatch(db);
+    batch.delete(doc(db, 'dogs', dogId, 'humans', userId));
+    batch.update(doc(db, 'dogs', dogId), { memberUserIds: arrayRemove(userId) });
+    await batch.commit();
   };
 
   return { humans, revokeHuman };
@@ -49,13 +52,17 @@ export function usePendingHumans(dogId: string) {
       userId, displayName, email, role, approvedAt: Date.now(), approvedBy: user!.uid,
     });
     batch.delete(doc(db, 'dogs', dogId, 'pendingHumans', userId));
+    batch.update(doc(db, 'dogs', dogId), { memberUserIds: arrayUnion(userId) });
     await batch.commit();
   };
 
   const addHumanDirectly = async (userId: string, displayName: string, email: string, role: HumanRole) => {
-    await setDoc(doc(db, 'dogs', dogId, 'humans', userId), {
+    const batch = writeBatch(db);
+    batch.set(doc(db, 'dogs', dogId, 'humans', userId), {
       userId, displayName, email, role, approvedAt: Date.now(), approvedBy: user!.uid,
     });
+    batch.update(doc(db, 'dogs', dogId), { memberUserIds: arrayUnion(userId) });
+    await batch.commit();
   };
 
   const rejectHuman = async (userId: string) => {
