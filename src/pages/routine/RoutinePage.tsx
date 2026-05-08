@@ -4,7 +4,7 @@ import { format, addDays, startOfWeek, addWeeks, isSameDay } from 'date-fns';
 import { ChevronLeft, ChevronRight, Trash2, CalendarRange } from 'lucide-react';
 import { useDog } from '@/contexts/DogContext';
 import { useRoutine, useRoutineWindow } from '@/hooks/useRoutine';
-import { ROUTINE_TYPES, QUICK_LOG_TYPES } from '@/lib/constants';
+import { ROUTINE_TYPES, QUICK_LOG_TYPES, PEE_COLOR, POOP_COLOR } from '@/lib/constants';
 import { fmtTime } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import BaseRoutineForm from '@/components/routine/BaseRoutineForm';
@@ -13,6 +13,8 @@ import type { RoutineLog } from '@/types';
 const DAY_ABBR = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 function getRoutineMeta(log: RoutineLog) {
+  if (log.type === 'pee')  return { icon: '🌿', color: PEE_COLOR,  label: 'Pee' };
+  if (log.type === 'poop') return { icon: '💩', color: POOP_COLOR, label: 'Poop' };
   const rt = ROUTINE_TYPES.find(r => r.type === log.type);
   const label = log.type === 'custom' && log.customLabel ? log.customLabel : (rt?.label ?? log.type);
   return { icon: rt?.icon ?? '•', color: rt?.color ?? '#F59E0B', label };
@@ -122,7 +124,11 @@ export default function RoutinePage() {
     return logs
       .filter(l => { if (seen.has(l.type)) return false; seen.add(l.type); return true; })
       .slice(0, 4)
-      .map(l => ROUTINE_TYPES.find(r => r.type === l.type)?.color ?? '#F59E0B');
+      .map(l => {
+        if (l.type === 'pee')  return PEE_COLOR;
+        if (l.type === 'poop') return POOP_COLOR;
+        return ROUTINE_TYPES.find(r => r.type === l.type)?.color ?? '#F59E0B';
+      });
   };
 
   const handleWeekChange = (dir: number) => {
