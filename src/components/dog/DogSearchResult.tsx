@@ -7,18 +7,18 @@ import type { Dog, HumanRole } from '@/types';
 
 interface Props {
   dog: Pick<Dog, 'id' | 'name' | 'rescueOrg'>;
-  onJoin: (dogId: string, role: HumanRole) => Promise<void>;
+  onJoin?: (dogId: string, role: HumanRole) => Promise<void>;
+  joined?: boolean;
 }
 
-export default function DogSearchResult({ dog, onJoin }: Props) {
+export default function DogSearchResult({ dog, onJoin, joined = false }: Props) {
   const [role, setRole] = useState<HumanRole>('caregiver');
   const [joining, setJoining] = useState(false);
-  const [sent, setSent] = useState(false);
 
   const handleJoin = async () => {
+    if (!onJoin) return;
     setJoining(true);
     await onJoin(dog.id, role);
-    setSent(true);
     setJoining(false);
   };
 
@@ -29,7 +29,7 @@ export default function DogSearchResult({ dog, onJoin }: Props) {
           <p className="font-semibold capitalize">{dog.name}</p>
           {dog.rescueOrg && <p className="text-sm text-muted-foreground">{dog.rescueOrg}</p>}
         </div>
-        {sent ? (
+        {joined ? (
           <p className="text-sm text-muted-foreground">Request sent!</p>
         ) : (
           <div className="flex items-center gap-2">

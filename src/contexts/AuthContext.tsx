@@ -40,7 +40,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const { user: fbUser } = await signInWithEmailAndPassword(auth, email, password);
+    const normalizedEmail = email.trim().toLowerCase();
+    const { user: fbUser } = await signInWithEmailAndPassword(auth, normalizedEmail, password);
     setFirebaseUser(fbUser);
     const snap = await getDoc(doc(db, 'users', fbUser.uid));
     if (snap.exists()) {
@@ -49,10 +50,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const register = async (email: string, password: string, displayName: string) => {
-    const { user: fbUser } = await createUserWithEmailAndPassword(auth, email, password);
+    const normalizedEmail = email.trim().toLowerCase();
+    const { user: fbUser } = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
     await updateProfile(fbUser, { displayName });
     const now = Date.now();
-    const profile: UserProfile = { uid: fbUser.uid, email, displayName, createdAt: now, updatedAt: now };
+    const profile: UserProfile = { uid: fbUser.uid, email: normalizedEmail, displayName, createdAt: now, updatedAt: now };
     await setDoc(doc(db, 'users', fbUser.uid), profile);
     setUser(profile);
   };
