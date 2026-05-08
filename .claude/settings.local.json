@@ -64,7 +64,12 @@
       "Bash(node *)",
       "Bash(npx playwright *)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173/)",
-      "Bash(grep -E \"\\\\.\\(config|json\\)$\")"
+      "Bash(grep -E \"\\\\.\\(config|json\\)$\")",
+      "Bash(npx shadcn@latest add popover --yes)",
+      "PowerShell(Get-Content *)",
+      "mcp__ide__getDiagnostics",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\User\\\\Desktop\\\\dev\\\\pack-ops\\\\PackOps\" -Force | Format-Table Name, @{Name=\"Type\"; Expression={if\\($_.PSIsContainer\\){\"DIR\"}else{\"FILE\"}}} -AutoSize)",
+      "Bash(npx firebase-tools *)"
     ]
   }
 }
