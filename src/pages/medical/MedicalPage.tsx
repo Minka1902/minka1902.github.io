@@ -81,7 +81,8 @@ function CategorySection({ dogId, category, label, icon }: {
   dogId: string; category: MedicalCategory; label: string; icon: string;
 }) {
   const { records, deleteRecord } = useMedical(dogId, category);
-  const [open, setOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [editRecord, setEditRecord] = useState<import('@/types').MedicalRecord | null>(null);
 
   return (
     <div className="space-y-3">
@@ -89,7 +90,7 @@ function CategorySection({ dogId, category, label, icon }: {
         <span className="text-lg">{icon}</span>
         <h2 className="font-semibold text-sm flex-1" style={{ fontFamily: 'var(--font-heading)' }}>{label}</h2>
         <button
-          onClick={() => setOpen(true)}
+          onClick={() => setAddOpen(true)}
           className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-muted"
         >
           <Plus className="h-3.5 w-3.5" /> Add
@@ -98,7 +99,7 @@ function CategorySection({ dogId, category, label, icon }: {
 
       {records.length === 0 ? (
         <button
-          onClick={() => setOpen(true)}
+          onClick={() => setAddOpen(true)}
           className="w-full flex items-center justify-center gap-2 py-6 rounded-xl border border-dashed border-border/60 text-sm text-muted-foreground/60 hover:text-muted-foreground hover:border-border transition-colors"
         >
           <Plus className="h-3.5 w-3.5" />
@@ -107,17 +108,40 @@ function CategorySection({ dogId, category, label, icon }: {
       ) : (
         <div className="space-y-2">
           {records.map(r => (
-            <MedicalRecordCard key={r.id} record={r} onDelete={deleteRecord} />
+            <MedicalRecordCard
+              key={r.id}
+              record={r}
+              onDelete={deleteRecord}
+              onEdit={setEditRecord}
+            />
           ))}
         </div>
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      {/* Add dialog */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add {label}</DialogTitle>
           </DialogHeader>
-          <MedicalRecordForm dogId={dogId} category={category} onSaved={() => setOpen(false)} />
+          <MedicalRecordForm dogId={dogId} category={category} onSaved={() => setAddOpen(false)} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit dialog */}
+      <Dialog open={!!editRecord} onOpenChange={open => { if (!open) setEditRecord(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit {label}</DialogTitle>
+          </DialogHeader>
+          {editRecord && (
+            <MedicalRecordForm
+              dogId={dogId}
+              category={category}
+              record={editRecord}
+              onSaved={() => setEditRecord(null)}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>

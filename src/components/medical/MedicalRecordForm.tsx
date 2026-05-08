@@ -5,54 +5,80 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { MedicalCategory, MedicalRecord, Vaccination, Medication, Allergy, Diagnosis, Surgery } from '@/types';
 
+function tsToDateInput(ts: number | undefined): string {
+  if (!ts) return '';
+  return new Date(ts).toISOString().split('T')[0];
+}
+
 interface Props {
   dogId: string;
   category: MedicalCategory;
   onSaved: () => void;
+  record?: MedicalRecord; // when provided → edit mode
 }
 
-export default function MedicalRecordForm({ dogId, category, onSaved }: Props) {
-  const { addRecord } = useMedical(dogId, category);
-  const [title, setTitle] = useState('');
-  const [date, setDate] = useState('');
-  const [nextDueDate, setNextDueDate] = useState('');
-  const [provider, setProvider] = useState('');
-  const [notes, setNotes] = useState('');
-  // Category-specific
-  const [vaccineName, setVaccineName] = useState('');
-  const [medicationName, setMedicationName] = useState('');
-  const [dosage, setDosage] = useState('');
-  const [allergen, setAllergen] = useState('');
-  const [condition, setCondition] = useState('');
-  const [procedure, setProcedure] = useState('');
+export default function MedicalRecordForm({ dogId, category, onSaved, record }: Props) {
+  const { addRecord, updateRecord } = useMedical(dogId, category);
+  const isEdit = !!record;
+
+  const [title,          setTitle]          = useState(record?.title ?? '');
+  const [date,           setDate]           = useState(tsToDateInput(record?.date));
+  const [nextDueDate,    setNextDueDate]    = useState(tsToDateInput(record?.nextDueDate));
+  const [provider,       setProvider]       = useState(record?.provider ?? '');
+  const [notes,          setNotes]          = useState(record?.notes ?? '');
+
+  // Category-specific fields seeded from existing record
+  const [vaccineName,    setVaccineName]    = useState((record as Vaccination)?.vaccineName ?? '');
+  const [medicationName, setMedicationName] = useState((record as Medication)?.medicationName ?? '');
+  const [dosage,         setDosage]         = useState((record as Medication)?.dosage ?? '');
+  const [allergen,       setAllergen]       = useState((record as Allergy)?.allergen ?? '');
+  const [condition,      setCondition]      = useState((record as Diagnosis)?.condition ?? '');
+  const [procedure,      setProcedure]      = useState((record as Surgery)?.procedure ?? '');
+
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+
     const base = {
-      dogId, category, title, date: new Date(date).getTime(),
+      title,
+      date: new Date(date).getTime(),
       nextDueDate: nextDueDate ? new Date(nextDueDate).getTime() : undefined,
-      provider: provider || undefined, notes: notes || undefined,
-      createdBy: '', createdByName: '', createdAt: 0, updatedAt: 0,
+      provider: provider || undefined,
+      notes: notes || undefined,
     };
 
-    let record: Omit<MedicalRecord, 'id'>;
-    if (category === 'vaccination') {
-      record = { ...base, category: 'vaccination', vaccineName } as Omit<Vaccination, 'id'>;
-    } else if (category === 'medication') {
-      record = { ...base, category: 'medication', medicationName, dosage: dosage || undefined, isActive: true } as Omit<Medication, 'id'>;
-    } else if (category === 'allergy') {
-      record = { ...base, category: 'allergy', allergen } as Omit<Allergy, 'id'>;
-    } else if (category === 'diagnosis') {
-      record = { ...base, category: 'diagnosis', condition, isActive: true } as Omit<Diagnosis, 'id'>;
-    } else if (category === 'surgery') {
-      record = { ...base, category: 'surgery', procedure } as Omit<Surgery, 'id'>;
+    if (isEdit) {
+      const extra: Partial<MedicalRecord> = {};
+      if (category === 'vaccination') (extra as Partial<Vaccination>).vaccineName = vaccineName;
+      if (category === 'medication')  { (extra as Partial<Medication>).medicationName = medicationName; (extra as Partial<Medication>).dosage = dosage || undefined; }
+      if (category === 'allergy')     (extra as Partial<Allergy>).allergen = allergen;
+      if (category === 'diagnosis')   (extra as Partial<Diagnosis>).condition = condition;
+      if (category === 'surgery')     (extra as Partial<Surgery>).procedure = procedure;
+      await updateRecord(record.id, { ...base, ...extra });
     } else {
-      record = { ...base } as Omit<MedicalRecord, 'id'>;
+      const fullBase = {
+        dogId, category, ...base,
+        createdBy: '', createdByName: '', createdAt: 0, updatedAt: 0,
+      };
+      let newRecord: Omit<MedicalRecord, 'id'>;
+      if (category === 'vaccination') {
+        newRecord = { ...fullBase, category: 'vaccination', vaccineName } as Omit<Vaccination, 'id'>;
+      } else if (category === 'medication') {
+        newRecord = { ...fullBase, category: 'medication', medicationName, dosage: dosage || undefined, isActive: true } as Omit<Medication, 'id'>;
+      } else if (category === 'allergy') {
+        newRecord = { ...fullBase, category: 'allergy', allergen } as Omit<Allergy, 'id'>;
+      } else if (category === 'diagnosis') {
+        newRecord = { ...fullBase, category: 'diagnosis', condition, isActive: true } as Omit<Diagnosis, 'id'>;
+      } else if (category === 'surgery') {
+        newRecord = { ...fullBase, category: 'surgery', procedure } as Omit<Surgery, 'id'>;
+      } else {
+        newRecord = { ...fullBase } as Omit<MedicalRecord, 'id'>;
+      }
+      await addRecord(newRecord);
     }
 
-    await addRecord(record);
     setSubmitting(false);
     onSaved();
   };
@@ -122,7 +148,7 @@ export default function MedicalRecordForm({ dogId, category, onSaved }: Props) {
       </div>
 
       <Button type="submit" disabled={submitting}>
-        {submitting ? 'Saving…' : 'Add Record'}
+        {submitting ? 'Saving…' : isEdit ? 'Save changes' : 'Add Record'}
       </Button>
     </form>
   );

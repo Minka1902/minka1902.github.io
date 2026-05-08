@@ -1,10 +1,11 @@
-import { Trash2, CalendarClock, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Trash2, Pencil, CalendarClock, AlertTriangle, CheckCircle } from 'lucide-react';
 import { fmtDate } from '@/lib/utils';
 import type { MedicalRecord } from '@/types';
 
 interface Props {
   record: MedicalRecord;
   onDelete?: (id: string) => void;
+  onEdit?: (record: MedicalRecord) => void;
 }
 
 function getUrgency(record: MedicalRecord): 'overdue' | 'today' | 'soon' | 'ok' | 'none' {
@@ -18,14 +19,14 @@ function getUrgency(record: MedicalRecord): 'overdue' | 'today' | 'soon' | 'ok' 
 }
 
 const URGENCY_STYLES = {
-  overdue: { bar: '#EF4444', badge: 'bg-red-500/10 text-red-500 border-red-500/20', label: 'Overdue', icon: AlertTriangle },
+  overdue: { bar: '#EF4444', badge: 'bg-red-500/10 text-red-500 border-red-500/20', label: 'Overdue',  icon: AlertTriangle },
   today:   { bar: '#F59E0B', badge: 'bg-amber-500/10 text-amber-500 border-amber-500/20', label: 'Due today', icon: CalendarClock },
-  soon:    { bar: '#F59E0B', badge: 'bg-amber-500/10 text-amber-500 border-amber-500/20', label: 'Due soon', icon: CalendarClock },
-  ok:      { bar: '#22C55E', badge: 'bg-green-500/10 text-green-600 border-green-500/20', label: 'Upcoming', icon: CheckCircle },
+  soon:    { bar: '#F59E0B', badge: 'bg-amber-500/10 text-amber-500 border-amber-500/20', label: 'Due soon',  icon: CalendarClock },
+  ok:      { bar: '#22C55E', badge: 'bg-green-500/10 text-green-600 border-green-500/20', label: 'Upcoming',  icon: CheckCircle },
   none:    { bar: 'transparent', badge: '', label: '', icon: null },
 };
 
-export default function MedicalRecordCard({ record, onDelete }: Props) {
+export default function MedicalRecordCard({ record, onDelete, onEdit }: Props) {
   const urgency = getUrgency(record);
   const style = URGENCY_STYLES[urgency];
 
@@ -59,15 +60,27 @@ export default function MedicalRecordCard({ record, onDelete }: Props) {
           </span>
         )}
 
-        {onDelete && (
-          <button
-            onClick={() => onDelete(record.id)}
-            className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded text-muted-foreground hover:text-destructive"
-            aria-label="Delete"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-        )}
+        {/* Action buttons — visible on hover */}
+        <div className="shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {onEdit && (
+            <button
+              onClick={() => onEdit(record)}
+              className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              aria-label="Edit"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={() => onDelete(record.id)}
+              className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+              aria-label="Delete"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
