@@ -1,12 +1,13 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, addDays, startOfWeek, addWeeks, isSameDay } from 'date-fns';
-import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, CalendarRange } from 'lucide-react';
 import { useDog } from '@/contexts/DogContext';
 import { useRoutine, useRoutineWindow } from '@/hooks/useRoutine';
 import { ROUTINE_TYPES, QUICK_LOG_TYPES } from '@/lib/constants';
 import { fmtTime } from '@/lib/utils';
 import { cn } from '@/lib/utils';
+import BaseRoutineForm from '@/components/routine/BaseRoutineForm';
 import type { RoutineLog } from '@/types';
 
 const DAY_ABBR = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -66,6 +67,7 @@ function ActivityRow({ log, onDelete }: { log: RoutineLog; onDelete: (id: string
 export default function RoutinePage() {
   const navigate = useNavigate();
   const { activeDog } = useDog();
+  const [showBaseRoutine, setShowBaseRoutine] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedDate, setSelectedDate] = useState<Date>(() => {
     const d = new Date();
@@ -140,12 +142,32 @@ export default function RoutinePage() {
   return (
     <div className="max-w-lg mx-auto flex flex-col h-full">
       {/* ── Page header ── */}
-      <div className="px-1 pt-1 pb-4">
-        <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
-          Activity
-        </h1>
-        <p className="text-sm text-muted-foreground capitalize mt-0.5">{activeDog.name}</p>
+      <div className="px-1 pt-1 pb-4 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
+            Activity
+          </h1>
+          <p className="text-sm text-muted-foreground capitalize mt-0.5">{activeDog.name}</p>
+        </div>
+        <button
+          onClick={() => setShowBaseRoutine(true)}
+          className="flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors mt-1"
+        >
+          <CalendarRange className="h-3.5 w-3.5" />
+          Base Routine
+        </button>
       </div>
+
+      {/* ── Base Routine slide-over ── */}
+      {showBaseRoutine && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowBaseRoutine(false)} />
+          <div className="relative ml-auto w-full max-w-lg bg-card flex flex-col h-full shadow-2xl">
+            <BaseRoutineForm dogId={activeDog.id} onClose={() => setShowBaseRoutine(false)} />
+          </div>
+        </div>
+      )}
+
 
       {/* ── Calendar strip ── */}
       <div className="rounded-2xl border bg-card shadow-sm overflow-hidden mb-4">
