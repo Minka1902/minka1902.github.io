@@ -8,12 +8,15 @@ import type { TrainingSession, TrainingTemplate, TrainingType } from '@/types';
 export function useTraining(dogId: string) {
   const { user } = useAuth();
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!dogId) return;
+    if (!dogId) { setLoading(false); return; }
+    setLoading(true);
     const q = query(sessionsCol(dogId), orderBy('scheduledAt', 'desc'));
     return onSnapshot(q, snap => {
       setSessions(snap.docs.map(d => ({ id: d.id, ...d.data() } as TrainingSession)));
+      setLoading(false);
     });
   }, [dogId]);
 
@@ -50,5 +53,5 @@ export function useTraining(dogId: string) {
     await deleteDoc(doc(db, 'dogs', dogId, 'trainingTemplates', templateId));
   };
 
-  return { sessions, getTemplate, createSession, updateTemplate, resetTemplate };
+  return { sessions, loading, getTemplate, createSession, updateTemplate, resetTemplate };
 }

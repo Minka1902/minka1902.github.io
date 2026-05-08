@@ -10,10 +10,12 @@ import TrainingTypeSpecificFields from '@/components/training/TrainingTypeSpecif
 export default function TrainingSessionDetailPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const { activeDog } = useDog();
-  const { sessions } = useTraining(activeDog?.id ?? '');
+  const { sessions, loading } = useTraining(activeDog?.id ?? '');
   const session = sessions.find(s => s.id === sessionId);
 
-  if (!activeDog || !session) return <Navigate to="/training" replace />;
+  if (!activeDog) return <Navigate to="/training" replace />;
+  if (loading) return <div className="flex h-40 items-center justify-center text-muted-foreground text-sm">Loading…</div>;
+  if (!session) return <Navigate to="/training" replace />;
 
   const typeLabel = TRAINING_TYPES.find(t => t.type === session.trainingType)?.label ?? session.trainingType;
 
