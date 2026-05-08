@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DEFAULT_MOBILE_NAV } from '@/lib/nav';
 
 const STORAGE_KEY = 'packops_mobile_nav';
@@ -18,14 +18,22 @@ function load(): string[] {
 export function useNavConfig() {
   const [selected, setSelected] = useState<string[]>(load);
 
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY) setSelected(load());
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
   const save = (keys: string[]) => {
-    setSelected(keys);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(keys));
+    setSelected(keys);
+    window.dispatchEvent(new StorageEvent('storage', { key: STORAGE_KEY }));
   };
 
   const toggle = (to: string) => {
     if (selected.includes(to)) {
-      // Always keep at least 1
       if (selected.length > 1) save(selected.filter(k => k !== to));
     } else if (selected.length < MAX) {
       save([...selected, to]);
