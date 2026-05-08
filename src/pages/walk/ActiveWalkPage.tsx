@@ -40,7 +40,8 @@ export default function ActiveWalkPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleStop = () => {
+  const handleStop = (e: React.MouseEvent) => {
+    e.stopPropagation();
     tracker.stop();
     setShowSummary(true);
   };

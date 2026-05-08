@@ -60,7 +60,7 @@ export default function WalkSummarySheet({ open, dogName, result, onSave }: Prop
   const paceStr = pace(distanceKm, elapsedSeconds);
 
   return (
-    <Sheet open={open}>
+    <Sheet open={open} onOpenChange={() => { /* controlled — only closes on explicit Save */ }}>
       <SheetContent side="bottom" className="rounded-t-2xl max-h-[90vh] overflow-y-auto pb-8" showCloseButton={false}>
         <SheetHeader className="pt-2 pb-5">
           <div className="flex flex-col items-center gap-2">
