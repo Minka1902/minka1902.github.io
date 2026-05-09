@@ -19,6 +19,11 @@ import DevicesPage from '@/pages/devices/DevicesPage';
 import QRPage from '@/pages/qr/QRPage';
 import PublicQRPage from '@/pages/qr/PublicQRPage';
 import SettingsPage from '@/pages/settings/SettingsPage';
+import OrgListPage from '@/pages/org/OrgListPage';
+import CreateOrgPage from '@/pages/org/CreateOrgPage';
+import OrgDetailPage from '@/pages/org/OrgDetailPage';
+import OrgSettingsPage from '@/pages/org/OrgSettingsPage';
+import JoinOrgPage from '@/pages/org/JoinOrgPage';
 
 export const router = createBrowserRouter([
   { path: '/login',             element: <LoginPage /> },
@@ -47,6 +52,12 @@ export const router = createBrowserRouter([
           { path: '/devices',             element: <DevicesPage /> },
           { path: '/qr',                  element: <QRPage /> },
           { path: '/settings',            element: <SettingsPage /> },
+          // Organizations
+          { path: '/orgs',                element: <OrgListPage /> },
+          { path: '/orgs/new',            element: <CreateOrgPage /> },
+          { path: '/orgs/join',           element: <JoinOrgPage /> },
+          { path: '/orgs/:orgId',         element: <OrgDetailPage /> },
+          { path: '/orgs/:orgId/settings', element: <OrgSettingsPage /> },
         ],
       },
     ],

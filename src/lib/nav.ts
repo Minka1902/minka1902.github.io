@@ -1,5 +1,5 @@
 import {
-  Home, Activity, Dumbbell, Stethoscope, Users, Cpu, QrCode, Settings,
+  Home, Activity, Dumbbell, Stethoscope, Users, Cpu, QrCode, Settings, Building2,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -15,6 +15,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/training',label: 'Training',  icon: Dumbbell },
   { to: '/medical', label: 'Medical',   icon: Stethoscope },
   { to: '/humans',  label: 'Team',      icon: Users },
+  { to: '/orgs',    label: 'Orgs',      icon: Building2 },
   { to: '/devices', label: 'Devices',   icon: Cpu },
   { to: '/qr',      label: 'QR Code',   icon: QrCode },
   { to: '/settings',label: 'Settings',  icon: Settings },

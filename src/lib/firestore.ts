@@ -20,3 +20,7 @@ export const medicalCol = (dogId: string, category: MedicalCategory) => {
   const entry = MEDICAL_CATEGORIES.find(c => c.category === category)!;
   return collection(db, 'dogs', dogId, entry.collectionName);
 };
+
+export const orgsCol        = () => collection(db, 'organizations');
+export const orgMembersCol  = (orgId: string) => collection(db, 'organizations', orgId, 'members');
+export const orgPendingCol  = (orgId: string) => collection(db, 'organizations', orgId, 'pendingMembers');
