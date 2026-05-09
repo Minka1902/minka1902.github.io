@@ -12,6 +12,7 @@ export function useTraining(dogId: string) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setSessions([]);
     if (!dogId) { setLoading(false); return; }
     setLoading(true);
     const q = query(sessionsCol(dogId), orderBy('scheduledAt', 'desc'));

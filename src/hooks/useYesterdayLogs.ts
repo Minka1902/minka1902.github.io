@@ -8,6 +8,7 @@ export function useYesterdayLogs(dogId: string): RoutineLog[] {
   const [logs, setLogs] = useState<RoutineLog[]>([]);
 
   useEffect(() => {
+    setLogs([]);
     if (!dogId) return;
     const yesterday = Date.now() - 86_400_000;
     const start = dayStart(yesterday);

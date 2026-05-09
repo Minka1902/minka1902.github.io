@@ -17,6 +17,8 @@ export function useBaseRoutine(dogId: string) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setSlots({});
+    setLoading(true);
     if (!dogId) { setLoading(false); return; }
     const ref = doc(db, 'dogs', dogId, 'settings', 'baseRoutine');
     return onSnapshot(ref, snap => {

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Plus, Trash2 } from 'lucide-react';
 import { useDogActions } from '@/hooks/useDog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import BreedAutocomplete from './BreedAutocomplete';
-import type { Dog } from '@/types';
+import type { Dog, FeedingEntry } from '@/types';
 
 type DogFormFields = Omit<Dog, 'id' | 'createdAt' | 'updatedAt' | 'mainHumanId'>;
 
@@ -27,6 +28,8 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
   const [isMix, setIsMix] = useState(initial?.isMix ?? false);
   const [weightKg, setWeightKg] = useState(initial?.weightKg?.toString() ?? '');
   const [chipId, setChipId] = useState(initial?.chipId ?? '');
+  const [foodType, setFoodType] = useState(initial?.foodType ?? '');
+  const [feedings, setFeedings] = useState<FeedingEntry[]>(initial?.feedings ?? []);
   const [behaviorNotes, setBehaviorNotes] = useState(initial?.behaviorNotes ?? '');
   const [rescueOrg, setRescueOrg] = useState(initial?.rescueOrg ?? '');
   const [emergencyContact, setEmergencyContact] = useState(initial?.emergencyContact ?? '');
@@ -37,6 +40,11 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
     showAddress: false, showPhone: false, showRescueOrg: false, showMedicalAlerts: false,
   };
 
+  const addFeeding = () => setFeedings(prev => [...prev, { time: '', amount: '' }]);
+  const removeFeeding = (i: number) => setFeedings(prev => prev.filter((_, idx) => idx !== i));
+  const updateFeeding = (i: number, field: keyof FeedingEntry, value: string) =>
+    setFeedings(prev => prev.map((f, idx) => idx === i ? { ...f, [field]: value } : f));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -44,6 +52,8 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
       name, breed: breed || undefined, sex, isMix,
       weightKg: weightKg ? parseFloat(weightKg) : undefined,
       chipId: chipId || undefined,
+      foodType: foodType || undefined,
+      feedings: feedings.filter(f => f.time).length > 0 ? feedings.filter(f => f.time) : undefined,
       behaviorNotes: behaviorNotes || undefined,
       rescueOrg: rescueOrg || undefined,
       emergencyContact: emergencyContact || undefined,
@@ -109,6 +119,53 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
           <Label htmlFor="chipId">Microchip ID</Label>
           <Input id="chipId" value={chipId} onChange={e => setChipId(e.target.value)} placeholder="15-digit chip number" />
         </div>
+      </div>
+
+      <Separator />
+
+      {/* Feeding */}
+      <div className="space-y-4">
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Feeding</p>
+        <div className="space-y-1.5">
+          <Label htmlFor="foodType">Food Type</Label>
+          <Input id="foodType" value={foodType} onChange={e => setFoodType(e.target.value)} placeholder="e.g. Royal Canin Adult, raw, homemade…" />
+        </div>
+        {feedings.length > 0 && (
+          <div className="space-y-2">
+            <Label>Feeding Schedule</Label>
+            {feedings.map((f, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Input
+                  type="time"
+                  value={f.time}
+                  onChange={e => updateFeeding(i, 'time', e.target.value)}
+                  className="w-32 shrink-0"
+                  aria-label={`Feeding ${i + 1} time`}
+                />
+                <Input
+                  value={f.amount}
+                  onChange={e => updateFeeding(i, 'amount', e.target.value)}
+                  placeholder="e.g. 200g, 1 cup"
+                  aria-label={`Feeding ${i + 1} amount`}
+                />
+                <button
+                  type="button"
+                  onClick={() => removeFeeding(i)}
+                  className="shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  aria-label="Remove feeding">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={addFeeding}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Plus className="h-4 w-4" />
+          Add feeding time
+        </button>
       </div>
 
       <Separator />

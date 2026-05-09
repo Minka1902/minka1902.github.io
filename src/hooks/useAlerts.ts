@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { useRoutine } from '@/hooks/useRoutine';
 import { useUpcomingDue } from '@/hooks/useMedical';
 import { usePendingHumans } from '@/hooks/useHumans';
+import { useScheduledLogs } from '@/hooks/useScheduledLogs';
+import { useAuth } from '@/hooks/useAuth';
 import { useDog } from '@/contexts/DogContext';
 import type { Alert } from '@/types';
 
@@ -12,6 +14,8 @@ export function useAlerts(dogId: string): Alert[] {
   const { todayLogs }   = useRoutine(dogId);
   const dueItems        = useUpcomingDue(dogId);
   const { pending }     = usePendingHumans(dogId);
+  const { logs: scheduledLogs } = useScheduledLogs(dogId);
+  const { user }        = useAuth();
   const { isMainHuman } = useDog();
   const now = Date.now();
 
@@ -65,9 +69,22 @@ export function useAlerts(dogId: string): Alert[] {
       });
     }
 
+    // Scheduled tasks awaiting this user's approval
+    const pendingScheduled = scheduledLogs.filter(
+      l => l.assignedTo === user?.uid && l.status === 'pending_approval'
+    );
+    if (pendingScheduled.length > 0) {
+      alerts.push({
+        id: 'scheduled_approval_needed', type: 'scheduled_approval_needed', dogId,
+        severity: 'warning',
+        message: `${pendingScheduled.length} task${pendingScheduled.length > 1 ? 's' : ''} awaiting your approval`,
+        actionRoute: '/routine', generatedAt: now,
+      });
+    }
+
     return alerts.sort((a, b) => {
       const order = { critical: 0, warning: 1, info: 2 };
       return order[a.severity] - order[b.severity];
     });
-  }, [todayLogs, dueItems, pending, dogId, isMainHuman, now]);
+  }, [todayLogs, dueItems, pending, scheduledLogs, user?.uid, dogId, isMainHuman, now]);
 }

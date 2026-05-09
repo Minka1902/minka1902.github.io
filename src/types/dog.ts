@@ -1,5 +1,10 @@
 export type HumanRole = 'caregiver' | 'trainer' | 'walker' | 'foster';
 
+export interface FeedingEntry {
+  time: string;   // "HH:mm"
+  amount: string; // free text, e.g. "200g", "1 cup"
+}
+
 export interface QRVisibilityConfig {
   showAddress: boolean;
   showPhone: boolean;
@@ -16,6 +21,8 @@ export interface Dog {
   sex: 'male' | 'female' | 'unknown';
   weightKg?: number;
   chipId?: string;
+  foodType?: string;
+  feedings?: FeedingEntry[];
   behaviorNotes?: string;
   rescueOrg?: string;
   emergencyContact?: string;

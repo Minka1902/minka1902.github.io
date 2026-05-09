@@ -11,6 +11,7 @@ export function useRoutine(dogId: string) {
   const [todayLogs, setTodayLogs] = useState<RoutineLog[]>([]);
 
   useEffect(() => {
+    setTodayLogs([]);
     if (!dogId) return;
     const start = dayStart(Date.now());
     const end = dayEnd(Date.now());
@@ -40,11 +41,11 @@ export function useRoutine(dogId: string) {
   return { todayLogs, logRoutine, deleteLog };
 }
 
-// Loads all routine logs within a timestamp window (for the calendar view)
 export function useRoutineWindow(dogId: string, startMs: number, endMs: number) {
   const [logs, setLogs] = useState<RoutineLog[]>([]);
 
   useEffect(() => {
+    setLogs([]);
     if (!dogId) return;
     const q = query(
       routinesCol(dogId),
