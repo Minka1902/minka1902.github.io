@@ -25,6 +25,8 @@ describe('pxToTimeStr', () => {
   // px=20 → rawMin ≈ 19 → +360 = 379 → snap to 390 → "06:30"
   it('snaps to 30-min intervals', () => expect(pxToTimeStr(20, 6)).toBe('06:30'));
   it('returns "07:00" for one full hour', () => expect(pxToTimeStr(PX_PER_HOUR, 6)).toBe('07:00'));
+  it('clamps negative px to 00:00', () => expect(pxToTimeStr(-100, 6)).toBe('04:30'));
+  it('clamps very large px to "23:30"', () => expect(pxToTimeStr(99999, 6)).toBe('23:30'));
 });
 
 describe('loadTimeRange / saveTimeRange', () => {
@@ -96,5 +98,11 @@ describe('matchSlotsToLogs', () => {
       [log], IDX, DAY_START,
     );
     expect(slotEvents.filter(s => s.log)).toHaveLength(1);
+  });
+
+  it('excludes slots from other weekday indexes', () => {
+    // dayIdx=1 (Tuesday) slot should not appear when querying dayIdx=0 (Monday)
+    const { slotEvents } = matchSlotsToLogs({ '1_07:00': 'walk' }, [], 0, DAY_START);
+    expect(slotEvents).toHaveLength(0);
   });
 });
