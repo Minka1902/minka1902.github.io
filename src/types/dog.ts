@@ -12,6 +12,18 @@ export interface QRVisibilityConfig {
   showMedicalAlerts: boolean;
 }
 
+export interface EmergencyContact {
+  name: string;
+  countryCode: string;
+  phone: string;
+}
+
+export interface HomeLocation {
+  address: string;
+  lat?: number;
+  lng?: number;
+}
+
 export interface Dog {
   id: string;
   name: string;
@@ -25,8 +37,8 @@ export interface Dog {
   feedings?: FeedingEntry[];
   behaviorNotes?: string;
   rescueOrg?: string;
-  emergencyContact?: string;
-  homeAddress?: string;
+  emergencyContact?: EmergencyContact;
+  homeAddress?: HomeLocation;
   mainHumanId: string;
   qrPublic: boolean;
   qrVisibility: QRVisibilityConfig;

@@ -9,7 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import BreedAutocomplete from './BreedAutocomplete';
-import type { Dog, FeedingEntry } from '@/types';
+import EmergencyContactInput from './EmergencyContactInput';
+import AddressLocationPicker from './AddressLocationPicker';
+import type { Dog, FeedingEntry, EmergencyContact, HomeLocation } from '@/types';
 
 type DogFormFields = Omit<Dog, 'id' | 'createdAt' | 'updatedAt' | 'mainHumanId'>;
 
@@ -32,8 +34,19 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
   const [feedings, setFeedings] = useState<FeedingEntry[]>(initial?.feedings ?? []);
   const [behaviorNotes, setBehaviorNotes] = useState(initial?.behaviorNotes ?? '');
   const [rescueOrg, setRescueOrg] = useState(initial?.rescueOrg ?? '');
-  const [emergencyContact, setEmergencyContact] = useState(initial?.emergencyContact ?? '');
-  const [homeAddress, setHomeAddress] = useState(initial?.homeAddress ?? '');
+  const [emergencyContact, setEmergencyContact] = useState<EmergencyContact>(() => {
+    const raw = initial?.emergencyContact;
+    if (raw && typeof raw === 'object' && 'name' in raw) return raw as EmergencyContact;
+    // Migrate old string format: put it in name field
+    if (typeof raw === 'string' && raw) return { name: raw, countryCode: '+1', phone: '' };
+    return { name: '', countryCode: '+1', phone: '' };
+  });
+  const [homeLocation, setHomeLocation] = useState<HomeLocation>(() => {
+    const raw = initial?.homeAddress;
+    if (raw && typeof raw === 'object' && 'address' in raw) return raw as HomeLocation;
+    if (typeof raw === 'string') return { address: raw };
+    return { address: '' };
+  });
   const [submitting, setSubmitting] = useState(false);
 
   const defaultQrVisibility = {
@@ -56,8 +69,8 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
       feedings: feedings.filter(f => f.time).length > 0 ? feedings.filter(f => f.time) : undefined,
       behaviorNotes: behaviorNotes || undefined,
       rescueOrg: rescueOrg || undefined,
-      emergencyContact: emergencyContact || undefined,
-      homeAddress: homeAddress || undefined,
+      emergencyContact: (emergencyContact.name || emergencyContact.phone) ? emergencyContact : undefined,
+      homeAddress: homeLocation.address ? homeLocation : undefined,
       qrPublic: initial?.qrPublic ?? false,
       qrVisibility: initial?.qrVisibility ?? defaultQrVisibility,
     };
@@ -177,14 +190,8 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
           <Label htmlFor="rescueOrg">Rescue Organization</Label>
           <Input id="rescueOrg" value={rescueOrg} onChange={e => setRescueOrg(e.target.value)} placeholder="e.g. Happy Paws Rescue" />
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="emergencyContact">Emergency Contact</Label>
-          <Input id="emergencyContact" value={emergencyContact} onChange={e => setEmergencyContact(e.target.value)} placeholder="Name and phone number" />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="homeAddress">Home Address</Label>
-          <Input id="homeAddress" value={homeAddress} onChange={e => setHomeAddress(e.target.value)} placeholder="Street address" />
-        </div>
+        <EmergencyContactInput value={emergencyContact} onChange={setEmergencyContact} />
+        <AddressLocationPicker value={homeLocation} onChange={setHomeLocation} />
       </div>
 
       <Separator />
