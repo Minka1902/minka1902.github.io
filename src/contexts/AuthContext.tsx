@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import {
   onAuthStateChanged, signInWithEmailAndPassword,
   createUserWithEmailAndPassword, signOut, updateProfile,
+  signInWithPopup, GoogleAuthProvider,
   type User as FirebaseUser,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -14,6 +15,7 @@ interface AuthContextValue {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, displayName: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -59,6 +61,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(profile);
   };
 
+  const loginWithGoogle = async () => {
+    const provider = new GoogleAuthProvider();
+    const { user: fbUser } = await signInWithPopup(auth, provider);
+    setFirebaseUser(fbUser);
+    const snap = await getDoc(doc(db, 'users', fbUser.uid));
+    if (snap.exists()) {
+      setUser(snap.data() as UserProfile);
+    } else {
+      const now = Date.now();
+      const profile: UserProfile = {
+        uid: fbUser.uid,
+        email: fbUser.email ?? '',
+        displayName: fbUser.displayName ?? fbUser.email?.split('@')[0] ?? 'User',
+        photoURL: fbUser.photoURL ?? undefined,
+        createdAt: now,
+        updatedAt: now,
+      };
+      await setDoc(doc(db, 'users', fbUser.uid), profile);
+      setUser(profile);
+    }
+  };
+
   const logout = async () => {
     await signOut(auth);
     setUser(null);
@@ -66,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, firebaseUser, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, firebaseUser, loading, login, register, loginWithGoogle, logout }}>
       {children}
     </AuthContext.Provider>
   );
