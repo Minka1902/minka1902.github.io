@@ -26,17 +26,20 @@ export default function QuickAddPopover({ anchorY, clickedTimeStr, dogId, dayIdx
   const handleSave = async () => {
     if (!selectedType) return;
     setSaving(true);
-    await logRoutine(selectedType, notes ? { notes } : {});
-    if (addToBase) {
-      const key = makeSlotKey(dayIdx, clickedTimeStr);
-      await saveBase({ ...baseSlots, [key]: selectedType });
+    try {
+      await logRoutine(selectedType, notes ? { notes } : {});
+      if (addToBase) {
+        const key = makeSlotKey(dayIdx, clickedTimeStr);
+        await saveBase({ ...baseSlots, [key]: selectedType });
+      }
+      onClose();
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    onClose();
   };
 
   // Keep popover within viewport height
-  const top = Math.min(anchorY, (typeof window !== 'undefined' ? window.innerHeight : 800) - 280);
+  const top = Math.max(8, Math.min(anchorY, window.innerHeight - 280));
 
   return (
     <>
@@ -48,16 +51,17 @@ export default function QuickAddPopover({ anchorY, clickedTimeStr, dogId, dayIdx
       >
         <div className="flex items-center justify-between mb-3">
           <p className="text-sm font-semibold">Log at {clickedTimeStr}</p>
-          <button onClick={onClose} className="p-1 rounded-lg text-muted-foreground hover:text-foreground transition-colors">
+          <button onClick={onClose} aria-label="Close" className="p-1 rounded-lg text-muted-foreground hover:text-foreground transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         <div className="flex flex-wrap gap-1.5 mb-3">
-          {QUICK_LOG_TYPES.map(({ type, icon, color }) => (
+          {QUICK_LOG_TYPES.map(({ type, icon, color, label }) => (
             <button
               key={type}
               onClick={() => setSelectedType(type as RoutineType)}
+              aria-label={label}
               className={cn(
                 'flex items-center justify-center w-9 h-9 rounded-xl border text-lg transition-all',
                 selectedType === type
@@ -68,7 +72,6 @@ export default function QuickAddPopover({ anchorY, clickedTimeStr, dogId, dayIdx
                 ? { backgroundColor: color + '18', borderColor: color, color }
                 : undefined
               }
-              title={type}
             >
               {icon}
             </button>
