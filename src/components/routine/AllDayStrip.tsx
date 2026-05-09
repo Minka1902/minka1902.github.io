@@ -21,7 +21,7 @@ export default function AllDayStrip({ events }: Props) {
               border: `1px solid ${meta.color}30`,
             }}
           >
-            {meta.icon} {evt.record.title}
+            <span aria-hidden="true">{meta.icon}</span> {evt.record.title}
           </span>
         );
       })}

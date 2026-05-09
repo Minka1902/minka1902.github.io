@@ -25,3 +25,8 @@ it('calls onDelete when delete button is clicked', () => {
   fireEvent.click(screen.getByLabelText('Delete'));
   expect(onDelete).toHaveBeenCalledTimes(1);
 });
+
+it('does not render delete button when onDelete is not provided', () => {
+  render(<TimelineBlock {...base} kind="standalone-log" />);
+  expect(screen.queryByLabelText('Delete')).toBeNull();
+});

@@ -27,6 +27,7 @@ export default function TimelineBlock({
   kind, icon, color, label, sublabel, statusBadge,
   top, height, onDelete, draggable, onDragStart,
 }: Props) {
+  // both kinds share the same muted/dashed visual treatment
   const isPending = kind === 'base-pending' || kind === 'scheduled-log';
 
   return (
