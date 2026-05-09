@@ -9,6 +9,7 @@ export function useHumans(dogId: string) {
   const [humans, setHumans] = useState<DogHuman[]>([]);
 
   useEffect(() => {
+    setHumans([]);
     if (!dogId) return;
     return onSnapshot(humansCol(dogId), snap => {
       setHumans(snap.docs.map(d => ({ ...d.data(), userId: d.id } as DogHuman)));
@@ -29,6 +30,7 @@ export function usePendingHumans(dogId: string) {
   const [pending, setPending] = useState<PendingHuman[]>([]);
 
   useEffect(() => {
+    setPending([]);
     if (!dogId) return;
     return onSnapshot(pendingCol(dogId), snap => {
       setPending(snap.docs.map(d => ({ ...d.data(), userId: d.id } as PendingHuman)));

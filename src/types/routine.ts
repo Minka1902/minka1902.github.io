@@ -19,3 +19,19 @@ export interface RoutineLog {
   foodAmountGrams?: number;
   waterAmountMl?: number;
 }
+
+export type ScheduledLogStatus = 'pending_approval' | 'scheduled' | 'declined' | 'done' | 'skipped';
+
+export interface ScheduledLog {
+  id: string;
+  dogId: string;
+  type: RoutineType;
+  scheduledFor: number;
+  assignedTo: string;
+  assignedToName: string;
+  reason?: string;
+  createdBy: string;
+  createdByName: string;
+  createdAt: number;
+  status: ScheduledLogStatus;
+}

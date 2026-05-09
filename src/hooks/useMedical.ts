@@ -12,6 +12,7 @@ export function useMedical(dogId: string, category: MedicalCategory) {
   const [records, setRecords] = useState<MedicalRecord[]>([]);
 
   useEffect(() => {
+    setRecords([]);
     if (!dogId) return;
     const q = query(medicalCol(dogId, category), orderBy('date', 'desc'));
     return onSnapshot(q, snap => {
@@ -52,6 +53,7 @@ export function useMedicalWindow(dogId: string, startMs: number, endMs: number) 
   const buckets = useState<Map<string, MedicalRecord[]>>(() => new Map())[0];
 
   useEffect(() => {
+    setEvents([]);
     if (!dogId) return;
     buckets.clear();
 
@@ -94,6 +96,7 @@ export function useUpcomingDue(dogId: string) {
   const buckets = useState<Map<string, MedicalRecord[]>>(() => new Map())[0];
 
   useEffect(() => {
+    setDueItems([]);
     if (!dogId) return;
     buckets.clear();
 

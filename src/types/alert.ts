@@ -1,6 +1,6 @@
 export type AlertType =
   | 'walk_overdue' | 'no_water_logged' | 'vaccine_due' | 'medication_due'
-  | 'flea_tick_due' | 'deworming_due' | 'pending_approval'
+  | 'flea_tick_due' | 'deworming_due' | 'pending_approval' | 'scheduled_approval_needed'
   | 'tracker_battery_low' | 'tracker_disconnected';
 
 export type AlertSeverity = 'info' | 'warning' | 'critical';
