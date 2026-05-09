@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom';
-import { PawPrint, PlusCircle, Search, Pencil } from 'lucide-react';
+import { PawPrint, PlusCircle, Search } from 'lucide-react';
 import { useDog } from '@/contexts/DogContext';
 import QuickLogBar from '@/components/routine/QuickLogBar';
 import RoutineTimeline from '@/components/routine/RoutineTimeline';
 import DayRecapStrip from '@/components/routine/DayRecapStrip';
-import LabDog from '@/components/dog/LabDog';
+import DogOverviewCard from '@/components/dog/DogOverviewCard';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -56,65 +56,8 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-5 max-w-2xl">
-      {/* ── Dog hero header ── */}
-      <div
-        className="relative overflow-hidden rounded-2xl px-5 pt-4 pb-0"
-        style={{
-          background: 'linear-gradient(135deg, var(--sidebar) 0%, oklch(0.18 0.018 50) 100%)',
-          minHeight: 148,
-        }}
-      >
-        {/* Dot overlay */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            backgroundImage: 'radial-gradient(circle, oklch(1 0 0 / 0.04) 1px, transparent 1px)',
-            backgroundSize: '20px 20px',
-          }}
-        />
-
-        <div className="relative flex items-end justify-between gap-2">
-          {/* Text + edit */}
-          <div className="pb-5 flex-1 min-w-0">
-            <p className="text-[10px] uppercase tracking-[0.14em] mb-1" style={{ color: 'oklch(1 0 0 / 35%)' }}>
-              Active dog
-            </p>
-            <h1
-              className="text-4xl capitalize leading-none truncate"
-              style={{
-                fontFamily: 'var(--font-heading)',
-                fontVariationSettings: "'SOFT' 20, 'WONK' 0",
-                color: 'oklch(0.92 0.010 72)',
-                letterSpacing: '-0.03em',
-              }}
-            >
-              {activeDog.name}
-            </h1>
-            {activeDog.breed && (
-              <p className="text-sm mt-1.5" style={{ color: 'oklch(1 0 0 / 40%)' }}>
-                {activeDog.breed}{activeDog.isMix ? ' mix' : ''}
-              </p>
-            )}
-            <Link
-              to={`/dogs/${activeDog.id}/edit`}
-              className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90 active:scale-95"
-              style={{
-                backgroundColor: 'oklch(1 0 0 / 9%)',
-                color: 'oklch(1 0 0 / 60%)',
-                border: '1px solid oklch(1 0 0 / 10%)',
-              }}
-            >
-              <Pencil className="h-3 w-3" />
-              Edit profile
-            </Link>
-          </div>
-
-          {/* 3D Labrador — sits at bottom-right of hero */}
-          <div className="shrink-0 self-end" style={{ marginBottom: -2 }}>
-            <LabDog size={118} />
-          </div>
-        </div>
-      </div>
+      {/* ── Dog overview ── */}
+      <DogOverviewCard dog={activeDog} />
 
       {/* ── Yesterday's recap ── */}
       <DayRecapStrip dogId={activeDog.id} />
