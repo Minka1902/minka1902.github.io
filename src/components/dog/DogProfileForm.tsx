@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Trash2 } from 'lucide-react';
 import { useDogActions } from '@/hooks/useDog';
+import { useOrg } from '@/contexts/OrgContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,6 +24,7 @@ interface Props {
 
 export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
   const { createDog, updateDog } = useDogActions();
+  const { orgs } = useOrg();
   const navigate = useNavigate();
   const [name, setName] = useState(initial?.name ?? '');
   const [breed, setBreed] = useState(initial?.breed ?? '');
@@ -34,10 +36,10 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
   const [feedings, setFeedings] = useState<FeedingEntry[]>(initial?.feedings ?? []);
   const [behaviorNotes, setBehaviorNotes] = useState(initial?.behaviorNotes ?? '');
   const [rescueOrg, setRescueOrg] = useState(initial?.rescueOrg ?? '');
+  const [orgId, setOrgId] = useState(initial?.orgId ?? '');
   const [emergencyContact, setEmergencyContact] = useState<EmergencyContact>(() => {
     const raw = initial?.emergencyContact;
     if (raw && typeof raw === 'object' && 'name' in raw) return raw as EmergencyContact;
-    // Migrate old string format: put it in name field
     if (typeof raw === 'string' && raw) return { name: raw, countryCode: '+1', phone: '' };
     return { name: '', countryCode: '+1', phone: '' };
   });
@@ -69,6 +71,7 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
       feedings: feedings.filter(f => f.time).length > 0 ? feedings.filter(f => f.time) : undefined,
       behaviorNotes: behaviorNotes || undefined,
       rescueOrg: rescueOrg || undefined,
+      orgId: orgId || undefined,
       emergencyContact: (emergencyContact.name || emergencyContact.phone) ? emergencyContact : undefined,
       homeAddress: homeLocation.address ? homeLocation : undefined,
       qrPublic: initial?.qrPublic ?? false,
@@ -187,9 +190,28 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
       <div className="space-y-4">
         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Contact & Organization</p>
         <div className="space-y-1.5">
-          <Label htmlFor="rescueOrg">Rescue Organization</Label>
+          <Label htmlFor="rescueOrg">Rescue Organization (free text)</Label>
           <Input id="rescueOrg" value={rescueOrg} onChange={e => setRescueOrg(e.target.value)} placeholder="e.g. Happy Paws Rescue" />
         </div>
+        {orgs.length > 0 && (
+          <div className="space-y-1.5">
+            <Label>Link to Organization</Label>
+            <Select value={orgId} onValueChange={v => setOrgId(v ?? '')}>
+              <SelectTrigger>
+                <SelectValue placeholder="None" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">None</SelectItem>
+                {orgs.map(o => (
+                  <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Org members will automatically see this dog.
+            </p>
+          </div>
+        )}
         <EmergencyContactInput value={emergencyContact} onChange={setEmergencyContact} />
         <AddressLocationPicker value={homeLocation} onChange={setHomeLocation} />
       </div>
