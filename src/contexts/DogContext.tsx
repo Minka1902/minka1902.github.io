@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
+import { useOrg } from '@/contexts/OrgContext';
 import type { Dog } from '@/types';
 
 const ACTIVE_DOG_KEY = 'packops_active_dog_id';
@@ -18,10 +19,12 @@ const DogContext = createContext<DogContextValue | null>(null);
 
 export function DogProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const { orgIds } = useOrg();
   const [dogs, setDogs] = useState<Dog[]>([]);
   const [activeDog, setActiveDogState] = useState<Dog | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Queries 1 & 2: dogs by mainHumanId and memberUserIds
   useEffect(() => {
     if (!user) {
       setDogs([]);
@@ -34,37 +37,38 @@ export function DogProvider({ children }: { children: ReactNode }) {
     let mainDogs: Dog[] = [];
     let memberDogs: Dog[] = [];
 
-    const flush = (main: Dog[], member: Dog[]) => {
-      const seen = new Set<string>();
-      const combined = [...main, ...member].filter(d => {
-        if (seen.has(d.id)) return false;
-        seen.add(d.id);
-        return true;
+    const flush = () => {
+      setDogs(prev => {
+        const seen = new Set<string>();
+        // Keep org dogs from current state, merge with fresh main+member
+        const orgDogs = prev.filter(d => d.orgId && !mainDogs.find(m => m.id === d.id) && !memberDogs.find(m => m.id === d.id));
+        const combined = [...mainDogs, ...memberDogs, ...orgDogs].filter(d => {
+          if (seen.has(d.id)) return false;
+          seen.add(d.id);
+          return true;
+        });
+        setActiveDogState(a => {
+          if (a && combined.find(d => d.id === a.id)) return combined.find(d => d.id === a.id)!;
+          return combined.find(d => d.id === storedId) ?? combined[0] ?? null;
+        });
+        return combined;
       });
-      setDogs(combined);
       setLoading(false);
-      setActiveDogState(prev => {
-        if (prev && combined.find(d => d.id === prev.id)) return combined.find(d => d.id === prev.id)!;
-        return combined.find(d => d.id === storedId) ?? combined[0] ?? null;
-      });
     };
 
-    // 1. Dogs where user is main human
     const mainUnsub = onSnapshot(
       query(collection(db, 'dogs'), where('mainHumanId', '==', user.uid)),
       snap => {
         mainDogs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Dog));
-        flush(mainDogs, memberDogs);
+        flush();
       }
     );
 
-    // 2. Dogs where user is an approved member (stored on the dog doc itself)
-    //    No collectionGroup index needed — simple array-contains query.
     const memberUnsub = onSnapshot(
       query(collection(db, 'dogs'), where('memberUserIds', 'array-contains', user.uid)),
       snap => {
         memberDogs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Dog));
-        flush(mainDogs, memberDogs);
+        flush();
       }
     );
 
@@ -73,6 +77,34 @@ export function DogProvider({ children }: { children: ReactNode }) {
       memberUnsub();
     };
   }, [user]);
+
+  // Query 3: dogs belonging to orgs the user is a member/admin of
+  useEffect(() => {
+    if (!user || orgIds.length === 0) return;
+
+    // Firestore 'in' supports up to 30 values
+    const unsub = onSnapshot(
+      query(collection(db, 'dogs'), where('orgId', 'in', orgIds)),
+      snap => {
+        const orgDogs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Dog));
+        setDogs(prev => {
+          const seen = new Set<string>();
+          const combined = [...prev.filter(d => !d.orgId || orgIds.includes(d.orgId ?? '')), ...orgDogs].filter(d => {
+            if (seen.has(d.id)) return false;
+            seen.add(d.id);
+            return true;
+          });
+          setActiveDogState(a => {
+            if (a && combined.find(d => d.id === a.id)) return combined.find(d => d.id === a.id)!;
+            return a;
+          });
+          return combined;
+        });
+      }
+    );
+
+    return () => unsub();
+  }, [user, orgIds]);
 
   const setActiveDog = (dog: Dog) => {
     setActiveDogState(dog);

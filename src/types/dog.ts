@@ -28,6 +28,7 @@ export interface Dog {
   emergencyContact?: string;
   homeAddress?: string;
   mainHumanId: string;
+  orgId?: string;
   qrPublic: boolean;
   qrVisibility: QRVisibilityConfig;
   createdAt: number;
