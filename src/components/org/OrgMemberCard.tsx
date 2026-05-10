@@ -10,14 +10,18 @@ const STAFF_ROLE_LABELS: Record<string, string> = {
 
 interface Props {
   member: OrgMember;
-  canManage?: boolean;
+  isHead?: boolean;          // this member IS the org head
+  currentUserIsHead?: boolean; // the viewing user is the org head
+  canManage?: boolean;       // viewing user is admin (can remove staff, manage dogs)
   isCurrentUser?: boolean;
   onRemove?: (userId: string) => void;
-  onPromote?: (userId: string) => void;
-  onDemote?: (userId: string) => void;
+  onPromote?: (userId: string) => void; // head-only: promote staff → admin
+  onDemote?: (userId: string) => void;  // head-only: demote admin → staff
 }
 
-export default function OrgMemberCard({ member, canManage, isCurrentUser, onRemove, onPromote, onDemote }: Props) {
+export default function OrgMemberCard({
+  member, isHead, currentUserIsHead, canManage, isCurrentUser, onRemove, onPromote, onDemote,
+}: Props) {
   return (
     <div className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3 group">
       <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary shrink-0">
@@ -33,19 +37,21 @@ export default function OrgMemberCard({ member, canManage, isCurrentUser, onRemo
           <p className="text-xs text-muted-foreground">{STAFF_ROLE_LABELS[member.staffRole] ?? member.staffRole}</p>
         )}
       </div>
-      <OrgRoleBadge role={member.role} />
-      {canManage && !isCurrentUser && (
+      <OrgRoleBadge role={member.role} isHead={isHead} />
+      {!isCurrentUser && !isHead && (
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          {member.role === 'staff' && onPromote && (
+          {/* Head-only: promote staff → admin */}
+          {currentUserIsHead && member.role === 'staff' && onPromote && (
             <button
               onClick={() => onPromote(member.userId)}
-              className="p-1 rounded text-muted-foreground hover:text-amber-600"
-              title="Promote to leader"
+              className="p-1 rounded text-muted-foreground hover:text-violet-600"
+              title="Promote to admin"
             >
               <ShieldCheck className="h-3.5 w-3.5" />
             </button>
           )}
-          {member.role === 'leader' && onDemote && (
+          {/* Head-only: demote admin → staff */}
+          {currentUserIsHead && member.role === 'admin' && onDemote && (
             <button
               onClick={() => onDemote(member.userId)}
               className="p-1 rounded text-muted-foreground hover:text-sky-600"
@@ -54,7 +60,8 @@ export default function OrgMemberCard({ member, canManage, isCurrentUser, onRemo
               <ShieldMinus className="h-3.5 w-3.5" />
             </button>
           )}
-          {onRemove && (
+          {/* Admins can remove staff; head can remove admins too */}
+          {onRemove && (canManage && member.role === 'staff' || currentUserIsHead) && (
             <button
               onClick={() => onRemove(member.userId)}
               className="p-1 rounded text-muted-foreground hover:text-destructive"

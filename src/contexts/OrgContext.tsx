@@ -9,7 +9,8 @@ interface OrgContextValue {
   orgIds: string[];
   activeOrg: Organization | null;
   setActiveOrg: (org: Organization) => void;
-  isOrgLeader: (orgId: string) => boolean;
+  isOrgHead: (orgId: string) => boolean;
+  isOrgAdmin: (orgId: string) => boolean;
   loading: boolean;
 }
 
@@ -29,12 +30,12 @@ export function OrgProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    let leaderOrgs: Organization[] = [];
+    let adminOrgs: Organization[] = [];
     let staffOrgs: Organization[] = [];
 
-    const flush = (leader: Organization[], staff: Organization[]) => {
+    const flush = (admin: Organization[], staff: Organization[]) => {
       const seen = new Set<string>();
-      const combined = [...leader, ...staff].filter(o => {
+      const combined = [...admin, ...staff].filter(o => {
         if (seen.has(o.id)) return false;
         seen.add(o.id);
         return true;
@@ -49,11 +50,11 @@ export function OrgProvider({ children }: { children: ReactNode }) {
       });
     };
 
-    const leaderUnsub = onSnapshot(
-      query(orgsCol(), where('leaderUserIds', 'array-contains', user.uid)),
+    const adminUnsub = onSnapshot(
+      query(orgsCol(), where('adminUserIds', 'array-contains', user.uid)),
       snap => {
-        leaderOrgs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Organization));
-        flush(leaderOrgs, staffOrgs);
+        adminOrgs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Organization));
+        flush(adminOrgs, staffOrgs);
       }
     );
 
@@ -61,23 +62,26 @@ export function OrgProvider({ children }: { children: ReactNode }) {
       query(orgsCol(), where('staffUserIds', 'array-contains', user.uid)),
       snap => {
         staffOrgs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Organization));
-        flush(leaderOrgs, staffOrgs);
+        flush(adminOrgs, staffOrgs);
       }
     );
 
     return () => {
-      leaderUnsub();
+      adminUnsub();
       staffUnsub();
     };
   }, [user]);
 
   const orgIds = useMemo(() => orgs.map(o => o.id), [orgs]);
 
-  const isOrgLeader = (orgId: string) =>
-    user ? (orgs.find(o => o.id === orgId)?.leaderUserIds.includes(user.uid) ?? false) : false;
+  const isOrgHead = (orgId: string) =>
+    user ? (orgs.find(o => o.id === orgId)?.headUserId === user.uid) : false;
+
+  const isOrgAdmin = (orgId: string) =>
+    user ? (orgs.find(o => o.id === orgId)?.adminUserIds.includes(user.uid) ?? false) : false;
 
   return (
-    <OrgContext.Provider value={{ orgs, orgIds, activeOrg, setActiveOrg, isOrgLeader, loading }}>
+    <OrgContext.Provider value={{ orgs, orgIds, activeOrg, setActiveOrg, isOrgHead, isOrgAdmin, loading }}>
       {children}
     </OrgContext.Provider>
   );

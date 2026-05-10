@@ -4,8 +4,8 @@ export type OrgType =
   | 'rescue' | 'shelter' | 'breeder' | 'training'
   | 'daycare' | 'spa' | 'veterinary' | 'boarding' | 'other';
 
-/** 'leader' = can manage org, members, dogs, tasks. 'staff' = operational role. */
-export type OrgMemberRole = 'leader' | 'staff';
+/** 'admin' = can manage members/dogs/tasks. 'staff' = operational role. Head is tracked separately via headUserId. */
+export type OrgMemberRole = 'admin' | 'staff';
 
 export type OrgStaffRole =
   | 'manager' | 'groomer' | 'trainer' | 'walker'
@@ -46,8 +46,10 @@ export interface Organization {
   instagram?: string;
   facebook?: string;
   address?: OrgAddress;
-  /** Users who can manage the org, its members, enrolled dogs, and tasks. */
-  leaderUserIds: string[];
+  /** The org creator (and sole person who can promote/demote admins). */
+  headUserId: string;
+  /** Admins — can manage members, enrolled dogs, and tasks. */
+  adminUserIds: string[];
   /** Operational staff — can view enrolled dogs and complete assigned tasks. */
   staffUserIds: string[];
   createdBy: string;

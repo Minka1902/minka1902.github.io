@@ -220,12 +220,12 @@ function EnrollDogPanel({
 // ─── Dog detail panel ─────────────────────────────────────────────────────────
 
 function DogDetailPanel({
-  orgId, enrollment, members, amLeader, onClose,
+  orgId, enrollment, members, amAdmin, onClose,
 }: {
   orgId: string;
   enrollment: OrgEnrolledDog;
   members: ReturnType<typeof useOrgMembers>['members'];
-  amLeader: boolean;
+  amAdmin: boolean;
   onClose: () => void;
 }) {
   const { assignStaff, unassignStaff, updateEnrollment, updateTags } = useEnrolledDogs(orgId);
@@ -300,7 +300,7 @@ function DogDetailPanel({
       )}
 
       {/* Internal tags */}
-      {amLeader && (
+      {amAdmin && (
         <Card>
           <CardContent className="pt-4 space-y-3">
             <p className="text-sm font-medium">Internal Tags</p>
@@ -343,7 +343,7 @@ function DogDetailPanel({
               </div>
               <span className="flex-1 text-sm">{s.displayName}</span>
               <Badge variant="outline" className="text-[10px]">{s.staffRole}</Badge>
-              {amLeader && (
+              {amAdmin && (
                 <button
                   onClick={() => unassignStaff(enrollment.dogId, s.userId)}
                   className="text-xs text-muted-foreground hover:text-destructive"
@@ -351,7 +351,7 @@ function DogDetailPanel({
               )}
             </div>
           ))}
-          {amLeader && (
+          {amAdmin && (
             <div className="flex gap-2 mt-2">
               <Select value={assignStaffId} onValueChange={setAssignStaffId}>
                 <SelectTrigger className="flex-1 h-8 text-xs"><SelectValue placeholder="Staff member…" /></SelectTrigger>
@@ -375,7 +375,7 @@ function DogDetailPanel({
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold">Tasks</p>
-          {amLeader && (
+          {amAdmin && (
             <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={() => setShowTaskForm(v => !v)}>
               <Plus className="h-3 w-3" />
               Add Task
@@ -400,10 +400,10 @@ function DogDetailPanel({
           <OrgTaskCard
             key={task.id}
             task={task}
-            canManage={amLeader}
+            canManage={amAdmin}
             isMine={task.assignedTo === user?.uid}
             onStatusChange={updateTaskStatus}
-            onDelete={amLeader ? deleteTask : undefined}
+            onDelete={amAdmin ? deleteTask : undefined}
           />
         ))}
       </div>
@@ -484,7 +484,7 @@ export default function OrgDetailPage() {
   const { orgId } = useParams<{ orgId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { orgs, isOrgLeader } = useOrg();
+  const { orgs, isOrgHead, isOrgAdmin } = useOrg();
 
   const [org, setOrg] = useState<Organization | null>(null);
   const [orgLoading, setOrgLoading] = useState(true);
@@ -494,11 +494,12 @@ export default function OrgDetailPage() {
   const [showGlobalTaskForm, setShowGlobalTaskForm] = useState(false);
 
   const id = orgId ?? '';
-  const amLeader = isOrgLeader(id);
+  const amHead = isOrgHead(id);
+  const amAdmin = isOrgAdmin(id); // true for head too (head is always in adminUserIds)
 
   const { members } = useOrgMembers(id);
   const { pending, approveMember, rejectMember } = useOrgPendingMembers(id);
-  const { inviteMember, removeMember, promoteToLeader, demoteToStaff } = useOrgActions(id);
+  const { inviteMember, removeMember, promoteToAdmin, demoteToStaff } = useOrgActions(id);
   const { enrolled, checkIn, checkOut } = useEnrolledDogs(id);
   const { tasks, createTask, updateTaskStatus, deleteTask } = useOrgTasks(id);
 
@@ -506,7 +507,7 @@ export default function OrgDetailPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResult, setSearchResult] = useState<UserProfile | null | 'not-found'>(null);
   const [searching, setSearching] = useState(false);
-  const [inviteRole, setInviteRole] = useState<'staff' | 'leader'>('staff');
+  const [inviteRole, setInviteRole] = useState<'staff' | 'admin'>('staff');
   const [inviteStaffRole, setInviteStaffRole] = useState<OrgStaffRole>('groomer');
   const [inviting, setInviting] = useState(false);
   const [invited, setInvited] = useState<string | null>(null);
@@ -561,7 +562,7 @@ export default function OrgDetailPage() {
           orgId={id}
           enrollment={selectedEnrollment}
           members={members}
-          amLeader={amLeader}
+          amAdmin={amAdmin}
           onClose={() => setSelectedDogId(null)}
         />
       </div>
@@ -583,14 +584,15 @@ export default function OrgDetailPage() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-bold tracking-tight">{org.name}</h1>
-            {amLeader && <Badge className="bg-amber-100 text-amber-800 border-amber-200">Leader</Badge>}
+            {amHead && <Badge className="bg-amber-100 text-amber-900 border-amber-300">Head</Badge>}
+            {!amHead && amAdmin && <Badge className="bg-violet-100 text-violet-800 border-violet-200">Admin</Badge>}
             {org.type && <Badge variant="outline">{TYPE_LABELS[org.type] ?? org.type}</Badge>}
           </div>
           {org.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{org.description}</p>}
           <div className="flex items-center gap-3 mt-1.5 flex-wrap text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <Users className="h-3 w-3" />
-              {org.staffUserIds.length + org.leaderUserIds.length} members
+              {org.staffUserIds.length + org.adminUserIds.length} members
             </span>
             <span className="flex items-center gap-1">
               <PawPrint className="h-3 w-3" />
@@ -603,7 +605,7 @@ export default function OrgDetailPage() {
             )}
           </div>
         </div>
-        {amLeader && (
+        {amAdmin && (
           <Link to={`/orgs/${id}/settings`} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'gap-1.5 shrink-0')}>
             <Settings className="h-3.5 w-3.5" />
             Settings
@@ -623,13 +625,13 @@ export default function OrgDetailPage() {
           </TabsTrigger>
           <TabsTrigger value="overview">Info</TabsTrigger>
           <TabsTrigger value="staff">
-            Staff {pending.length > 0 && amLeader ? `(${pending.length}★)` : ''}
+            Staff {pending.length > 0 && amAdmin ? `(${pending.length}★)` : ''}
           </TabsTrigger>
         </TabsList>
 
         {/* ── Roster tab ── */}
         <TabsContent value="roster" className="space-y-4 mt-4">
-          {amLeader && (
+          {amAdmin && (
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">{checkedInCount} of {enrolled.length} dogs in facility</p>
               <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={() => setShowEnrollForm(v => !v)}>
@@ -648,7 +650,7 @@ export default function OrgDetailPage() {
               <PawPrint className="h-8 w-8 text-muted-foreground" />
               <div className="text-center">
                 <p className="font-medium text-sm">No dogs enrolled yet</p>
-                {amLeader && <p className="text-sm text-muted-foreground mt-1">Use "Enroll Dog" to add client dogs.</p>}
+                {amAdmin && <p className="text-sm text-muted-foreground mt-1">Use "Enroll Dog" to add client dogs.</p>}
               </div>
             </div>
           ) : (
@@ -661,7 +663,7 @@ export default function OrgDetailPage() {
                     <EnrolledDogCard
                       key={e.dogId}
                       enrollment={e}
-                      canManage={amLeader}
+                      canManage={amAdmin}
                       onCheckIn={checkIn}
                       onCheckOut={checkOut}
                       onSelect={setSelectedDogId}
@@ -678,7 +680,7 @@ export default function OrgDetailPage() {
                     <EnrolledDogCard
                       key={e.dogId}
                       enrollment={e}
-                      canManage={amLeader}
+                      canManage={amAdmin}
                       onCheckIn={checkIn}
                       onCheckOut={checkOut}
                       onSelect={setSelectedDogId}
@@ -693,7 +695,7 @@ export default function OrgDetailPage() {
                     <EnrolledDogCard
                       key={e.dogId}
                       enrollment={e}
-                      canManage={amLeader}
+                      canManage={amAdmin}
                       onCheckIn={checkIn}
                       onCheckOut={checkOut}
                       onSelect={setSelectedDogId}
@@ -722,7 +724,7 @@ export default function OrgDetailPage() {
                 </button>
               ))}
             </div>
-            {amLeader && (
+            {amAdmin && (
               <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={() => setShowGlobalTaskForm(v => !v)}>
                 <Plus className="h-3 w-3" />
                 Add Task
@@ -752,10 +754,10 @@ export default function OrgDetailPage() {
                 <OrgTaskCard
                   key={task.id}
                   task={task}
-                  canManage={amLeader}
+                  canManage={amAdmin}
                   isMine={task.assignedTo === user?.uid}
                   onStatusChange={updateTaskStatus}
-                  onDelete={amLeader ? deleteTask : undefined}
+                  onDelete={amAdmin ? deleteTask : undefined}
                 />
               ))}
             </div>
@@ -824,7 +826,7 @@ export default function OrgDetailPage() {
         {/* ── Staff tab ── */}
         <TabsContent value="staff" className="space-y-4 mt-4">
           {/* Invite panel (leaders only) */}
-          {amLeader && (
+          {amAdmin && (
             <Card>
               <CardContent className="pt-4 space-y-3">
                 <p className="text-sm font-medium">Add Staff Member</p>
@@ -860,11 +862,11 @@ export default function OrgDetailPage() {
                       ) : (
                         <div className="space-y-2">
                           <div className="flex gap-2">
-                            <Select value={inviteRole} onValueChange={v => setInviteRole(v as 'staff' | 'leader')}>
+                            <Select value={inviteRole} onValueChange={v => setInviteRole(v as 'staff' | 'admin')}>
                               <SelectTrigger className="w-28 h-8 text-xs"><SelectValue /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="staff">Staff</SelectItem>
-                                <SelectItem value="leader">Leader</SelectItem>
+                                {amHead && <SelectItem value="admin">Admin</SelectItem>}
                               </SelectContent>
                             </Select>
                             {inviteRole === 'staff' && (
@@ -889,7 +891,7 @@ export default function OrgDetailPage() {
           )}
 
           {/* Pending requests */}
-          {amLeader && pending.length > 0 && (
+          {amAdmin && pending.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-amber-500" />
@@ -920,11 +922,13 @@ export default function OrgDetailPage() {
                 <OrgMemberCard
                   key={m.userId}
                   member={m}
-                  canManage={amLeader}
+                  isHead={m.userId === org?.headUserId}
+                  currentUserIsHead={amHead}
+                  canManage={amAdmin}
                   isCurrentUser={m.userId === user?.uid}
-                  onRemove={amLeader ? removeMember : undefined}
-                  onPromote={amLeader ? promoteToLeader : undefined}
-                  onDemote={amLeader ? demoteToStaff : undefined}
+                  onRemove={amAdmin ? removeMember : undefined}
+                  onPromote={amHead ? promoteToAdmin : undefined}
+                  onDemote={amHead ? demoteToStaff : undefined}
                 />
               ))
             )}

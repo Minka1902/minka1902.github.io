@@ -67,7 +67,7 @@ export function useOrgPendingMembers(orgId: string) {
     }));
     batch.delete(doc(db, 'organizations', orgId, 'pendingMembers', userId));
     await batch.commit();
-    const field = role === 'leader' ? 'leaderUserIds' : 'staffUserIds';
+    const field = role === 'admin' ? 'adminUserIds' : 'staffUserIds';
     await updateDoc(doc(db, 'organizations', orgId), { [field]: arrayUnion(userId), updatedAt: Date.now() });
   };
 
@@ -87,7 +87,7 @@ export function useOrgActions(orgId: string) {
     await updateDoc(doc(db, 'organizations', orgId), stripUndefined({ ...data, updatedAt: Date.now() }));
   };
 
-  /** Leader directly adds a user as staff (skipping pending). */
+  /** Admin directly adds a user (skipping pending). Only head should pass role='admin'. */
   const inviteMember = async (
     userId: string, displayName: string, email: string,
     role: OrgMemberRole = 'staff', staffRole?: OrgStaffRole
@@ -97,7 +97,7 @@ export function useOrgActions(orgId: string) {
       userId, displayName, email, role, staffRole, joinedAt: Date.now(), invitedBy: user!.uid,
     }));
     await batch.commit();
-    const field = role === 'leader' ? 'leaderUserIds' : 'staffUserIds';
+    const field = role === 'admin' ? 'adminUserIds' : 'staffUserIds';
     await updateDoc(doc(db, 'organizations', orgId), { [field]: arrayUnion(userId), updatedAt: Date.now() });
   };
 
@@ -105,25 +105,27 @@ export function useOrgActions(orgId: string) {
     await deleteDoc(doc(db, 'organizations', orgId, 'members', userId));
     await updateDoc(doc(db, 'organizations', orgId), {
       staffUserIds: arrayRemove(userId),
-      leaderUserIds: arrayRemove(userId),
+      adminUserIds: arrayRemove(userId),
       updatedAt: Date.now(),
     });
   };
 
-  const promoteToLeader = async (userId: string) => {
-    await updateDoc(doc(db, 'organizations', orgId, 'members', userId), { role: 'leader' });
+  /** Head-only: promote a staff member to admin. */
+  const promoteToAdmin = async (userId: string) => {
+    await updateDoc(doc(db, 'organizations', orgId, 'members', userId), { role: 'admin' });
     await updateDoc(doc(db, 'organizations', orgId), {
-      leaderUserIds: arrayUnion(userId),
+      adminUserIds: arrayUnion(userId),
       staffUserIds: arrayRemove(userId),
       updatedAt: Date.now(),
     });
   };
 
+  /** Head-only: demote an admin back to staff. */
   const demoteToStaff = async (userId: string) => {
     await updateDoc(doc(db, 'organizations', orgId, 'members', userId), { role: 'staff' });
     await updateDoc(doc(db, 'organizations', orgId), {
       staffUserIds: arrayUnion(userId),
-      leaderUserIds: arrayRemove(userId),
+      adminUserIds: arrayRemove(userId),
       updatedAt: Date.now(),
     });
   };
@@ -147,7 +149,7 @@ export function useOrgActions(orgId: string) {
     await batch.commit();
   };
 
-  return { updateOrg, inviteMember, removeMember, promoteToLeader, demoteToStaff, updateStaffRole, deleteOrg };
+  return { updateOrg, inviteMember, removeMember, promoteToAdmin, demoteToStaff, updateStaffRole, deleteOrg };
 }
 
 // ─── Dog enrollment ───────────────────────────────────────────────────────────
@@ -359,12 +361,13 @@ export function useCreateOrg() {
   const { user } = useAuth();
 
   const createOrg = async (
-    data: Omit<Organization, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'leaderUserIds' | 'staffUserIds'>
+    data: Omit<Organization, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'headUserId' | 'adminUserIds' | 'staffUserIds'>
   ): Promise<string> => {
     const now = Date.now();
     const ref = await addDoc(orgsCol(), stripUndefined({
       ...data,
-      leaderUserIds: [user!.uid],
+      headUserId: user!.uid,
+      adminUserIds: [user!.uid],
       staffUserIds: [],
       createdBy: user!.uid,
       createdAt: now,
@@ -374,7 +377,7 @@ export function useCreateOrg() {
       userId: user!.uid,
       displayName: user!.displayName,
       email: user!.email,
-      role: 'leader',
+      role: 'admin',
       joinedAt: now,
     });
     return ref.id;

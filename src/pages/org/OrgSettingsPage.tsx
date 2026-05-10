@@ -11,7 +11,7 @@ import type { Organization } from '@/types';
 export default function OrgSettingsPage() {
   const { orgId } = useParams<{ orgId: string }>();
   const navigate = useNavigate();
-  const { orgs, isOrgLeader } = useOrg();
+  const { orgs, isOrgAdmin, isOrgHead } = useOrg();
 
   const [org, setOrg] = useState<Organization | null>(null);
   const [orgLoading, setOrgLoading] = useState(true);
@@ -19,7 +19,8 @@ export default function OrgSettingsPage() {
 
   const id = orgId ?? '';
   const { updateOrg, deleteOrg } = useOrgActions(id);
-  const amLeader = isOrgLeader(id);
+  const amAdmin = isOrgAdmin(id);
+  const amHead = isOrgHead(id);
 
   useEffect(() => {
     if (!id) return;
@@ -29,7 +30,7 @@ export default function OrgSettingsPage() {
   }, [id, orgs]);
 
   if (orgLoading) return <div className="text-muted-foreground p-8">Loading…</div>;
-  if (!org || !amLeader) return <div className="text-muted-foreground p-8">Not authorized.</div>;
+  if (!org || !amAdmin) return <div className="text-muted-foreground p-8">Not authorized.</div>;
 
   const handleSave = async (fields: OrgFormFields) => {
     setSaving(true);
@@ -88,23 +89,25 @@ export default function OrgSettingsPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-destructive/30">
-        <CardHeader><CardTitle className="text-destructive">Danger Zone</CardTitle></CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Delete Organization</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Permanently removes the org, all members, enrolled dogs, tasks and reports.
-              </p>
+      {amHead && (
+        <Card className="border-destructive/30">
+          <CardHeader><CardTitle className="text-destructive">Danger Zone</CardTitle></CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Delete Organization</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Permanently removes the org, all members, enrolled dogs, tasks and reports.
+                </p>
+              </div>
+              <Button variant="destructive" size="sm" onClick={handleDeleteOrg} className="gap-1.5 shrink-0">
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete
+              </Button>
             </div>
-            <Button variant="destructive" size="sm" onClick={handleDeleteOrg} className="gap-1.5 shrink-0">
-              <Trash2 className="h-3.5 w-3.5" />
-              Delete
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -17,7 +17,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 export default function OrgCard({ org, isLeader }: Props) {
   const initials = org.name.slice(0, 2).toUpperCase();
-  const memberCount = org.staffUserIds.length + org.leaderUserIds.length;
+  const memberCount = org.staffUserIds.length + org.adminUserIds.length;
 
   return (
     <Link to={`/orgs/${org.id}`}>
@@ -33,7 +33,7 @@ export default function OrgCard({ org, isLeader }: Props) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="font-semibold truncate">{org.name}</p>
-              {isLeader && <Badge variant="outline" className="text-xs bg-amber-100 text-amber-800 border-amber-200">Leader</Badge>}
+              {isLeader && <Badge variant="outline" className="text-xs bg-violet-100 text-violet-800 border-violet-200">Admin</Badge>}
             </div>
             <div className="flex items-center gap-3 mt-0.5">
               {org.type && <span className="text-xs text-muted-foreground">{TYPE_LABELS[org.type] ?? org.type}</span>}
