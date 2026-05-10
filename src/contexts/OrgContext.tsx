@@ -9,7 +9,7 @@ interface OrgContextValue {
   orgIds: string[];
   activeOrg: Organization | null;
   setActiveOrg: (org: Organization) => void;
-  isOrgAdmin: (orgId: string) => boolean;
+  isOrgLeader: (orgId: string) => boolean;
   loading: boolean;
 }
 
@@ -29,12 +29,12 @@ export function OrgProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    let adminOrgs: Organization[] = [];
-    let memberOrgs: Organization[] = [];
+    let leaderOrgs: Organization[] = [];
+    let staffOrgs: Organization[] = [];
 
-    const flush = (admin: Organization[], member: Organization[]) => {
+    const flush = (leader: Organization[], staff: Organization[]) => {
       const seen = new Set<string>();
-      const combined = [...admin, ...member].filter(o => {
+      const combined = [...leader, ...staff].filter(o => {
         if (seen.has(o.id)) return false;
         seen.add(o.id);
         return true;
@@ -49,35 +49,35 @@ export function OrgProvider({ children }: { children: ReactNode }) {
       });
     };
 
-    const adminUnsub = onSnapshot(
-      query(orgsCol(), where('adminUserIds', 'array-contains', user.uid)),
+    const leaderUnsub = onSnapshot(
+      query(orgsCol(), where('leaderUserIds', 'array-contains', user.uid)),
       snap => {
-        adminOrgs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Organization));
-        flush(adminOrgs, memberOrgs);
+        leaderOrgs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Organization));
+        flush(leaderOrgs, staffOrgs);
       }
     );
 
-    const memberUnsub = onSnapshot(
-      query(orgsCol(), where('memberUserIds', 'array-contains', user.uid)),
+    const staffUnsub = onSnapshot(
+      query(orgsCol(), where('staffUserIds', 'array-contains', user.uid)),
       snap => {
-        memberOrgs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Organization));
-        flush(adminOrgs, memberOrgs);
+        staffOrgs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Organization));
+        flush(leaderOrgs, staffOrgs);
       }
     );
 
     return () => {
-      adminUnsub();
-      memberUnsub();
+      leaderUnsub();
+      staffUnsub();
     };
   }, [user]);
 
   const orgIds = useMemo(() => orgs.map(o => o.id), [orgs]);
 
-  const isOrgAdmin = (orgId: string) =>
-    user ? (orgs.find(o => o.id === orgId)?.adminUserIds.includes(user.uid) ?? false) : false;
+  const isOrgLeader = (orgId: string) =>
+    user ? (orgs.find(o => o.id === orgId)?.leaderUserIds.includes(user.uid) ?? false) : false;
 
   return (
-    <OrgContext.Provider value={{ orgs, orgIds, activeOrg, setActiveOrg, isOrgAdmin, loading }}>
+    <OrgContext.Provider value={{ orgs, orgIds, activeOrg, setActiveOrg, isOrgLeader, loading }}>
       {children}
     </OrgContext.Provider>
   );

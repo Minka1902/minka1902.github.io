@@ -6,21 +6,18 @@ import type { Organization } from '@/types';
 
 interface Props {
   org: Organization;
-  isAdmin?: boolean;
+  isLeader?: boolean;
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  rescue: 'Rescue',
-  shelter: 'Shelter',
-  breeder: 'Breeder',
-  training: 'Training',
-  daycare: 'Daycare',
-  other: 'Other',
+  rescue: 'Rescue', shelter: 'Shelter', breeder: 'Breeder',
+  training: 'Training', daycare: 'Daycare', spa: 'Spa',
+  veterinary: 'Veterinary', boarding: 'Boarding', other: 'Other',
 };
 
-export default function OrgCard({ org, isAdmin }: Props) {
+export default function OrgCard({ org, isLeader }: Props) {
   const initials = org.name.slice(0, 2).toUpperCase();
-  const memberCount = org.memberUserIds.length + org.adminUserIds.length;
+  const memberCount = org.staffUserIds.length + org.leaderUserIds.length;
 
   return (
     <Link to={`/orgs/${org.id}`}>
@@ -36,12 +33,10 @@ export default function OrgCard({ org, isAdmin }: Props) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="font-semibold truncate">{org.name}</p>
-              {isAdmin && <Badge variant="outline" className="text-xs bg-amber-100 text-amber-800 border-amber-200">Admin</Badge>}
+              {isLeader && <Badge variant="outline" className="text-xs bg-amber-100 text-amber-800 border-amber-200">Leader</Badge>}
             </div>
             <div className="flex items-center gap-3 mt-0.5">
-              {org.type && (
-                <span className="text-xs text-muted-foreground">{TYPE_LABELS[org.type] ?? org.type}</span>
-              )}
+              {org.type && <span className="text-xs text-muted-foreground">{TYPE_LABELS[org.type] ?? org.type}</span>}
               <span className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Users className="h-3 w-3" />
                 {memberCount}
