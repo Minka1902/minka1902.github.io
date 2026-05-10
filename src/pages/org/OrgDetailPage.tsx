@@ -4,7 +4,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
   Building2, Settings, Users, PawPrint, Globe, Mail, Phone,
-  Instagram, Facebook, MapPin, Clock, Search, Plus, ClipboardList,
+  ExternalLink, MapPin, Clock, Search, Plus, ClipboardList,
 } from 'lucide-react';
 import { useOrg } from '@/contexts/OrgContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -789,13 +789,13 @@ export default function OrgDetailPage() {
                 )}
                 {org.instagram && (
                   <div className="flex items-center gap-2 text-sm">
-                    <Instagram className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span>{org.instagram}</span>
                   </div>
                 )}
                 {org.facebook && (
                   <div className="flex items-center gap-2 text-sm">
-                    <Facebook className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span>{org.facebook}</span>
                   </div>
                 )}
