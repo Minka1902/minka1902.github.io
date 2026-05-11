@@ -26,12 +26,13 @@ export function useRoutine(dogId: string) {
     });
   }, [dogId]);
 
-  const logRoutine = async (type: RoutineType, extras: Partial<RoutineLog> = {}) => {
-    await addDoc(routinesCol(dogId), stripUndefined({
+  const logRoutine = async (type: RoutineType, extras: Partial<RoutineLog> = {}): Promise<string> => {
+    const ref = await addDoc(routinesCol(dogId), stripUndefined({
       dogId, type, timestamp: Date.now(),
       loggedBy: user!.uid, loggedByName: user!.displayName,
       source: 'manual', ...extras,
     }));
+    return ref.id;
   };
 
   const deleteLog = async (logId: string) => {

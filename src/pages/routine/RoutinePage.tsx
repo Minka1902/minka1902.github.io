@@ -2,19 +2,22 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, addDays, startOfWeek, addWeeks, isSameDay } from 'date-fns';
 import { ChevronLeft, ChevronRight, CalendarRange, Check, X, Clock, CalendarPlus } from 'lucide-react';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { useDog } from '@/contexts/DogContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useRoutine, useRoutineWindow } from '@/hooks/useRoutine';
 import { useMedicalWindow } from '@/hooks/useMedical';
 import { useScheduledLogs, useScheduledLogsWindow } from '@/hooks/useScheduledLogs';
 import { useBaseRoutine } from '@/hooks/useBaseRoutine';
-import { ROUTINE_TYPES, QUICK_LOG_TYPES, PEE_COLOR, POOP_COLOR, MEDICAL_CATEGORY_META } from '@/lib/constants';
+import { ROUTINE_TYPES, QUICK_LOG_TYPES, PEE_COLOR, POOP_COLOR, MEDICAL_CATEGORY_META, MEDICAL_CATEGORIES } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import BaseRoutineForm from '@/components/routine/BaseRoutineForm';
 import DayTimeline from '@/components/routine/DayTimeline';
 import ScheduleLogSheet from '@/components/routine/ScheduleLogSheet';
 import type { RoutineLog, ScheduledLog } from '@/types';
 import type { MedicalCalendarEvent } from '@/hooks/useMedical';
+import type { MedicalRecord } from '@/types';
 
 const DAY_ABBR = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -95,9 +98,9 @@ export default function RoutinePage() {
   const windowLogs    = useRoutineWindow(activeDog?.id ?? '', windowStart, windowEnd);
   const medicalEvents = useMedicalWindow(activeDog?.id ?? '', windowStart, windowEnd);
   const scheduledLogs = useScheduledLogsWindow(activeDog?.id ?? '', windowStart, windowEnd);
-  const { logs: allScheduledLogs, createScheduledLog, approveScheduledLog, declineScheduledLog, deleteScheduledLog } = useScheduledLogs(activeDog?.id ?? '');
+  const { logs: allScheduledLogs, createScheduledLog, approveScheduledLog, declineScheduledLog, completeScheduledLog, deleteScheduledLog } = useScheduledLogs(activeDog?.id ?? '');
   const { deleteLog, logRoutine } = useRoutine(activeDog?.id ?? '');
-  const { slots: baseSlots } = useBaseRoutine(activeDog?.id ?? '');
+  const { slots: baseSlots, save: saveBaseSlots } = useBaseRoutine(activeDog?.id ?? '');
 
   const isLead = activeDog ? isMainHuman(activeDog.id) : false;
 
@@ -108,6 +111,18 @@ export default function RoutinePage() {
   );
 
   useEffect(() => { if (showCustomLog) customInputRef.current?.focus(); }, [showCustomLog]);
+
+  const handleConfirmScheduled = async (log: ScheduledLog) => {
+    await completeScheduledLog(log.id);
+    await logRoutine(log.type, { timestamp: log.scheduledFor });
+  };
+
+  const handleConfirmMedical = async (event: MedicalCalendarEvent) => {
+    const r = event.record as MedicalRecord;
+    const colName = MEDICAL_CATEGORIES.find(c => c.category === r.category)?.collectionName;
+    if (!colName || !activeDog) return;
+    await updateDoc(doc(db, 'dogs', activeDog.id, colName, r.id), { date: Date.now(), updatedAt: Date.now() });
+  };
 
   const handleSaveCustom = async () => {
     const label = customLabel.trim();
@@ -415,12 +430,16 @@ export default function RoutinePage() {
         selectedDate={selectedDate}
         isToday={isSameDay(selectedDate, today)}
         baseSlots={baseSlots}
+        allBaseSlots={baseSlots}
+        onSaveBaseSlots={saveBaseSlots}
         logs={selectedDayLogs}
         scheduledLogs={[...selectedDayScheduled, ...selectedDayPending]}
         medicalEvents={selectedDayMedical}
         dogId={activeDog.id}
         onLogDeleted={deleteLog}
         onScheduledLogDeleted={deleteScheduledLog}
+        onScheduledLogConfirmed={handleConfirmScheduled}
+        onMedicalConfirmed={handleConfirmMedical}
       />
     </div>
   );

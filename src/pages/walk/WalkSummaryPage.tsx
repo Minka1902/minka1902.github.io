@@ -73,14 +73,14 @@ export default function WalkSummaryPage() {
   const handleSave = async () => {
     setSaving(true);
     const now = Date.now();
-    await logRoutine('walk', {
+    const walkId = await logRoutine('walk', {
       walkDurationMin: Math.round(elapsedSeconds / 60 * 10) / 10,
       walkDistanceKm: parseFloat(distanceKm.toFixed(3)),
       walkAvgSpeedKmh: parseFloat(avgSpeedKmh.toFixed(2)),
       timestamp: now,
     });
-    if (peed) await logRoutine('pee', { timestamp: now });
-    if (pooped) await logRoutine('poop', { timestamp: now });
+    if (peed)   await logRoutine('pee',  { timestamp: now, parentLogId: walkId });
+    if (pooped) await logRoutine('poop', { timestamp: now, parentLogId: walkId });
     navigate('/routine', { replace: true });
   };
 

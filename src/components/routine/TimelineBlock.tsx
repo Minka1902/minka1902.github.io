@@ -1,4 +1,3 @@
-import { Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type BlockKind = 'base-pending' | 'base-completed' | 'standalone-log' | 'scheduled-log';
@@ -9,6 +8,14 @@ export interface StatusBadge {
   fg: string;
 }
 
+const GUTTER_PX = 48;
+const RIGHT_PX  = 8;
+
+export interface SubLogChip {
+  type: 'pee' | 'poop';
+  icon: string;
+}
+
 interface Props {
   kind: BlockKind;
   icon: string;
@@ -16,35 +23,45 @@ interface Props {
   label: string;
   sublabel?: string;
   statusBadge?: StatusBadge;
+  subLogs?: SubLogChip[];
   top: number;
   height: number;
-  onDelete?: () => void;
+  col?: number;
+  totalCols?: number;
+  onClick?: () => void;
   draggable?: boolean;
   onDragStart?: (e: React.DragEvent) => void;
 }
 
 export default function TimelineBlock({
-  kind, icon, color, label, sublabel, statusBadge,
-  top, height, onDelete, draggable, onDragStart,
+  kind, icon, color, label, sublabel, statusBadge, subLogs,
+  top, height, col = 0, totalCols = 1, onClick, draggable, onDragStart,
 }: Props) {
-  // both kinds share the same muted/dashed visual treatment
   const isPending = kind === 'base-pending' || kind === 'scheduled-log';
+
+  const trackExpr = `(100% - ${GUTTER_PX + RIGHT_PX}px)`;
+  const leftStyle  = `calc(${GUTTER_PX}px + ${col / totalCols} * ${trackExpr})`;
+  const widthStyle = `calc(${trackExpr} / ${totalCols} - ${totalCols > 1 ? 2 : 0}px)`;
 
   return (
     <div
       className={cn(
-        'absolute left-12 right-2 rounded-lg px-2 py-1 group select-none',
+        'absolute rounded-lg px-2 py-1 select-none',
         isPending ? 'opacity-60' : 'opacity-100',
-        draggable && 'cursor-grab active:cursor-grabbing',
+        onClick && 'cursor-pointer hover:brightness-95 transition-[filter]',
+        draggable && !onClick && 'cursor-grab active:cursor-grabbing',
       )}
       style={{
         top,
         height,
+        left: leftStyle,
+        width: widthStyle,
         backgroundColor: color + (isPending ? '10' : '1a'),
         border: `1.5px ${isPending ? 'dashed' : 'solid'} ${color}${isPending ? '40' : '70'}`,
       }}
       draggable={draggable}
       onDragStart={onDragStart}
+      onClick={onClick}
     >
       <div className="flex items-start gap-1.5 h-full overflow-hidden">
         <span className="text-sm shrink-0 leading-none mt-0.5">{icon}</span>
@@ -61,16 +78,12 @@ export default function TimelineBlock({
               {statusBadge.label}
             </span>
           )}
+          {subLogs && subLogs.length > 0 && (
+            <span className="text-[11px] leading-none mt-0.5 opacity-80">
+              {subLogs.map(s => s.icon).join('')}
+            </span>
+          )}
         </div>
-        {onDelete && (
-          <button
-            onClick={e => { e.stopPropagation(); onDelete(); }}
-            className="opacity-0 group-hover:opacity-100 shrink-0 p-0.5 rounded text-muted-foreground hover:text-destructive transition-all mt-0.5"
-            aria-label="Delete"
-          >
-            <Trash2 className="h-3 w-3" />
-          </button>
-        )}
       </div>
     </div>
   );

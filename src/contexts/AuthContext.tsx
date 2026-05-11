@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useMemo, useCallback, type ReactNode } from 'react';
 import {
   onAuthStateChanged, signInWithEmailAndPassword,
   createUserWithEmailAndPassword, signOut, updateProfile,
@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     const normalizedEmail = email.trim().toLowerCase();
     const { user: fbUser } = await signInWithEmailAndPassword(auth, normalizedEmail, password);
     setFirebaseUser(fbUser);
@@ -49,9 +49,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (snap.exists()) {
       setUser(snap.data() as UserProfile);
     }
-  };
+  }, []);
 
-  const register = async (email: string, password: string, displayName: string) => {
+  const register = useCallback(async (email: string, password: string, displayName: string) => {
     const normalizedEmail = email.trim().toLowerCase();
     const { user: fbUser } = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
     await updateProfile(fbUser, { displayName });
@@ -59,9 +59,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const profile: UserProfile = { uid: fbUser.uid, email: normalizedEmail, displayName, createdAt: now, updatedAt: now };
     await setDoc(doc(db, 'users', fbUser.uid), profile);
     setUser(profile);
-  };
+  }, []);
 
-  const loginWithGoogle = async () => {
+  const loginWithGoogle = useCallback(async () => {
     const provider = new GoogleAuthProvider();
     const { user: fbUser } = await signInWithPopup(auth, provider);
     setFirebaseUser(fbUser);
@@ -81,16 +81,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await setDoc(doc(db, 'users', fbUser.uid), profile);
       setUser(profile);
     }
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     await signOut(auth);
     setUser(null);
     setFirebaseUser(null);
-  };
+  }, []);
+
+  const value = useMemo(
+    () => ({ user, firebaseUser, loading, login, register, loginWithGoogle, logout }),
+    [user, firebaseUser, loading, login, register, loginWithGoogle, logout],
+  );
 
   return (
-    <AuthContext.Provider value={{ user, firebaseUser, loading, login, register, loginWithGoogle, logout }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

@@ -69,7 +69,23 @@
       "PowerShell(Get-Content *)",
       "mcp__ide__getDiagnostics",
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\User\\\\Desktop\\\\dev\\\\pack-ops\\\\PackOps\" -Force | Format-Table Name, @{Name=\"Type\"; Expression={if\\($_.PSIsContainer\\){\"DIR\"}else{\"FILE\"}}} -AutoSize)",
-      "Bash(npx firebase-tools *)"
+      "Bash(npx firebase-tools *)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('Name:', d.get\\('name'\\)\\); print\\('Deps:', list\\(d.get\\('dependencies',{}\\).keys\\(\\)\\)[:20]\\)\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\User\\\\Desktop\\\\dev\\\\pack-ops\\\\PackOps\\\\src\" -Recurse -Filter \"*.ts\")",
+      "Bash(Select-Object FullName)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\User\\\\Desktop\\\\dev\\\\pack-ops\\\\PackOps\\\\src\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "Bash(dir C:\\\\Users\\\\User\\\\Desktop\\\\dev\\\\pack-ops\\\\PackOps\\\\src\\\\components\\\\routine *)",
+      "Bash(dir C:\\\\Users\\\\User\\\\Desktop\\\\dev\\\\pack-ops\\\\PackOps\\\\src\\\\lib *)",
+      "Bash(dir C:\\\\Users\\\\User\\\\Desktop\\\\dev\\\\pack-ops\\\\PackOps\\\\src\\\\components\\\\routine\\\\__tests__ *)",
+      "Bash(findstr *)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); deps={**d.get\\('dependencies',{}\\),**d.get\\('devDependencies',{}\\)}; print\\('\\\\n'.join\\(sorted\\(deps.keys\\(\\)\\)\\)\\)\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\User\\\\Desktop\\\\dev\\\\pack-ops\\\\PackOps\" -Recurse -Name)",
+      "Bash(Select-Object -First 50)",
+      "Bash(xargs wc -l)",
+      "Bash(xargs ls -lh)",
+      "Bash(awk '{print $9, $5}')"
     ]
   }
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { addDoc, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { addDoc, getDocs, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { medicalCol } from '@/lib/firestore';
 import { useAuth } from '@/hooks/useAuth';
@@ -47,20 +47,27 @@ export interface MedicalCalendarEvent {
   eventDate: number;
 }
 
-// Returns medical events whose administered date OR next-due date falls within the window
+// Returns medical events whose administered date OR next-due date falls within the window.
+// Uses getDocs (one-shot) instead of onSnapshot — medical records don't change in real-time
+// while the user is viewing the timeline, so 7 persistent listeners are unnecessary.
 export function useMedicalWindow(dogId: string, startMs: number, endMs: number) {
   const [events, setEvents] = useState<MedicalCalendarEvent[]>([]);
-  const buckets = useState<Map<string, MedicalRecord[]>>(() => new Map())[0];
 
   useEffect(() => {
-    setEvents([]);
     if (!dogId) return;
-    buckets.clear();
+    let cancelled = false;
+    setEvents([]);
 
-    const flush = () => {
+    Promise.all(
+      MEDICAL_CATEGORIES.map(({ category }) =>
+        getDocs(query(medicalCol(dogId, category), orderBy('date', 'desc')))
+      )
+    ).then(snaps => {
+      if (cancelled) return;
       const result: MedicalCalendarEvent[] = [];
-      for (const records of buckets.values()) {
-        for (const r of records) {
+      for (const snap of snaps) {
+        for (const d of snap.docs) {
+          const r = { id: d.id, ...d.data() } as MedicalRecord;
           if (r.date >= startMs && r.date <= endMs) {
             result.push({ record: r, eventType: 'administered', eventDate: r.date });
           }
@@ -71,20 +78,9 @@ export function useMedicalWindow(dogId: string, startMs: number, endMs: number) 
       }
       result.sort((a, b) => a.eventDate - b.eventDate);
       setEvents(result);
-    };
+    });
 
-    const unsubs = MEDICAL_CATEGORIES.map(({ category }) =>
-      onSnapshot(
-        query(medicalCol(dogId, category), orderBy('date', 'desc')),
-        snap => {
-          buckets.set(category, snap.docs.map(d => ({ id: d.id, ...d.data() } as MedicalRecord)));
-          flush();
-        }
-      )
-    );
-
-    return () => unsubs.forEach(u => u());
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => { cancelled = true; };
   }, [dogId, startMs, endMs]);
 
   return events;
@@ -92,20 +88,24 @@ export function useMedicalWindow(dogId: string, startMs: number, endMs: number) 
 
 export function useUpcomingDue(dogId: string) {
   const [dueItems, setDueItems] = useState<MedicalRecord[]>([]);
-  // useRef to accumulate live snapshots from all 7 categories
-  const buckets = useState<Map<string, MedicalRecord[]>>(() => new Map())[0];
 
   useEffect(() => {
-    setDueItems([]);
     if (!dogId) return;
-    buckets.clear();
+    let cancelled = false;
+    setDueItems([]);
 
-    const flush = () => {
-      const thirtyDaysFromNow = Date.now() + 30 * 24 * 60 * 60 * 1000;
+    const thirtyDaysFromNow = Date.now() + 30 * 24 * 60 * 60 * 1000;
+
+    Promise.all(
+      MEDICAL_CATEGORIES.map(({ category }) =>
+        getDocs(query(medicalCol(dogId, category), orderBy('date', 'desc')))
+      )
+    ).then(snaps => {
+      if (cancelled) return;
       const items: MedicalRecord[] = [];
-      for (const records of buckets.values()) {
-        for (const r of records) {
-          // Include overdue + due today + due within 30 days
+      for (const snap of snaps) {
+        for (const d of snap.docs) {
+          const r = { id: d.id, ...d.data() } as MedicalRecord;
           if (r.nextDueDate !== undefined && r.nextDueDate <= thirtyDaysFromNow) {
             items.push(r);
           }
@@ -113,20 +113,9 @@ export function useUpcomingDue(dogId: string) {
       }
       items.sort((a, b) => (a.nextDueDate ?? 0) - (b.nextDueDate ?? 0));
       setDueItems(items);
-    };
+    });
 
-    const unsubs = MEDICAL_CATEGORIES.map(({ category }) =>
-      onSnapshot(
-        query(medicalCol(dogId, category), orderBy('date', 'desc')),
-        snap => {
-          buckets.set(category, snap.docs.map(d => ({ id: d.id, ...d.data() } as MedicalRecord)));
-          flush();
-        }
-      )
-    );
-
-    return () => unsubs.forEach(u => u());
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => { cancelled = true; };
   }, [dogId]);
 
   return dueItems;

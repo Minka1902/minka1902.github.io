@@ -3,7 +3,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { Settings } from 'lucide-react';
 import { format } from 'date-fns';
 import { db } from '@/lib/firebase';
-import { useBaseRoutine, makeSlotKey } from '@/hooks/useBaseRoutine';
+import { makeSlotKey } from '@/hooks/useBaseRoutine';
 import { ROUTINE_TYPES, PEE_COLOR, POOP_COLOR } from '@/lib/constants';
 import { fmtTime } from '@/lib/utils';
 import {
@@ -13,21 +13,29 @@ import {
 import TimelineBlock from './TimelineBlock';
 import AllDayStrip from './AllDayStrip';
 import QuickAddPopover from './QuickAddPopover';
+import LogDetailSheet from './LogDetailSheet';
 import type { RoutineLog, ScheduledLog } from '@/types';
+import type { LogSelection } from './LogDetailSheet';
 import type { BaseRoutineSlots } from '@/hooks/useBaseRoutine';
 import type { MedicalCalendarEvent } from '@/hooks/useMedical';
-import type { StatusBadge } from './TimelineBlock';
+import type { StatusBadge, SubLogChip } from './TimelineBlock';
+
+type SaveBaseSlots = (slots: BaseRoutineSlots) => Promise<void>;
 
 export interface DayTimelineProps {
   selectedDate: Date;
   isToday: boolean;
   baseSlots: BaseRoutineSlots;
-  logs: RoutineLog[];              // for selected day, ascending by timestamp
-  scheduledLogs: ScheduledLog[];   // for selected day (non-declined)
+  allBaseSlots: BaseRoutineSlots;
+  onSaveBaseSlots: SaveBaseSlots;
+  logs: RoutineLog[];
+  scheduledLogs: ScheduledLog[];
   medicalEvents: MedicalCalendarEvent[];
   dogId: string;
   onLogDeleted: (id: string) => void;
   onScheduledLogDeleted: (id: string) => void;
+  onScheduledLogConfirmed?: (log: ScheduledLog) => void;
+  onMedicalConfirmed?: (event: MedicalCalendarEvent) => void;
 }
 
 function getRoutineMeta(type: string, customLabel?: string) {
@@ -39,6 +47,40 @@ function getRoutineMeta(type: string, customLabel?: string) {
     color: rt?.color ?? '#F59E0B',
     label: type === 'custom' && customLabel ? customLabel : (rt?.label ?? type),
   };
+}
+
+interface BlockLayoutInfo { id: string; top: number; bottom: number; }
+
+function computeColumns(blocks: BlockLayoutInfo[]): Map<string, { col: number; totalCols: number }> {
+  if (!blocks.length) return new Map();
+  const sorted = [...blocks].sort((a, b) => a.top - b.top);
+
+  // Group into clusters (connected components of overlapping blocks)
+  const clusters: BlockLayoutInfo[][] = [];
+  let group = [sorted[0]];
+  let groupEnd = sorted[0].bottom;
+  for (let i = 1; i < sorted.length; i++) {
+    const b = sorted[i];
+    if (b.top < groupEnd) { group.push(b); groupEnd = Math.max(groupEnd, b.bottom); }
+    else { clusters.push(group); group = [b]; groupEnd = b.bottom; }
+  }
+  clusters.push(group);
+
+  const result = new Map<string, { col: number; totalCols: number }>();
+  for (const cluster of clusters) {
+    if (cluster.length === 1) { result.set(cluster[0].id, { col: 0, totalCols: 1 }); continue; }
+    const colEnds: number[] = [];
+    const assignments = new Map<string, number>();
+    for (const b of cluster) {
+      let c = colEnds.findIndex(end => b.top >= end);
+      if (c === -1) c = colEnds.length;
+      colEnds[c] = b.bottom;
+      assignments.set(b.id, c);
+    }
+    const totalCols = colEnds.length;
+    for (const [id, col] of assignments) result.set(id, { col, totalCols });
+  }
+  return result;
 }
 
 function weekdayIdx(date: Date): number {
@@ -62,8 +104,9 @@ function scheduledLogBadge(log: ScheduledLog): StatusBadge {
 const BLOCK_MIN_HEIGHT = 32; // px — visually equivalent to 30 min
 
 export default function DayTimeline({
-  selectedDate, isToday, baseSlots, logs, scheduledLogs,
-  medicalEvents, dogId, onLogDeleted, onScheduledLogDeleted,
+  selectedDate, isToday, baseSlots, allBaseSlots, onSaveBaseSlots,
+  logs, scheduledLogs, medicalEvents, dogId, onLogDeleted, onScheduledLogDeleted,
+  onScheduledLogConfirmed, onMedicalConfirmed,
 }: DayTimelineProps) {
   const [timeRange, setTimeRange]       = useState(loadTimeRange);
   const [showSettings, setShowSettings] = useState(false);
@@ -72,9 +115,9 @@ export default function DayTimeline({
   const [showBottomFade, setShowBottomFade] = useState(true);
   const [quickAdd, setQuickAdd]         = useState<{ anchorY: number; timeStr: string } | null>(null);
   const [draggingId, setDraggingId]     = useState<string | null>(null);
+  const [selectedLog, setSelectedLog]   = useState<LogSelection | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { slots: currentBaseSlots, save: saveBase } = useBaseRoutine(dogId);
 
   const { startHour, endHour } = timeRange;
   const totalHours  = endHour - startHour;
@@ -86,6 +129,62 @@ export default function DayTimeline({
     () => matchSlotsToLogs(baseSlots, logs, dayIdx, startMs),
     [baseSlots, logs, dayIdx, startMs],
   );
+
+  // Build the set of walk log IDs that appear on this day (slot-matched or standalone)
+  const walkLogIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const slot of slotEvents) { if (slot.log) ids.add(slot.log.id); }
+    for (const log of standaloneLogs) { ids.add(log.id); }
+    return ids;
+  }, [slotEvents, standaloneLogs]);
+
+  // Map parentLogId → pee/poop sub-logs; only when the parent exists on this day
+  const subLogsByParentId = useMemo(() => {
+    const map = new Map<string, RoutineLog[]>();
+    for (const log of standaloneLogs) {
+      if (log.parentLogId && (log.type === 'pee' || log.type === 'poop') && walkLogIds.has(log.parentLogId)) {
+        const arr = map.get(log.parentLogId) ?? [];
+        arr.push(log);
+        map.set(log.parentLogId, arr);
+      }
+    }
+    return map;
+  }, [standaloneLogs, walkLogIds]);
+
+  // Remove pee/poop sub-logs from the displayed standalone list
+  const displayedStandaloneLogs = useMemo(() =>
+    standaloneLogs.filter(l => !(l.parentLogId && (l.type === 'pee' || l.type === 'poop') && walkLogIds.has(l.parentLogId))),
+    [standaloneLogs, walkLogIds],
+  );
+
+  function buildSubLogChips(logId: string): SubLogChip[] {
+    return (subLogsByParentId.get(logId) ?? []).map(sl => ({
+      type: sl.type as 'pee' | 'poop',
+      icon: sl.type === 'pee' ? '🌿' : '💩',
+    }));
+  }
+
+  const columnLayout = useMemo(() => {
+    const items: BlockLayoutInfo[] = [];
+    for (const slot of slotEvents) {
+      const completed = !!slot.log;
+      const top = completed
+        ? (() => { const d = new Date(slot.log!.timestamp); return minutesToPx(d.getHours() * 60 + d.getMinutes(), startHour); })()
+        : minutesToPx(slot.minutesFromMidnight, startHour);
+      items.push({ id: slot.slotKey, top, bottom: top + BLOCK_MIN_HEIGHT });
+    }
+    for (const log of displayedStandaloneLogs) {
+      const d = new Date(log.timestamp);
+      const top = minutesToPx(d.getHours() * 60 + d.getMinutes(), startHour);
+      items.push({ id: log.id, top, bottom: top + BLOCK_MIN_HEIGHT });
+    }
+    for (const log of scheduledLogs) {
+      const d = new Date(log.scheduledFor);
+      const top = minutesToPx(d.getHours() * 60 + d.getMinutes(), startHour);
+      items.push({ id: log.id, top, bottom: top + BLOCK_MIN_HEIGHT });
+    }
+    return computeColumns(items);
+  }, [slotEvents, displayedStandaloneLogs, scheduledLogs, startHour]);
 
   // Scroll to current time on mount (today only)
   useEffect(() => {
@@ -169,14 +268,14 @@ export default function DayTimeline({
     } else if (payload.kind === 'scheduled') {
       await updateDoc(doc(db, 'dogs', dogId, 'scheduledLogs', payload.id), { scheduledFor: newMs });
     } else if (payload.kind === 'base' && payload.slotKey) {
-      const type = currentBaseSlots[payload.slotKey];
+      const type = allBaseSlots[payload.slotKey];
       if (!type) return;
-      const updated = { ...currentBaseSlots };
+      const updated = { ...allBaseSlots };
       delete updated[payload.slotKey];
       updated[makeSlotKey(dayIdx, newTimeStr)] = type;
-      await saveBase(updated); // updates recurring weekly schedule for this weekday
+      await onSaveBaseSlots(updated);
     }
-  }, [startHour, startMs, dayIdx, dogId, currentBaseSlots, saveBase]);
+  }, [startHour, startMs, dayIdx, dogId, allBaseSlots, onSaveBaseSlots]);
 
   const hours = Array.from({ length: totalHours + 1 }, (_, i) => startHour + i);
 
@@ -216,7 +315,16 @@ export default function DayTimeline({
       )}
 
       {/* Medical all-day strip */}
-      <AllDayStrip events={medicalEvents} />
+      <AllDayStrip
+        events={medicalEvents}
+        onEventClick={evt => setSelectedLog({
+          kind: 'medical',
+          event: evt,
+          onConfirm: evt.eventType === 'due' && onMedicalConfirmed
+            ? () => onMedicalConfirmed(evt)
+            : undefined,
+        })}
+      />
 
       {/* Scrollable timeline */}
       <div className="relative flex-1 overflow-hidden min-h-0">
@@ -264,15 +372,21 @@ export default function DayTimeline({
                 style={{ top: minutesToPx(nowMin, startHour) }}
               >
                 <div className="h-2 w-2 rounded-full bg-red-500 shrink-0 -ml-1" />
-                <div className="flex-1 h-px bg-red-500" />
+                <span className="text-[9px] font-bold tabular-nums text-red-500 ml-1 leading-none">
+                  {String(Math.floor(nowMin / 60)).padStart(2, '0')}:{String(nowMin % 60).padStart(2, '0')}
+                </span>
+                <div className="flex-1 h-px bg-red-500 ml-1" />
               </div>
             )}
 
             {/* Base routine slot blocks */}
             {slotEvents.map(slot => {
               const meta = getRoutineMeta(slot.type);
-              const top  = minutesToPx(slot.minutesFromMidnight, startHour);
               const completed = !!slot.log;
+              const top = completed
+                ? (() => { const d = new Date(slot.log!.timestamp); return minutesToPx(d.getHours() * 60 + d.getMinutes(), startHour); })()
+                : minutesToPx(slot.minutesFromMidnight, startHour);
+              const { col, totalCols } = columnLayout.get(slot.slotKey) ?? { col: 0, totalCols: 1 };
 
               return (
                 <div key={slot.slotKey} data-block="" style={{ opacity: draggingId === slot.slotKey ? 0.3 : 1 }}>
@@ -284,7 +398,18 @@ export default function DayTimeline({
                     sublabel={completed ? fmtTime(slot.log!.timestamp) : undefined}
                     top={top}
                     height={BLOCK_MIN_HEIGHT}
-                    onDelete={completed ? () => onLogDeleted(slot.log!.id) : undefined}
+                    col={col}
+                    totalCols={totalCols}
+                    subLogs={completed && slot.log ? buildSubLogChips(slot.log.id) : undefined}
+                    onClick={completed && slot.log ? () => {
+                      const sl = slot.log!;
+                      const subs = subLogsByParentId.get(sl.id);
+                      setSelectedLog({
+                        kind: 'log', log: sl,
+                        subLogs: subs,
+                        onDelete: () => { subs?.forEach(s => onLogDeleted(s.id)); onLogDeleted(sl.id); },
+                      });
+                    } : undefined}
                     draggable
                     onDragStart={e => handleDragStart(e, { kind: 'base', id: slot.slotKey, slotKey: slot.slotKey })}
                   />
@@ -293,10 +418,12 @@ export default function DayTimeline({
             })}
 
             {/* Standalone log blocks */}
-            {standaloneLogs.map(log => {
+            {displayedStandaloneLogs.map(log => {
               const meta = getRoutineMeta(log.type, log.customLabel);
               const d    = new Date(log.timestamp);
               const top  = minutesToPx(d.getHours() * 60 + d.getMinutes(), startHour);
+              const { col, totalCols } = columnLayout.get(log.id) ?? { col: 0, totalCols: 1 };
+              const subs = subLogsByParentId.get(log.id);
 
               return (
                 <div key={log.id} data-block="" style={{ opacity: draggingId === log.id ? 0.3 : 1 }}>
@@ -306,9 +433,15 @@ export default function DayTimeline({
                     color={meta.color}
                     label={meta.label}
                     sublabel={fmtTime(log.timestamp)}
+                    subLogs={subs ? subs.map(s => ({ type: s.type as 'pee' | 'poop', icon: s.type === 'pee' ? '🌿' : '💩' })) : undefined}
                     top={top}
                     height={BLOCK_MIN_HEIGHT}
-                    onDelete={() => onLogDeleted(log.id)}
+                    col={col}
+                    totalCols={totalCols}
+                    onClick={() => setSelectedLog({
+                      kind: 'log', log, subLogs: subs,
+                      onDelete: () => { subs?.forEach(s => onLogDeleted(s.id)); onLogDeleted(log.id); },
+                    })}
                     draggable
                     onDragStart={e => handleDragStart(e, { kind: 'log', id: log.id })}
                   />
@@ -321,6 +454,7 @@ export default function DayTimeline({
               const rt  = ROUTINE_TYPES.find(r => r.type === log.type);
               const d   = new Date(log.scheduledFor);
               const top = minutesToPx(d.getHours() * 60 + d.getMinutes(), startHour);
+              const { col, totalCols } = columnLayout.get(log.id) ?? { col: 0, totalCols: 1 };
 
               return (
                 <div key={log.id} data-block="" style={{ opacity: draggingId === log.id ? 0.3 : 1 }}>
@@ -333,7 +467,16 @@ export default function DayTimeline({
                     statusBadge={scheduledLogBadge(log)}
                     top={top}
                     height={BLOCK_MIN_HEIGHT}
-                    onDelete={() => onScheduledLogDeleted(log.id)}
+                    col={col}
+                    totalCols={totalCols}
+                    onClick={() => setSelectedLog({
+                      kind: 'scheduled',
+                      log,
+                      onDelete: () => onScheduledLogDeleted(log.id),
+                      onConfirm: log.status === 'scheduled' && onScheduledLogConfirmed
+                        ? () => onScheduledLogConfirmed(log)
+                        : undefined,
+                    })}
                     draggable
                     onDragStart={e => handleDragStart(e, { kind: 'scheduled', id: log.id })}
                   />
@@ -354,6 +497,8 @@ export default function DayTimeline({
           onClose={() => setQuickAdd(null)}
         />
       )}
+
+      <LogDetailSheet selection={selectedLog} onClose={() => setSelectedLog(null)} />
     </div>
   );
 }

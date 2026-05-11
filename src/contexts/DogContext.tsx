@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useMemo, useCallback, type ReactNode } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
@@ -106,16 +106,23 @@ export function DogProvider({ children }: { children: ReactNode }) {
     return () => unsub();
   }, [user, orgIds]);
 
-  const setActiveDog = (dog: Dog) => {
+  const setActiveDog = useCallback((dog: Dog) => {
     setActiveDogState(dog);
     localStorage.setItem(ACTIVE_DOG_KEY, dog.id);
-  };
+  }, []);
 
-  const isMainHuman = (dogId: string) =>
-    user ? (dogs.find(d => d.id === dogId)?.mainHumanId === user.uid) : false;
+  const isMainHuman = useCallback(
+    (dogId: string) => user ? (dogs.find(d => d.id === dogId)?.mainHumanId === user.uid) : false,
+    [user, dogs],
+  );
+
+  const value = useMemo(
+    () => ({ dogs, activeDog, setActiveDog, isMainHuman, loading }),
+    [dogs, activeDog, setActiveDog, isMainHuman, loading],
+  );
 
   return (
-    <DogContext.Provider value={{ dogs, activeDog, setActiveDog, isMainHuman, loading }}>
+    <DogContext.Provider value={value}>
       {children}
     </DogContext.Provider>
   );

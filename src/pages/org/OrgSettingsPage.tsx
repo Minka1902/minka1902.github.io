@@ -34,14 +34,15 @@ export default function OrgSettingsPage() {
   const handleSave = async (fields: OrgFormFields) => {
     setSaving(true);
     await updateOrg({
-      name: fields.name,
-      type: fields.type || undefined,
+      name:        fields.name,
+      type:        fields.type        || undefined,
       description: fields.description || undefined,
-      email: fields.email || undefined,
-      phone: fields.phone || undefined,
-      website: fields.website || undefined,
-      instagram: fields.instagram || undefined,
-      facebook: fields.facebook || undefined,
+      logoURL:     fields.logoUrl     || undefined,
+      email:       fields.email       || undefined,
+      phone:       fields.phone       || undefined,
+      website:     fields.website     || undefined,
+      instagram:   fields.instagram   || undefined,
+      facebook:    fields.facebook    || undefined,
       address: (fields.street || fields.city || fields.state || fields.zip || fields.country)
         ? {
             street:  fields.street  || undefined,
@@ -65,6 +66,7 @@ export default function OrgSettingsPage() {
     name:        org.name             ?? '',
     type:        org.type             ?? '',
     description: org.description      ?? '',
+    logoUrl:     org.logoURL          ?? '',
     email:       org.email            ?? '',
     phone:       org.phone            ?? '',
     website:     org.website          ?? '',

@@ -17,10 +17,10 @@ export function useAlerts(dogId: string): Alert[] {
   const { logs: scheduledLogs } = useScheduledLogs(dogId);
   const { user }        = useAuth();
   const { isMainHuman } = useDog();
-  const now = Date.now();
 
   return useMemo(() => {
     if (!dogId) return [];
+    const now = Date.now();
     const alerts: Alert[] = [];
 
     // Walk overdue
@@ -86,5 +86,5 @@ export function useAlerts(dogId: string): Alert[] {
       const order = { critical: 0, warning: 1, info: 2 };
       return order[a.severity] - order[b.severity];
     });
-  }, [todayLogs, dueItems, pending, scheduledLogs, user?.uid, dogId, isMainHuman, now]);
+  }, [todayLogs, dueItems, pending, scheduledLogs, user?.uid, dogId, isMainHuman]);
 }

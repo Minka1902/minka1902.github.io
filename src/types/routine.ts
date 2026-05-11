@@ -11,6 +11,7 @@ export interface RoutineLog {
   source: RoutineSource;
   notes?: string;
   customLabel?: string;
+  parentLogId?: string;
   walkDurationMin?: number;
   walkDistanceKm?: number;
   walkAvgSpeedKmh?: number;

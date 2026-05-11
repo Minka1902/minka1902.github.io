@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, useCallback, type ReactNode } from 'react';
 import { query, where, onSnapshot } from 'firebase/firestore';
 import { orgsCol } from '@/lib/firestore';
 import { useAuth } from '@/hooks/useAuth';
@@ -73,11 +73,18 @@ export function OrgProvider({ children }: { children: ReactNode }) {
 
   const orgIds = useMemo(() => orgs.map(o => o.id), [orgs]);
 
-  const isOrgLeader = (orgId: string) =>
-    user ? (orgs.find(o => o.id === orgId)?.leaderUserIds.includes(user.uid) ?? false) : false;
+  const isOrgLeader = useCallback(
+    (orgId: string) => user ? (orgs.find(o => o.id === orgId)?.leaderUserIds.includes(user.uid) ?? false) : false,
+    [user, orgs],
+  );
+
+  const value = useMemo(
+    () => ({ orgs, orgIds, activeOrg, setActiveOrg, isOrgLeader, loading }),
+    [orgs, orgIds, activeOrg, setActiveOrg, isOrgLeader, loading],
+  );
 
   return (
-    <OrgContext.Provider value={{ orgs, orgIds, activeOrg, setActiveOrg, isOrgLeader, loading }}>
+    <OrgContext.Provider value={value}>
       {children}
     </OrgContext.Provider>
   );
