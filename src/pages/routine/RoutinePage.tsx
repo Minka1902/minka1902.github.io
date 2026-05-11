@@ -1,19 +1,23 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, addDays, startOfWeek, addWeeks, isSameDay } from 'date-fns';
-import { ChevronLeft, ChevronRight, Trash2, CalendarRange, Check, X, Clock, CalendarPlus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarRange, Check, X, Clock, CalendarPlus } from 'lucide-react';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { useDog } from '@/contexts/DogContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useRoutine, useRoutineWindow } from '@/hooks/useRoutine';
 import { useMedicalWindow } from '@/hooks/useMedical';
 import { useScheduledLogs, useScheduledLogsWindow } from '@/hooks/useScheduledLogs';
 import { useBaseRoutine } from '@/hooks/useBaseRoutine';
-import { ROUTINE_TYPES, QUICK_LOG_TYPES, PEE_COLOR, POOP_COLOR, MEDICAL_CATEGORY_META } from '@/lib/constants';
-import { fmtTime, fmtDate, cn } from '@/lib/utils';
+import { ROUTINE_TYPES, QUICK_LOG_TYPES, PEE_COLOR, POOP_COLOR, MEDICAL_CATEGORY_META, MEDICAL_CATEGORIES } from '@/lib/constants';
+import { cn } from '@/lib/utils';
 import BaseRoutineForm from '@/components/routine/BaseRoutineForm';
+import DayTimeline from '@/components/routine/DayTimeline';
 import ScheduleLogSheet from '@/components/routine/ScheduleLogSheet';
 import type { RoutineLog, ScheduledLog } from '@/types';
 import type { MedicalCalendarEvent } from '@/hooks/useMedical';
+import type { MedicalRecord } from '@/types';
 
 const DAY_ABBR = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -23,94 +27,6 @@ function weekdayIdx(date: Date): number {
   return d === 0 ? 6 : d - 1;
 }
 
-function getRoutineMeta(log: RoutineLog) {
-  if (log.type === 'pee')  return { icon: '🌿', color: PEE_COLOR,  label: 'Pee' };
-  if (log.type === 'poop') return { icon: '💩', color: POOP_COLOR, label: 'Poop' };
-  const rt = ROUTINE_TYPES.find(r => r.type === log.type);
-  const label = log.type === 'custom' && log.customLabel ? log.customLabel : (rt?.label ?? log.type);
-  return { icon: rt?.icon ?? '•', color: rt?.color ?? '#F59E0B', label };
-}
-
-function ActivityRow({ log, onDelete }: { log: RoutineLog; onDelete: (id: string) => void }) {
-  const { icon, color, label } = getRoutineMeta(log);
-  const sub = useMemo(() => {
-    const parts: string[] = [];
-    if (log.walkDurationMin) parts.push(`${Math.round(log.walkDurationMin)} min`);
-    if (log.walkDistanceKm) parts.push(`${log.walkDistanceKm.toFixed(2)} km`);
-    if (log.foodType) parts.push(log.foodType);
-    if (log.notes) parts.push(log.notes);
-    return parts.join(' · ');
-  }, [log]);
-
-  return (
-    <div className="group flex items-start gap-3 py-3 border-b border-border/40 last:border-0">
-      <span className="text-[11px] font-medium text-muted-foreground tabular-nums w-14 shrink-0 pt-0.5">
-        {fmtTime(log.timestamp)}
-      </span>
-      <div className="h-8 w-8 shrink-0 rounded-full flex items-center justify-center text-base mt-0.5"
-        style={{ backgroundColor: color + '18', border: `1.5px solid ${color}40` }}>
-        {icon}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold leading-tight">{label}</p>
-        {sub && <p className="text-xs text-muted-foreground mt-0.5 truncate">{sub}</p>}
-        <p className="text-[10px] text-muted-foreground/60 mt-0.5">{log.loggedByName}</p>
-      </div>
-      <button onClick={() => onDelete(log.id)}
-        className="opacity-0 group-hover:opacity-100 shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all mt-0.5"
-        aria-label="Delete">
-        <Trash2 className="h-3.5 w-3.5" />
-      </button>
-    </div>
-  );
-}
-
-function ScheduledLogRow({
-  log, canDelete, onDelete,
-}: { log: ScheduledLog; canDelete: boolean; onDelete: (id: string) => void }) {
-  const rt = ROUTINE_TYPES.find(r => r.type === log.type);
-  const now = Date.now();
-  const color = rt?.color ?? '#F59E0B';
-
-  const badge = useMemo(() => {
-    if (log.status === 'pending_approval') return { label: 'Awaiting approval', bg: 'oklch(0.78 0.168 72 / 0.14)', fg: 'oklch(0.55 0.15 72)' };
-    if (log.status === 'declined')         return { label: 'Declined',          bg: 'oklch(0.577 0.245 27 / 0.12)', fg: 'oklch(0.577 0.245 27)' };
-    if (log.scheduledFor < now)            return { label: 'Overdue',           bg: 'oklch(0.577 0.245 27 / 0.12)', fg: 'oklch(0.577 0.245 27)' };
-    return                                        { label: 'Scheduled',         bg: 'oklch(0.64 0.168 48 / 0.10)', fg: 'oklch(0.64 0.168 48)' };
-  }, [log.status, log.scheduledFor, now]);
-
-  return (
-    <div className="group flex items-start gap-3 py-3 border-b border-border/40 last:border-0">
-      <span className="text-[11px] font-medium text-muted-foreground tabular-nums w-14 shrink-0 pt-0.5">
-        {fmtTime(log.scheduledFor)}
-      </span>
-      <div className="h-8 w-8 shrink-0 rounded-full flex items-center justify-center text-base mt-0.5"
-        style={{ backgroundColor: color + '10', border: `1.5px dashed ${color}50` }}>
-        {rt?.icon ?? '📋'}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <p className="text-sm font-semibold leading-tight">{rt?.label ?? log.type}</p>
-          <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
-            style={{ backgroundColor: badge.bg, color: badge.fg }}>
-            {badge.label}
-          </span>
-        </div>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          {log.assignedToName}
-          {log.reason && <span className="text-muted-foreground/60"> · {log.reason}</span>}
-        </p>
-      </div>
-      {canDelete && (
-        <button onClick={() => onDelete(log.id)}
-          className="opacity-0 group-hover:opacity-100 shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all mt-0.5"
-          aria-label="Cancel">
-          <X className="h-3.5 w-3.5" />
-        </button>
-      )}
-    </div>
-  );
-}
 
 function PendingApprovalRow({
   log, onApprove, onDecline,
@@ -156,31 +72,6 @@ function PendingApprovalRow({
   );
 }
 
-function MedicalEventRow({ event }: { event: MedicalCalendarEvent }) {
-  const meta = MEDICAL_CATEGORY_META[event.record.category] ?? { icon: '🏥', color: '#6366F1' };
-  const isDue = event.eventType === 'due';
-  return (
-    <div className="flex items-start gap-3 py-3 border-b border-border/40 last:border-0">
-      <span className="text-[11px] font-medium text-muted-foreground tabular-nums w-14 shrink-0 pt-0.5">
-        {isDue ? fmtDate(event.eventDate) : fmtTime(event.eventDate)}
-      </span>
-      <div className="h-8 w-8 shrink-0 rounded-lg flex items-center justify-center text-base mt-0.5"
-        style={{ backgroundColor: meta.color + '18', border: `1.5px solid ${meta.color}40` }}>
-        {meta.icon}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold leading-tight">{event.record.title}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          {isDue ? '⏰ Due' : '✓ Administered'}
-          {event.record.provider ? ` · ${event.record.provider}` : ''}
-        </p>
-      </div>
-      {isDue && (
-        <span className="text-[10px] font-bold uppercase text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20 shrink-0 mt-1">Due</span>
-      )}
-    </div>
-  );
-}
 
 export default function RoutinePage() {
   const navigate = useNavigate();
@@ -207,9 +98,9 @@ export default function RoutinePage() {
   const windowLogs    = useRoutineWindow(activeDog?.id ?? '', windowStart, windowEnd);
   const medicalEvents = useMedicalWindow(activeDog?.id ?? '', windowStart, windowEnd);
   const scheduledLogs = useScheduledLogsWindow(activeDog?.id ?? '', windowStart, windowEnd);
-  const { logs: allScheduledLogs, createScheduledLog, approveScheduledLog, declineScheduledLog, deleteScheduledLog } = useScheduledLogs(activeDog?.id ?? '');
+  const { logs: allScheduledLogs, createScheduledLog, approveScheduledLog, declineScheduledLog, completeScheduledLog, deleteScheduledLog } = useScheduledLogs(activeDog?.id ?? '');
   const { deleteLog, logRoutine } = useRoutine(activeDog?.id ?? '');
-  const { slots: baseSlots } = useBaseRoutine(activeDog?.id ?? '');
+  const { slots: baseSlots, save: saveBaseSlots } = useBaseRoutine(activeDog?.id ?? '');
 
   const isLead = activeDog ? isMainHuman(activeDog.id) : false;
 
@@ -220,6 +111,18 @@ export default function RoutinePage() {
   );
 
   useEffect(() => { if (showCustomLog) customInputRef.current?.focus(); }, [showCustomLog]);
+
+  const handleConfirmScheduled = async (log: ScheduledLog) => {
+    await completeScheduledLog(log.id);
+    await logRoutine(log.type, { timestamp: log.scheduledFor });
+  };
+
+  const handleConfirmMedical = async (event: MedicalCalendarEvent) => {
+    const r = event.record as MedicalRecord;
+    const colName = MEDICAL_CATEGORIES.find(c => c.category === r.category)?.collectionName;
+    if (!colName || !activeDog) return;
+    await updateDoc(doc(db, 'dogs', activeDog.id, colName, r.id), { date: Date.now(), updatedAt: Date.now() });
+  };
 
   const handleSaveCustom = async () => {
     const label = customLabel.trim();
@@ -325,7 +228,7 @@ export default function RoutinePage() {
 
   const selectedDayLogs = useMemo(() => {
     const key = format(selectedDate, 'yyyy-MM-dd');
-    return (logsByDay.get(key) ?? []).sort((a, b) => b.timestamp - a.timestamp);
+    return (logsByDay.get(key) ?? []).sort((a, b) => a.timestamp - b.timestamp);
   }, [logsByDay, selectedDate]);
 
   const selectedDayMedical  = useMemo(() => { const k = format(selectedDate, 'yyyy-MM-dd'); return medicalByDay.get(k) ?? []; }, [medicalByDay, selectedDate]);
@@ -336,7 +239,6 @@ export default function RoutinePage() {
 
   const isSelectedInWindow = weekDays.some(d => isSameDay(d, selectedDate));
   const headerDate = isSelectedInWindow ? selectedDate : weekDays[0];
-  const totalEntries = selectedDayLogs.length + selectedDayMedical.length + selectedDayScheduled.length + selectedDayPending.length;
 
   if (!activeDog) return <div className="text-muted-foreground p-4">No active dog selected.</div>;
 
@@ -523,73 +425,22 @@ export default function RoutinePage() {
         </div>
       )}
 
-      {/* ── Day activity list ── */}
-      <div className="rounded-2xl border bg-card shadow-sm flex-1 overflow-hidden">
-        <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between">
-          <span className="text-sm font-semibold" style={{ fontFamily: 'var(--font-heading)' }}>
-            {isSameDay(selectedDate, today) ? 'Today' : format(selectedDate, 'EEEE, MMM d')}
-          </span>
-          <span className="text-xs text-muted-foreground">{totalEntries} {totalEntries === 1 ? 'entry' : 'entries'}</span>
-        </div>
-
-        <div className="px-4 overflow-y-auto max-h-[50vh]">
-          {totalEntries === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <span className="text-4xl mb-3">🐾</span>
-              <p className="text-sm font-medium text-muted-foreground">No activity logged</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">
-                {isSameDay(selectedDate, today) ? 'Use the buttons above to log activity.' : 'Nothing was logged on this day.'}
-              </p>
-            </div>
-          ) : (
-            <>
-              {selectedDayPending.length > 0 && (
-                <>
-                  <div className="flex items-center gap-2 py-2">
-                    <div className="flex-1 h-px bg-border/40" />
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 flex items-center gap-1">
-                      <Clock className="h-2.5 w-2.5" /> Hypothetical
-                    </span>
-                    <div className="flex-1 h-px bg-border/40" />
-                  </div>
-                  <div className="opacity-50">
-                    {selectedDayPending.map(log => (
-                      <ScheduledLogRow key={log.id} log={log} canDelete={isLead} onDelete={deleteScheduledLog} />
-                    ))}
-                  </div>
-                </>
-              )}
-              {selectedDayScheduled.length > 0 && (
-                <>
-                  <div className="flex items-center gap-2 py-2">
-                    {selectedDayLogs.length > 0 && <div className="flex-1 h-px bg-border/40" />}
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 flex items-center gap-1">
-                      <Clock className="h-2.5 w-2.5" /> Scheduled
-                    </span>
-                    {selectedDayLogs.length > 0 && <div className="flex-1 h-px bg-border/40" />}
-                  </div>
-                  {selectedDayScheduled.map(log => (
-                    <ScheduledLogRow key={log.id} log={log} canDelete={isLead} onDelete={deleteScheduledLog} />
-                  ))}
-                </>
-              )}
-              {selectedDayLogs.map(log => <ActivityRow key={log.id} log={log} onDelete={deleteLog} />)}
-              {selectedDayMedical.length > 0 && (
-                <>
-                  {(selectedDayLogs.length > 0 || selectedDayScheduled.length > 0 || selectedDayPending.length > 0) && (
-                    <div className="flex items-center gap-2 py-2">
-                      <div className="flex-1 h-px bg-border/40" />
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">Medical</span>
-                      <div className="flex-1 h-px bg-border/40" />
-                    </div>
-                  )}
-                  {selectedDayMedical.map((evt, i) => <MedicalEventRow key={`${evt.record.id}-${evt.eventType}-${i}`} event={evt} />)}
-                </>
-              )}
-            </>
-          )}
-        </div>
-      </div>
+      {/* ── Day timeline ── */}
+      <DayTimeline
+        selectedDate={selectedDate}
+        isToday={isSameDay(selectedDate, today)}
+        baseSlots={baseSlots}
+        allBaseSlots={baseSlots}
+        onSaveBaseSlots={saveBaseSlots}
+        logs={selectedDayLogs}
+        scheduledLogs={[...selectedDayScheduled, ...selectedDayPending]}
+        medicalEvents={selectedDayMedical}
+        dogId={activeDog.id}
+        onLogDeleted={deleteLog}
+        onScheduledLogDeleted={deleteScheduledLog}
+        onScheduledLogConfirmed={handleConfirmScheduled}
+        onMedicalConfirmed={handleConfirmMedical}
+      />
     </div>
   );
 }

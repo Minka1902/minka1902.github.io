@@ -13,14 +13,15 @@ export default function CreateOrgPage() {
     setLoading(true);
     try {
       const id = await createOrg({
-        name: fields.name,
-        type: fields.type || undefined,
+        name:        fields.name,
+        type:        fields.type        || undefined,
         description: fields.description || undefined,
-        email: fields.email || undefined,
-        phone: fields.phone || undefined,
-        website: fields.website || undefined,
-        instagram: fields.instagram || undefined,
-        facebook: fields.facebook || undefined,
+        logoURL:     fields.logoUrl     || undefined,
+        email:       fields.email       || undefined,
+        phone:       fields.phone       || undefined,
+        website:     fields.website     || undefined,
+        instagram:   fields.instagram   || undefined,
+        facebook:    fields.facebook    || undefined,
         address: (fields.street || fields.city || fields.state || fields.zip || fields.country)
           ? {
               street:  fields.street  || undefined,

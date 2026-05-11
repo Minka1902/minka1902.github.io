@@ -25,9 +25,11 @@ export function useQR(dogId: string) {
       photoURL: dogData.photoURL,
       mainHumanName: user!.displayName,
       phone: config.showPhone ? (user!.phoneNumber ?? undefined) : undefined,
-      address: config.showAddress ? dogData.homeAddress : undefined,
+      address: config.showAddress ? dogData.homeAddress?.address : undefined,
       rescueOrg: config.showRescueOrg ? dogData.rescueOrg : undefined,
-      emergencyContact: dogData.emergencyContact,
+      emergencyContact: dogData.emergencyContact
+        ? `${dogData.emergencyContact.name}${dogData.emergencyContact.phone ? ` · ${dogData.emergencyContact.countryCode}${dogData.emergencyContact.phone}` : ''}`
+        : undefined,
     };
     await setDoc(doc(db, 'publicDogCards', dogId), card);
   };

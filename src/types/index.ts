@@ -3,6 +3,7 @@ export * from './dog';
 export * from './organization';
 export * from './routine';
 export * from './training';
+export * from './tracking';
 export * from './medical';
 export * from './device';
 export * from './alert';

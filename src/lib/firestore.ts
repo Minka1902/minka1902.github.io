@@ -14,7 +14,8 @@ export const humansCol    = (dogId: string) => collection(db, 'dogs', dogId, 'hu
 export const pendingCol   = (dogId: string) => collection(db, 'dogs', dogId, 'pendingHumans');
 export const devicesCol   = (dogId: string) => collection(db, 'dogs', dogId, 'devices');
 
-export const scheduledLogsCol = (dogId: string) => collection(db, 'dogs', dogId, 'scheduledLogs');
+export const scheduledLogsCol    = (dogId: string) => collection(db, 'dogs', dogId, 'scheduledLogs');
+export const trackingSessionsCol = (dogId: string) => collection(db, 'dogs', dogId, 'trackingSessions');
 
 export const medicalCol = (dogId: string, category: MedicalCategory) => {
   const entry = MEDICAL_CATEGORIES.find(c => c.category === category)!;

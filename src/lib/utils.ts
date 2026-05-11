@@ -6,10 +6,17 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// Strips undefined values so Firestore doesn't reject the document
+// Strips undefined values (recursively) so Firestore doesn't reject the document
 export function stripUndefined<T extends object>(obj: T): Partial<T> {
   return Object.fromEntries(
-    Object.entries(obj).filter(([, v]) => v !== undefined)
+    Object.entries(obj)
+      .filter(([, v]) => v !== undefined)
+      .map(([k, v]) => [
+        k,
+        v !== null && typeof v === 'object' && !Array.isArray(v)
+          ? stripUndefined(v as object)
+          : v,
+      ])
   ) as Partial<T>;
 }
 

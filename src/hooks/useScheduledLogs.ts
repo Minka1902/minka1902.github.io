@@ -46,11 +46,15 @@ export function useScheduledLogs(dogId: string) {
     await updateDoc(doc(db, 'dogs', dogId, 'scheduledLogs', logId), { status: 'declined' });
   };
 
+  const completeScheduledLog = async (logId: string) => {
+    await updateDoc(doc(db, 'dogs', dogId, 'scheduledLogs', logId), { status: 'done' });
+  };
+
   const deleteScheduledLog = async (logId: string) => {
     await deleteDoc(doc(db, 'dogs', dogId, 'scheduledLogs', logId));
   };
 
-  return { logs, createScheduledLog, approveScheduledLog, declineScheduledLog, deleteScheduledLog };
+  return { logs, createScheduledLog, approveScheduledLog, declineScheduledLog, completeScheduledLog, deleteScheduledLog };
 }
 
 export function useScheduledLogsWindow(dogId: string, startMs: number, endMs: number) {
