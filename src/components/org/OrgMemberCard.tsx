@@ -1,4 +1,4 @@
-import { X, ShieldCheck, ShieldMinus } from 'lucide-react';
+import { X, ShieldCheck, ShieldMinus, BadgeCheck } from 'lucide-react';
 import OrgRoleBadge from './OrgRoleBadge';
 import type { OrgMember } from '@/types';
 
@@ -24,9 +24,10 @@ export default function OrgMemberCard({ member, canManage, isCurrentUser, onRemo
         {member.displayName.slice(0, 2).toUpperCase()}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold truncate capitalize">
+        <p className="text-sm font-semibold truncate capitalize flex items-center gap-1">
           {member.displayName}
-          {isCurrentUser && <span className="ml-1 text-xs text-muted-foreground font-normal">(you)</span>}
+          <BadgeCheck className="h-4 w-4 text-blue-500 shrink-0" aria-label="Verified member" />
+          {isCurrentUser && <span className="text-xs text-muted-foreground font-normal">(you)</span>}
         </p>
         <p className="text-xs text-muted-foreground truncate">{member.email}</p>
         {member.staffRole && (
