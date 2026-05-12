@@ -10,11 +10,13 @@ import { useRoutine, useRoutineWindow } from '@/hooks/useRoutine';
 import { useMedicalWindow } from '@/hooks/useMedical';
 import { useScheduledLogs, useScheduledLogsWindow } from '@/hooks/useScheduledLogs';
 import { useBaseRoutine } from '@/hooks/useBaseRoutine';
+import { useTraining } from '@/hooks/useTraining';
 import { ROUTINE_TYPES, QUICK_LOG_TYPES, PEE_COLOR, POOP_COLOR, MEDICAL_CATEGORY_META, MEDICAL_CATEGORIES } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import BaseRoutineForm from '@/components/routine/BaseRoutineForm';
 import DayTimeline from '@/components/routine/DayTimeline';
 import ScheduleLogSheet from '@/components/routine/ScheduleLogSheet';
+import MonitoringPanel from '@/components/routine/monitoring/MonitoringPanel';
 import type { RoutineLog, ScheduledLog } from '@/types';
 import type { MedicalCalendarEvent } from '@/hooks/useMedical';
 import type { MedicalRecord } from '@/types';
@@ -101,6 +103,12 @@ export default function RoutinePage() {
   const { logs: allScheduledLogs, createScheduledLog, approveScheduledLog, declineScheduledLog, completeScheduledLog, deleteScheduledLog } = useScheduledLogs(activeDog?.id ?? '');
   const { deleteLog, logRoutine } = useRoutine(activeDog?.id ?? '');
   const { slots: baseSlots, save: saveBaseSlots } = useBaseRoutine(activeDog?.id ?? '');
+
+  // Wider window for monitoring charts (30 days back) — memoized to avoid re-triggering listener
+  const monitorStart = useMemo(() => Date.now() - 30 * 24 * 60 * 60 * 1000, []);
+  const monitorEnd   = useMemo(() => Date.now() + 86_400_000, []);
+  const monitorLogs  = useRoutineWindow(activeDog?.id ?? '', monitorStart, monitorEnd);
+  const { sessions: trainingSessions } = useTraining(activeDog?.id ?? '');
 
   const isLead = activeDog ? isMainHuman(activeDog.id) : false;
 
@@ -243,7 +251,8 @@ export default function RoutinePage() {
   if (!activeDog) return <div className="text-muted-foreground p-4">No active dog selected.</div>;
 
   return (
-    <div className="max-w-lg mx-auto flex flex-col h-full">
+    <div className="flex flex-col lg:grid lg:grid-cols-[minmax(0,480px)_1fr] lg:gap-8 lg:items-start w-full">
+    <div className="flex flex-col min-h-full">
       {/* ── Page header ── */}
       <div className="px-1 pt-1 pb-4 flex items-start justify-between gap-2">
         <div>
@@ -441,6 +450,16 @@ export default function RoutinePage() {
         onScheduledLogConfirmed={handleConfirmScheduled}
         onMedicalConfirmed={handleConfirmMedical}
       />
+    </div>
+
+    {/* Desktop monitoring panel — hidden on mobile */}
+    <div className="hidden lg:block">
+      <MonitoringPanel
+        logs={monitorLogs}
+        sessions={trainingSessions}
+        dogName={activeDog.name}
+      />
+    </div>
     </div>
   );
 }
