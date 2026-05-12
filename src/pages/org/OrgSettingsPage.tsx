@@ -43,13 +43,15 @@ export default function OrgSettingsPage() {
       website:     fields.website     || undefined,
       instagram:   fields.instagram   || undefined,
       facebook:    fields.facebook    || undefined,
-      address: (fields.street || fields.city || fields.state || fields.zip || fields.country)
+      address: (fields.street || fields.city || fields.state || fields.zip || fields.country || fields.lat)
         ? {
             street:  fields.street  || undefined,
             city:    fields.city    || undefined,
             state:   fields.state   || undefined,
             zip:     fields.zip     || undefined,
             country: fields.country || undefined,
+            lat:     fields.lat,
+            lng:     fields.lng,
           }
         : undefined,
     });
@@ -77,6 +79,8 @@ export default function OrgSettingsPage() {
     state:       org.address?.state   ?? '',
     zip:         org.address?.zip     ?? '',
     country:     org.address?.country ?? '',
+    lat:         org.address?.lat,
+    lng:         org.address?.lng,
   };
 
   return (

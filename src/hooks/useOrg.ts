@@ -385,6 +385,30 @@ export function useCreateOrg() {
 
 // ─── Search / lookup ──────────────────────────────────────────────────────────
 
+/** Enroll a dog in an org without needing the full useEnrolledDogs hook. */
+export async function enrollDogInOrg(
+  orgId: string,
+  dog: { id: string; name: string; photoURL?: string },
+  actorUser: { uid: string; displayName: string | null; email: string | null }
+): Promise<void> {
+  await setDoc(doc(db, 'organizations', orgId, 'enrolledDogs', dog.id), stripUndefined({
+    dogId: dog.id,
+    dogName: dog.name,
+    dogPhotoURL: dog.photoURL ?? null,
+    mainHumanId: actorUser.uid,
+    mainHumanName: actorUser.displayName ?? '',
+    mainHumanEmail: actorUser.email ?? '',
+    enrolledAt: Date.now(),
+    enrolledBy: actorUser.uid,
+    status: 'active',
+    checkedIn: false,
+    assignedStaff: [],
+    serviceTypes: [],
+    internalTags: [],
+  }));
+  await updateDoc(doc(db, 'dogs', dog.id), { orgId, updatedAt: Date.now() });
+}
+
 export async function searchOrgs(term: string): Promise<Organization[]> {
   const snap = await getDocs(orgsCol());
   const lower = term.toLowerCase();

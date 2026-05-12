@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { Camera, Loader2, Building2 } from 'lucide-react';
+import { Camera, Loader2, Building2, Map } from 'lucide-react';
 import { storage } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { Label } from '@/components/ui/label';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { MapPickerDialog } from '@/components/dog/AddressLocationPicker';
 import type { OrgType } from '@/types';
 
 const ORG_TYPES: { value: OrgType; label: string }[] = [
@@ -38,6 +39,8 @@ export interface OrgFormFields {
   state: string;
   zip: string;
   country: string;
+  lat?: number;
+  lng?: number;
 }
 
 interface Props {
@@ -51,6 +54,8 @@ export default function OrgProfileForm({ initial, loading, submitLabel = 'Save',
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+
+  const [mapOpen, setMapOpen] = useState(false);
 
   const [fields, setFields] = useState<OrgFormFields>({
     name:        initial?.name        ?? '',
@@ -67,6 +72,8 @@ export default function OrgProfileForm({ initial, loading, submitLabel = 'Save',
     state:       initial?.state       ?? '',
     zip:         initial?.zip         ?? '',
     country:     initial?.country     ?? '',
+    lat:         initial?.lat,
+    lng:         initial?.lng,
   });
 
   const set = (key: keyof OrgFormFields) =>
@@ -190,7 +197,24 @@ export default function OrgProfileForm({ initial, loading, submitLabel = 'Save',
 
       {/* Address */}
       <section className="space-y-4">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Address</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Address</h3>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setMapOpen(true)}
+            className="gap-1.5 h-7 text-xs"
+          >
+            <Map className="h-3 w-3" />
+            {fields.lat ? 'Edit on Map' : 'Pick on Map'}
+          </Button>
+        </div>
+        {fields.lat && fields.lng && (
+          <p className="text-[11px] text-muted-foreground/70 tabular-nums">
+            📍 {fields.lat.toFixed(5)}, {fields.lng.toFixed(5)}
+          </p>
+        )}
         <div className="space-y-2">
           <Label htmlFor="org-street">Street</Label>
           <Input id="org-street" value={fields.street} onChange={set('street')} placeholder="123 Main St" />
@@ -235,6 +259,18 @@ export default function OrgProfileForm({ initial, loading, submitLabel = 'Save',
       <Button type="submit" disabled={loading || uploading || !fields.name.trim()} className="w-full">
         {loading ? 'Saving…' : submitLabel}
       </Button>
+
+      <MapPickerDialog
+        open={mapOpen}
+        onClose={() => setMapOpen(false)}
+        value={{ address: fields.street, lat: fields.lat, lng: fields.lng }}
+        onConfirm={loc => setFields(f => ({
+          ...f,
+          street: loc.address,
+          lat: loc.lat,
+          lng: loc.lng,
+        }))}
+      />
     </form>
   );
 }

@@ -15,13 +15,39 @@ export function useAlerts(dogId: string): Alert[] {
   const dueItems        = useUpcomingDue(dogId);
   const { pending }     = usePendingHumans(dogId);
   const { logs: scheduledLogs } = useScheduledLogs(dogId);
-  const { user }        = useAuth();
-  const { isMainHuman } = useDog();
+  const { user }              = useAuth();
+  const { dogs, isMainHuman } = useDog();
 
   return useMemo(() => {
     if (!dogId) return [];
     const now = Date.now();
     const alerts: Alert[] = [];
+
+    // Incomplete dog profile (main human only)
+    if (isMainHuman(dogId)) {
+      const dog = dogs.find(d => d.id === dogId);
+      if (dog) {
+        const hasIncomplete =
+          !dog.photoURL ||
+          !dog.breed ||
+          !dog.weightKg ||
+          !dog.emergencyContact?.name ||
+          !dog.homeAddress?.address ||
+          !dog.name ||
+          dog.sex === 'unknown';
+        if (hasIncomplete) {
+          alerts.push({
+            id: 'incomplete_profile',
+            type: 'incomplete_profile',
+            dogId,
+            severity: 'info',
+            message: "Dog profile has missing information",
+            actionRoute: `/dogs/${dogId}/edit`,
+            generatedAt: now,
+          });
+        }
+      }
+    }
 
     // Walk overdue
     const lastWalk = todayLogs
@@ -86,5 +112,5 @@ export function useAlerts(dogId: string): Alert[] {
       const order = { critical: 0, warning: 1, info: 2 };
       return order[a.severity] - order[b.severity];
     });
-  }, [todayLogs, dueItems, pending, scheduledLogs, user?.uid, dogId, isMainHuman]);
+  }, [todayLogs, dueItems, pending, scheduledLogs, user?.uid, dogId, isMainHuman, dogs]);
 }

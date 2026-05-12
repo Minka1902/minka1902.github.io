@@ -10,11 +10,13 @@ import { useRoutine, useRoutineWindow } from '@/hooks/useRoutine';
 import { useMedicalWindow } from '@/hooks/useMedical';
 import { useScheduledLogs, useScheduledLogsWindow } from '@/hooks/useScheduledLogs';
 import { useBaseRoutine } from '@/hooks/useBaseRoutine';
+import { useTraining } from '@/hooks/useTraining';
 import { ROUTINE_TYPES, QUICK_LOG_TYPES, PEE_COLOR, POOP_COLOR, MEDICAL_CATEGORY_META, MEDICAL_CATEGORIES } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import BaseRoutineForm from '@/components/routine/BaseRoutineForm';
 import DayTimeline from '@/components/routine/DayTimeline';
 import ScheduleLogSheet from '@/components/routine/ScheduleLogSheet';
+import MonitoringPanel from '@/components/routine/monitoring/MonitoringPanel';
 import type { RoutineLog, ScheduledLog } from '@/types';
 import type { MedicalCalendarEvent } from '@/hooks/useMedical';
 import type { MedicalRecord } from '@/types';
@@ -99,8 +101,15 @@ export default function RoutinePage() {
   const medicalEvents = useMedicalWindow(activeDog?.id ?? '', windowStart, windowEnd);
   const scheduledLogs = useScheduledLogsWindow(activeDog?.id ?? '', windowStart, windowEnd);
   const { logs: allScheduledLogs, createScheduledLog, approveScheduledLog, declineScheduledLog, completeScheduledLog, deleteScheduledLog } = useScheduledLogs(activeDog?.id ?? '');
-  const { deleteLog, logRoutine } = useRoutine(activeDog?.id ?? '');
+  const { deleteLog, logRoutine, updateLogTimestamp } = useRoutine(activeDog?.id ?? '');
   const { slots: baseSlots, save: saveBaseSlots } = useBaseRoutine(activeDog?.id ?? '');
+  const [crossDayDrag, setCrossDayDrag] = useState<{ logId: string; timeOfDayMs: number } | null>(null);
+
+  // Wider window for monitoring charts (30 days back) — memoized to avoid re-triggering listener
+  const monitorStart = useMemo(() => Date.now() - 30 * 24 * 60 * 60 * 1000, []);
+  const monitorEnd   = useMemo(() => Date.now() + 86_400_000, []);
+  const monitorLogs  = useRoutineWindow(activeDog?.id ?? '', monitorStart, monitorEnd);
+  const { sessions: trainingSessions } = useTraining(activeDog?.id ?? '');
 
   const isLead = activeDog ? isMainHuman(activeDog.id) : false;
 
@@ -243,7 +252,8 @@ export default function RoutinePage() {
   if (!activeDog) return <div className="text-muted-foreground p-4">No active dog selected.</div>;
 
   return (
-    <div className="max-w-lg mx-auto flex flex-col h-full">
+    <div className="flex flex-col lg:grid lg:grid-cols-[minmax(0,480px)_1fr] lg:gap-8 lg:items-start w-full">
+    <div className="flex flex-col min-h-full">
       {/* ── Page header ── */}
       <div className="px-1 pt-1 pb-4 flex items-start justify-between gap-2">
         <div>
@@ -328,12 +338,27 @@ export default function RoutinePage() {
 
         <div className="grid grid-cols-7 px-2 py-3 gap-1">
           {weekDays.map((day, i) => {
-            const isSelected = isSameDay(day, selectedDate);
-            const isToday_   = isSameDay(day, today);
-            const dots       = getDots(day);
+            const isSelected    = isSameDay(day, selectedDate);
+            const isToday_      = isSameDay(day, today);
+            const dots          = getDots(day);
+            const isCrossDrop   = crossDayDrag !== null && !isSelected;
             return (
-              <button key={i} onClick={() => setSelectedDate(day)}
-                className="flex flex-col items-center gap-1.5 py-2 px-1 rounded-xl transition-all"
+              <button key={i}
+                onClick={() => setSelectedDate(day)}
+                onDragOver={isCrossDrop ? e => e.preventDefault() : undefined}
+                onDrop={isCrossDrop ? async e => {
+                  e.preventDefault();
+                  if (!crossDayDrag) return;
+                  const dayStart = new Date(day); dayStart.setHours(0, 0, 0, 0);
+                  const newTs = dayStart.getTime() + crossDayDrag.timeOfDayMs;
+                  await updateLogTimestamp(crossDayDrag.logId, newTs);
+                  setSelectedDate(day);
+                  setCrossDayDrag(null);
+                } : undefined}
+                className={cn(
+                  "flex flex-col items-center gap-1.5 py-2 px-1 rounded-xl transition-all",
+                  isCrossDrop && "ring-2 ring-primary/50 ring-offset-1",
+                )}
                 style={isSelected ? { backgroundColor: 'oklch(0.64 0.168 48)', color: '#1a1612' } : undefined}>
                 <span className={cn('text-[10px] font-semibold uppercase tracking-wider', isSelected ? 'text-[#1a1612]/70' : 'text-muted-foreground')}>
                   {DAY_ABBR[i]}
@@ -440,7 +465,19 @@ export default function RoutinePage() {
         onScheduledLogDeleted={deleteScheduledLog}
         onScheduledLogConfirmed={handleConfirmScheduled}
         onMedicalConfirmed={handleConfirmMedical}
+        onCrossDayDragStart={(logId, timeOfDayMs) => setCrossDayDrag({ logId, timeOfDayMs })}
+        onCrossDayDragEnd={() => setCrossDayDrag(null)}
       />
+    </div>
+
+    {/* Desktop monitoring panel — hidden on mobile */}
+    <div className="hidden lg:block">
+      <MonitoringPanel
+        logs={monitorLogs}
+        sessions={trainingSessions}
+        dogName={activeDog.name}
+      />
+    </div>
     </div>
   );
 }

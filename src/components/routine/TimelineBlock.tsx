@@ -31,11 +31,12 @@ interface Props {
   onClick?: () => void;
   draggable?: boolean;
   onDragStart?: (e: React.DragEvent) => void;
+  onDragEnd?: () => void;
 }
 
 export default function TimelineBlock({
   kind, icon, color, label, sublabel, statusBadge, subLogs,
-  top, height, col = 0, totalCols = 1, onClick, draggable, onDragStart,
+  top, height, col = 0, totalCols = 1, onClick, draggable, onDragStart, onDragEnd,
 }: Props) {
   const isPending = kind === 'base-pending' || kind === 'scheduled-log';
 
@@ -61,6 +62,7 @@ export default function TimelineBlock({
       }}
       draggable={draggable}
       onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
       onClick={onClick}
     >
       <div className="flex items-start gap-1.5 h-full overflow-hidden">

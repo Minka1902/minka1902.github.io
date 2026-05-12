@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useDog } from '@/contexts/DogContext';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -9,7 +11,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Menu, Moon, PlusCircle, Sun, ChevronDown } from 'lucide-react';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import { Menu, Moon, PlusCircle, Sun, ChevronDown, Crown, Heart } from 'lucide-react';
 import { useTheme } from '@/hooks/useTheme';
 import { Button } from '@/components/ui/button';
 
@@ -18,9 +23,11 @@ interface Props {
 }
 
 export default function Topbar({ onMenuClick }: Props) {
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { dogs, activeDog, setActiveDog } = useDog();
   const { theme, toggle } = useTheme();
+  const [showAddDogDialog, setShowAddDogDialog] = useState(false);
 
   const initials = user?.displayName
     ?.split(' ')
@@ -58,7 +65,10 @@ export default function Topbar({ onMenuClick }: Props) {
                 </DropdownMenuItem>
               ))}
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => window.location.href = '/dogs/new'} className="flex items-center gap-2 text-muted-foreground">
+              <DropdownMenuItem
+                onClick={() => setShowAddDogDialog(true)}
+                className="flex items-center gap-2 text-muted-foreground"
+              >
                 <PlusCircle className="h-3.5 w-3.5" /> Add another dog
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -98,7 +108,7 @@ export default function Topbar({ onMenuClick }: Props) {
             <DropdownMenuItem disabled className="text-xs font-semibold capitalize">{user?.displayName}</DropdownMenuItem>
             <DropdownMenuItem disabled className="text-xs text-muted-foreground">{user?.email}</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => window.location.href = '/settings'}>
+            <DropdownMenuItem onClick={() => navigate('/settings')}>
               Settings
             </DropdownMenuItem>
             <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
@@ -107,6 +117,48 @@ export default function Topbar({ onMenuClick }: Props) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Add dog role dialog */}
+      <Dialog open={showAddDogDialog} onOpenChange={setShowAddDogDialog}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>How would you like to add a dog?</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3 pt-1">
+            <button
+              type="button"
+              onClick={() => { setShowAddDogDialog(false); navigate('/dogs/new'); }}
+              className="flex items-start gap-4 rounded-xl border border-border p-4 text-left hover:bg-muted/60 transition-colors"
+            >
+              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Crown className="h-4.5 w-4.5" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">Main Human</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Create a new dog profile. You'll be the primary owner.
+                </p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setShowAddDogDialog(false); navigate('/dogs/join'); }}
+              className="flex items-start gap-4 rounded-xl border border-border p-4 text-left hover:bg-muted/60 transition-colors"
+            >
+              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-rose-500/10 text-rose-500">
+                <Heart className="h-4.5 w-4.5" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">Caregiver</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Join an existing dog's team as a caregiver.
+                </p>
+              </div>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }
