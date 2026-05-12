@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { addDoc, onSnapshot, query, where, orderBy, deleteDoc, doc } from 'firebase/firestore';
+import { addDoc, onSnapshot, query, where, orderBy, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { routinesCol } from '@/lib/firestore';
 import { useAuth } from '@/hooks/useAuth';
@@ -39,7 +39,11 @@ export function useRoutine(dogId: string) {
     await deleteDoc(doc(db, 'dogs', dogId, 'routines', logId));
   };
 
-  return { todayLogs, logRoutine, deleteLog };
+  const updateLogTimestamp = async (logId: string, newTimestamp: number) => {
+    await updateDoc(doc(db, 'dogs', dogId, 'routines', logId), { timestamp: newTimestamp });
+  };
+
+  return { todayLogs, logRoutine, deleteLog, updateLogTimestamp };
 }
 
 export function useRoutineWindow(dogId: string, startMs: number, endMs: number) {

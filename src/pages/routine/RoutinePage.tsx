@@ -101,8 +101,9 @@ export default function RoutinePage() {
   const medicalEvents = useMedicalWindow(activeDog?.id ?? '', windowStart, windowEnd);
   const scheduledLogs = useScheduledLogsWindow(activeDog?.id ?? '', windowStart, windowEnd);
   const { logs: allScheduledLogs, createScheduledLog, approveScheduledLog, declineScheduledLog, completeScheduledLog, deleteScheduledLog } = useScheduledLogs(activeDog?.id ?? '');
-  const { deleteLog, logRoutine } = useRoutine(activeDog?.id ?? '');
+  const { deleteLog, logRoutine, updateLogTimestamp } = useRoutine(activeDog?.id ?? '');
   const { slots: baseSlots, save: saveBaseSlots } = useBaseRoutine(activeDog?.id ?? '');
+  const [crossDayDrag, setCrossDayDrag] = useState<{ logId: string; timeOfDayMs: number } | null>(null);
 
   // Wider window for monitoring charts (30 days back) — memoized to avoid re-triggering listener
   const monitorStart = useMemo(() => Date.now() - 30 * 24 * 60 * 60 * 1000, []);
@@ -337,12 +338,27 @@ export default function RoutinePage() {
 
         <div className="grid grid-cols-7 px-2 py-3 gap-1">
           {weekDays.map((day, i) => {
-            const isSelected = isSameDay(day, selectedDate);
-            const isToday_   = isSameDay(day, today);
-            const dots       = getDots(day);
+            const isSelected    = isSameDay(day, selectedDate);
+            const isToday_      = isSameDay(day, today);
+            const dots          = getDots(day);
+            const isCrossDrop   = crossDayDrag !== null && !isSelected;
             return (
-              <button key={i} onClick={() => setSelectedDate(day)}
-                className="flex flex-col items-center gap-1.5 py-2 px-1 rounded-xl transition-all"
+              <button key={i}
+                onClick={() => setSelectedDate(day)}
+                onDragOver={isCrossDrop ? e => e.preventDefault() : undefined}
+                onDrop={isCrossDrop ? async e => {
+                  e.preventDefault();
+                  if (!crossDayDrag) return;
+                  const dayStart = new Date(day); dayStart.setHours(0, 0, 0, 0);
+                  const newTs = dayStart.getTime() + crossDayDrag.timeOfDayMs;
+                  await updateLogTimestamp(crossDayDrag.logId, newTs);
+                  setSelectedDate(day);
+                  setCrossDayDrag(null);
+                } : undefined}
+                className={cn(
+                  "flex flex-col items-center gap-1.5 py-2 px-1 rounded-xl transition-all",
+                  isCrossDrop && "ring-2 ring-primary/50 ring-offset-1",
+                )}
                 style={isSelected ? { backgroundColor: 'oklch(0.64 0.168 48)', color: '#1a1612' } : undefined}>
                 <span className={cn('text-[10px] font-semibold uppercase tracking-wider', isSelected ? 'text-[#1a1612]/70' : 'text-muted-foreground')}>
                   {DAY_ABBR[i]}
@@ -449,6 +465,8 @@ export default function RoutinePage() {
         onScheduledLogDeleted={deleteScheduledLog}
         onScheduledLogConfirmed={handleConfirmScheduled}
         onMedicalConfirmed={handleConfirmMedical}
+        onCrossDayDragStart={(logId, timeOfDayMs) => setCrossDayDrag({ logId, timeOfDayMs })}
+        onCrossDayDragEnd={() => setCrossDayDrag(null)}
       />
     </div>
 

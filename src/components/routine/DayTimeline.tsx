@@ -36,6 +36,8 @@ export interface DayTimelineProps {
   onScheduledLogDeleted: (id: string) => void;
   onScheduledLogConfirmed?: (log: ScheduledLog) => void;
   onMedicalConfirmed?: (event: MedicalCalendarEvent) => void;
+  onCrossDayDragStart?: (logId: string, timeOfDayMs: number) => void;
+  onCrossDayDragEnd?: () => void;
 }
 
 function getRoutineMeta(type: string, customLabel?: string) {
@@ -107,6 +109,7 @@ export default function DayTimeline({
   selectedDate, isToday, baseSlots, allBaseSlots, onSaveBaseSlots,
   logs, scheduledLogs, medicalEvents, dogId, onLogDeleted, onScheduledLogDeleted,
   onScheduledLogConfirmed, onMedicalConfirmed,
+  onCrossDayDragStart, onCrossDayDragEnd,
 }: DayTimelineProps) {
   const [timeRange, setTimeRange]       = useState(loadTimeRange);
   const [showSettings, setShowSettings] = useState(false);
@@ -240,11 +243,21 @@ export default function DayTimeline({
   const handleDragStart = useCallback((
     e: React.DragEvent,
     payload: { kind: 'log' | 'scheduled' | 'base'; id: string; slotKey?: string },
+    log?: RoutineLog,
   ) => {
     e.dataTransfer.setData('application/json', JSON.stringify(payload));
     e.dataTransfer.effectAllowed = 'move';
     setDraggingId(payload.id);
-  }, []);
+    if (payload.kind === 'log' && log && onCrossDayDragStart) {
+      const timeOfDayMs = log.timestamp - startMs;
+      onCrossDayDragStart(log.id, timeOfDayMs);
+    }
+  }, [onCrossDayDragStart, startMs]);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggingId(null);
+    onCrossDayDragEnd?.();
+  }, [onCrossDayDragEnd]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -443,7 +456,8 @@ export default function DayTimeline({
                       onDelete: () => { subs?.forEach(s => onLogDeleted(s.id)); onLogDeleted(log.id); },
                     })}
                     draggable
-                    onDragStart={e => handleDragStart(e, { kind: 'log', id: log.id })}
+                    onDragStart={e => handleDragStart(e, { kind: 'log', id: log.id }, log)}
+                    onDragEnd={handleDragEnd}
                   />
                 </div>
               );
