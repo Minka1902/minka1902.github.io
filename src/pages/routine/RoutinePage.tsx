@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, addDays, startOfWeek, addWeeks, isSameDay } from 'date-fns';
-import { ChevronLeft, ChevronRight, CalendarRange, X, Clock, CalendarPlus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarRange, X, Clock, CalendarPlus, GripVertical, Pencil } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -24,6 +24,22 @@ import type { MedicalCalendarEvent } from '@/hooks/useMedical';
 import type { MedicalRecord } from '@/types';
 
 const DAY_ABBR = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+type SectionId = 'calendar' | 'quicklog' | 'timeline';
+const DEFAULT_SECTION_ORDER: SectionId[] = ['calendar', 'quicklog', 'timeline'];
+const LAYOUT_KEY = 'packops_routine_layout';
+
+function loadSectionOrder(): SectionId[] {
+  try {
+    const saved = localStorage.getItem(LAYOUT_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved) as SectionId[];
+      if (Array.isArray(parsed) && parsed.length === DEFAULT_SECTION_ORDER.length &&
+          DEFAULT_SECTION_ORDER.every(id => parsed.includes(id))) return parsed;
+    }
+  } catch { /* ignore */ }
+  return DEFAULT_SECTION_ORDER;
+}
 
 // dayIdx 0=Mon … 6=Sun — matches the DAYS order in BaseRoutineForm
 function weekdayIdx(date: Date): number {
@@ -83,6 +99,9 @@ export default function RoutinePage() {
   const { user } = useAuth();
   const [showBaseRoutine, setShowBaseRoutine] = useState(false);
   const [pendingBaseInfo, setPendingBaseInfo] = useState<{ type: string; scheduledMs: number } | null>(null);
+  const [editLayout, setEditLayout] = useState(false);
+  const [sections, setSections] = useState<SectionId[]>(loadSectionOrder);
+  const dragSectionRef = useRef<SectionId | null>(null);
   const [showScheduleSheet, setShowScheduleSheet] = useState(false);
   const [showCustomLog, setShowCustomLog] = useState(false);
   const [customLabel, setCustomLabel] = useState('');
@@ -266,16 +285,30 @@ export default function RoutinePage() {
           <p className="text-sm text-muted-foreground capitalize mt-0.5">{activeDog.name}</p>
         </div>
         <div className="flex items-center gap-2 mt-1">
-          {isLead && (
-            <button onClick={() => setShowScheduleSheet(true)}
-              className="flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold border border-primary/30 text-primary hover:bg-primary/8 transition-colors">
-              <CalendarPlus className="h-3.5 w-3.5" /> Schedule
+          {editLayout ? (
+            <button onClick={() => setEditLayout(false)}
+              className="flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+              Done
             </button>
+          ) : (
+            <>
+              {isLead && (
+                <button onClick={() => setShowScheduleSheet(true)}
+                  className="flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold border border-primary/30 text-primary hover:bg-primary/8 transition-colors">
+                  <CalendarPlus className="h-3.5 w-3.5" /> Schedule
+                </button>
+              )}
+              <button onClick={() => setShowBaseRoutine(true)}
+                className="flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                <CalendarRange className="h-3.5 w-3.5" /> Base Routine
+              </button>
+              <button onClick={() => setEditLayout(true)}
+                className="h-8 w-8 rounded-full flex items-center justify-center border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                aria-label="Edit layout">
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+            </>
           )}
-          <button onClick={() => setShowBaseRoutine(true)}
-            className="flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-            <CalendarRange className="h-3.5 w-3.5" /> Base Routine
-          </button>
         </div>
       </div>
 
@@ -322,8 +355,36 @@ export default function RoutinePage() {
         </div>
       )}
 
+      {/* ── Reorderable sections ── */}
+      {sections.map(sectionId => {
+        const handleDragStart = (e: React.DragEvent) => { e.stopPropagation(); dragSectionRef.current = sectionId; };
+        const handleDragOver  = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); };
+        const handleDrop      = (e: React.DragEvent) => {
+          e.preventDefault(); e.stopPropagation();
+          const from = dragSectionRef.current;
+          if (!from || from === sectionId) return;
+          setSections(prev => {
+            const next = [...prev];
+            const fi = next.indexOf(from), ti = next.indexOf(sectionId);
+            next.splice(fi, 1); next.splice(ti, 0, from);
+            localStorage.setItem(LAYOUT_KEY, JSON.stringify(next));
+            return next;
+          });
+          dragSectionRef.current = null;
+        };
+        const dragLabel = sectionId === 'calendar' ? 'Calendar' : sectionId === 'quicklog' ? 'Quick Log' : 'Timeline';
+
+        if (sectionId === 'calendar') return (
+          <div key="calendar" draggable={editLayout} onDragStart={handleDragStart} onDragOver={handleDragOver} onDrop={handleDrop}
+            className={cn('relative', editLayout && 'cursor-grab')}>
+            {editLayout && (
+              <div className="absolute -top-0 left-2 z-10 flex items-center gap-1 bg-primary/10 border border-primary/30 rounded-full px-2 py-0.5 pointer-events-none select-none">
+                <GripVertical className="h-3 w-3 text-primary/60" />
+                <span className="text-[9px] font-semibold text-primary/60 uppercase tracking-wider">{dragLabel}</span>
+              </div>
+            )}
       {/* ── Calendar strip ── */}
-      <div className="rounded-2xl border bg-card shadow-sm overflow-hidden mb-4">
+      <div className={cn('rounded-2xl border bg-card shadow-sm overflow-hidden mb-4', editLayout && 'ring-1 ring-dashed ring-primary/30')}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
           <span className="text-sm font-semibold" style={{ fontFamily: 'var(--font-heading)' }}>
             {format(headerDate, 'MMMM yyyy')}
@@ -415,9 +476,20 @@ export default function RoutinePage() {
           </span>
         </div>
       </div>
+          </div>
+        );
 
+        if (sectionId === 'quicklog') return (
+          <div key="quicklog" draggable={editLayout} onDragStart={handleDragStart} onDragOver={handleDragOver} onDrop={handleDrop}
+            className={cn('relative', editLayout && 'cursor-grab')}>
+            {editLayout && (
+              <div className="absolute -top-0 left-2 z-10 flex items-center gap-1 bg-primary/10 border border-primary/30 rounded-full px-2 py-0.5 pointer-events-none select-none">
+                <GripVertical className="h-3 w-3 text-primary/60" />
+                <span className="text-[9px] font-semibold text-primary/60 uppercase tracking-wider">{dragLabel}</span>
+              </div>
+            )}
       {/* ── Quick log strip ── */}
-      <div className="flex gap-2 overflow-x-auto pb-1 mb-4 scrollbar-none">
+      <div className={cn('flex gap-2 overflow-x-auto pb-1 mb-4 scrollbar-none', editLayout && 'ring-1 ring-dashed ring-primary/30 rounded-full px-2 pt-2')}>
         {QUICK_LOG_TYPES.map(({ type, label, icon, color }) => (
           type === 'walk' ? (
             <button key={type} onClick={() => navigate('/walk/active')}
@@ -464,7 +536,19 @@ export default function RoutinePage() {
           </div>
         </div>
       )}
+          </div>
+        );
 
+        // sectionId === 'timeline'
+        return (
+          <div key="timeline" draggable={editLayout} onDragStart={handleDragStart} onDragOver={handleDragOver} onDrop={handleDrop}
+            className={cn('relative', editLayout && 'cursor-grab')}>
+            {editLayout && (
+              <div className="flex items-center gap-1 mb-1 pl-1">
+                <GripVertical className="h-3 w-3 text-primary/60" />
+                <span className="text-[9px] font-semibold text-primary/60 uppercase tracking-wider">{dragLabel}</span>
+              </div>
+            )}
       {/* ── Day timeline ── */}
       <DayTimeline
         selectedDate={selectedDate}
@@ -484,6 +568,9 @@ export default function RoutinePage() {
         onCrossDayDragEnd={() => setCrossDayDrag(null)}
         onPendingBaseSlotClick={(type, scheduledMs) => setPendingBaseInfo({ type, scheduledMs })}
       />
+          </div>
+        );
+      })}
 
       {pendingBaseInfo && (
         <AssignRoutineSheet
