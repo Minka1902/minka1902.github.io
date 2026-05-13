@@ -36,6 +36,11 @@ export interface TrainingSession {
   completedAt?: number;
   createdAt: number;
   updatedAt: number;
+  aiScore?: number;
+  userScore?: number;
+  aiAnalysis?: string;
+  scoreSource?: 'ai' | 'user' | 'both';
+  aiScoredAt?: number;
 }
 
 export interface TrainingTemplate {
