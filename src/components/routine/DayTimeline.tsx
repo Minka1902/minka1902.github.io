@@ -380,16 +380,18 @@ export default function DayTimeline({
 
             {/* Current time indicator */}
             {isToday && nowMin >= startHour * 60 && nowMin <= endHour * 60 && (
-              <div
-                className="absolute left-10 right-0 flex items-center pointer-events-none z-20"
-                style={{ top: minutesToPx(nowMin, startHour) }}
-              >
-                <div className="h-2 w-2 rounded-full bg-red-500 shrink-0 -ml-1" />
-                <span className="text-[9px] font-bold tabular-nums text-red-500 ml-1 leading-none">
+              <>
+                <span
+                  className="absolute text-[9px] font-bold tabular-nums text-red-500 pointer-events-none z-20 select-none"
+                  style={{ top: minutesToPx(nowMin, startHour) - 7, left: 0, width: 44, textAlign: 'right', paddingRight: 6 }}
+                >
                   {String(Math.floor(nowMin / 60)).padStart(2, '0')}:{String(nowMin % 60).padStart(2, '0')}
                 </span>
-                <div className="flex-1 h-px bg-red-500 ml-1" />
-              </div>
+                <div
+                  className="absolute h-px bg-red-500 pointer-events-none z-20"
+                  style={{ top: minutesToPx(nowMin, startHour), left: 48, right: 0 }}
+                />
+              </>
             )}
 
             {/* Base routine slot blocks */}
