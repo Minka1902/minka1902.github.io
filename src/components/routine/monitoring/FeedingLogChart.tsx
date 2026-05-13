@@ -3,6 +3,7 @@ import { subDays, format, startOfDay } from 'date-fns';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
+import { ChartTooltip } from './ChartTooltip';
 import type { RoutineLog } from '@/types';
 
 interface Props {
@@ -43,12 +44,9 @@ export default function FeedingLogChart({ logs }: Props) {
             <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'oklch(0.55 0 0)' }} axisLine={false} tickLine={false} />
             <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'oklch(0.55 0 0)' }} axisLine={false} tickLine={false} />
             <Tooltip
-              contentStyle={{
-                borderRadius: 8, fontSize: 12,
-                border: '1px solid oklch(0.85 0 0)',
-                backgroundColor: 'var(--background)',
-                color: 'var(--foreground)',
-              }}
+              content={({ active, payload, label }) => (
+                <ChartTooltip active={active} payload={payload} label={label} />
+              )}
             />
             <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
             <Bar dataKey="meals" name="Meals" fill="#f59e0b" radius={[4, 4, 0, 0]} />

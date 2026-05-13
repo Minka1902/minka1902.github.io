@@ -3,6 +3,7 @@ import { subDays, format, startOfDay } from 'date-fns';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
+import { ChartTooltip } from './ChartTooltip';
 import type { RoutineLog } from '@/types';
 
 interface Props {
@@ -46,19 +47,17 @@ export default function WalkStatsChart({ logs }: Props) {
             <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'oklch(0.55 0 0)' }} axisLine={false} tickLine={false} />
             <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'oklch(0.55 0 0)' }} axisLine={false} tickLine={false} />
             <Tooltip
-              contentStyle={{
-                borderRadius: 8, fontSize: 12,
-                border: '1px solid oklch(0.85 0 0)',
-                backgroundColor: 'var(--background)',
-                color: 'var(--foreground)',
-              }}
-              formatter={(v, name) => {
-                const n = Number(v ?? 0);
-                return [
-                  name === 'walks' ? `${n} walk${n !== 1 ? 's' : ''}` : `${n} min avg`,
-                  name === 'walks' ? 'Walks' : 'Avg duration',
-                ];
-              }}
+              content={({ active, payload, label }) => (
+                <ChartTooltip
+                  active={active}
+                  payload={payload}
+                  label={label}
+                  formatEntry={(v, name) => [
+                    name === 'walks' ? `${v} walk${v !== 1 ? 's' : ''}` : `${v} min avg`,
+                    name === 'walks' ? 'Walks' : 'Avg duration',
+                  ]}
+                />
+              )}
             />
             <Bar dataKey="walks" name="walks" fill="oklch(0.64 0.168 48)" radius={[4, 4, 0, 0]} />
             <Bar dataKey="duration" name="duration" fill="oklch(0.64 0.168 48 / 0.3)" radius={[4, 4, 0, 0]} />
