@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, ChevronsUpDown, Check } from 'lucide-react';
 import { useDogActions } from '@/hooks/useDog';
 import { useOrg } from '@/contexts/OrgContext';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 import BreedAutocomplete from './BreedAutocomplete';
 import EmergencyContactInput from './EmergencyContactInput';
 import AddressLocationPicker from './AddressLocationPicker';
@@ -35,8 +38,8 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
   const [foodType, setFoodType] = useState(initial?.foodType ?? '');
   const [feedings, setFeedings] = useState<FeedingEntry[]>(initial?.feedings ?? []);
   const [behaviorNotes, setBehaviorNotes] = useState(initial?.behaviorNotes ?? '');
-  const [rescueOrg, setRescueOrg] = useState(initial?.rescueOrg ?? '');
   const [orgId, setOrgId] = useState(initial?.orgId ?? '');
+  const [orgSearchOpen, setOrgSearchOpen] = useState(false);
   const [emergencyContact, setEmergencyContact] = useState<EmergencyContact>(() => {
     const raw = initial?.emergencyContact;
     if (raw && typeof raw === 'object' && 'name' in raw) return raw as EmergencyContact;
@@ -70,7 +73,6 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
       foodType: foodType || undefined,
       feedings: feedings.filter(f => f.time).length > 0 ? feedings.filter(f => f.time) : undefined,
       behaviorNotes: behaviorNotes || undefined,
-      rescueOrg: rescueOrg || undefined,
       orgId: orgId || undefined,
       emergencyContact: (emergencyContact.name || emergencyContact.phone) ? emergencyContact : undefined,
       homeAddress: homeLocation.address ? homeLocation : undefined,
@@ -190,28 +192,52 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
       <div className="space-y-4">
         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Contact & Organization</p>
         <div className="space-y-1.5">
-          <Label htmlFor="rescueOrg">Rescue Organization (free text)</Label>
-          <Input id="rescueOrg" value={rescueOrg} onChange={e => setRescueOrg(e.target.value)} placeholder="e.g. Happy Paws Rescue" />
+          <Label>Organization</Label>
+          <Popover open={orgSearchOpen} onOpenChange={setOrgSearchOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                role="combobox"
+                aria-expanded={orgSearchOpen}
+                className="w-full justify-between font-normal"
+              >
+                {orgId ? (orgs.find(o => o.id === orgId)?.name ?? 'Unknown org') : 'None'}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Search organizations…" />
+                <CommandList>
+                  <CommandEmpty>No organizations found.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      value="none"
+                      onSelect={() => { setOrgId(''); setOrgSearchOpen(false); }}
+                    >
+                      <Check className={cn('mr-2 h-4 w-4', orgId === '' ? 'opacity-100' : 'opacity-0')} />
+                      None
+                    </CommandItem>
+                    {orgs.map(o => (
+                      <CommandItem
+                        key={o.id}
+                        value={o.name}
+                        onSelect={() => { setOrgId(o.id); setOrgSearchOpen(false); }}
+                      >
+                        <Check className={cn('mr-2 h-4 w-4', orgId === o.id ? 'opacity-100' : 'opacity-0')} />
+                        {o.name}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+          <p className="text-xs text-muted-foreground">
+            Org members will automatically see this dog.
+          </p>
         </div>
-        {orgs.length > 0 && (
-          <div className="space-y-1.5">
-            <Label>Link to Organization</Label>
-            <Select value={orgId} onValueChange={v => setOrgId(v ?? '')}>
-              <SelectTrigger>
-                <SelectValue placeholder="None" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">None</SelectItem>
-                {orgs.map(o => (
-                  <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              Org members will automatically see this dog.
-            </p>
-          </div>
-        )}
         <EmergencyContactInput value={emergencyContact} onChange={setEmergencyContact} />
         <AddressLocationPicker value={homeLocation} onChange={setHomeLocation} />
       </div>
