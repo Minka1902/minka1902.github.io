@@ -141,6 +141,14 @@
       radial-gradient(circle, oklch(1 0 0 / 0.028) 1px, transparent 1px);
   }
 
+  .theme-transitioning,
+  .theme-transitioning *,
+  .theme-transitioning *::before,
+  .theme-transitioning *::after {
+    transition: background-color 200ms ease, border-color 200ms ease,
+                color 200ms ease, fill 200ms ease, stroke 200ms ease !important;
+  }
+
   html { @apply font-sans; }
 
   h1, h2 {

@@ -19,7 +19,14 @@ export function useTheme() {
     localStorage.setItem('packops_theme', theme);
   }, [theme]);
 
-  const toggle = () => setTheme(t => (t === 'dark' ? 'light' : 'dark'));
+  const toggle = () => {
+    const next: Theme = theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.classList.add('theme-transitioning');
+    document.documentElement.classList.toggle('dark', next === 'dark');
+    localStorage.setItem('packops_theme', next);
+    setTimeout(() => document.documentElement.classList.remove('theme-transitioning'), 250);
+    setTheme(next);
+  };
 
   return { theme, toggle };
 }
