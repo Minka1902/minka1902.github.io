@@ -1,14 +1,21 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useDog } from '@/contexts/DogContext';
 import { useTraining } from '@/hooks/useTraining';
 import TrainingSessionForm from '@/components/training/TrainingSessionForm';
 import type { TrainingTemplate, TrainingType } from '@/types';
 
+interface TimerState {
+  elapsedSeconds?: number;
+  quickNotes?: string;
+}
+
 export default function NewTrainingSessionPage() {
   const { activeDog } = useDog();
   const { getTemplate } = useTraining(activeDog?.id ?? '');
+  const location = useLocation();
+  const timerState = location.state as TimerState | null;
   const [template, setTemplate] = useState<TrainingTemplate | null>(null);
 
   const handleTypeChange = async (type: TrainingType) => {
@@ -29,7 +36,13 @@ export default function NewTrainingSessionPage() {
       </div>
 
       <div className="rounded-xl border bg-card p-6 shadow-sm">
-        <TrainingSessionForm dogId={activeDog.id} template={template} onTrainingTypeChange={handleTypeChange} />
+        <TrainingSessionForm
+          dogId={activeDog.id}
+          template={template}
+          onTrainingTypeChange={handleTypeChange}
+          initialDurationMin={timerState?.elapsedSeconds ? timerState.elapsedSeconds / 60 : undefined}
+          initialNotes={timerState?.quickNotes}
+        />
       </div>
     </div>
   );

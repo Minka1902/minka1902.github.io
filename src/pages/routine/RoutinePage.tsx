@@ -267,6 +267,10 @@ export default function RoutinePage() {
   const selectedDayMedical  = useMemo(() => { const k = format(selectedDate, 'yyyy-MM-dd'); return medicalByDay.get(k) ?? []; }, [medicalByDay, selectedDate]);
   const selectedDayScheduled = useMemo(() => { const k = format(selectedDate, 'yyyy-MM-dd'); return (scheduledByDay.get(k) ?? []).filter(l => l.status !== 'declined' && l.status !== 'pending_approval'); }, [scheduledByDay, selectedDate]);
   const selectedDayPending   = useMemo(() => { const k = format(selectedDate, 'yyyy-MM-dd'); return (scheduledByDay.get(k) ?? []).filter(l => l.status === 'pending_approval'); }, [scheduledByDay, selectedDate]);
+  const selectedDayTraining  = useMemo(() => {
+    const k = format(selectedDate, 'yyyy-MM-dd');
+    return trainingSessions.filter(s => format(new Date(s.scheduledAt), 'yyyy-MM-dd') === k);
+  }, [trainingSessions, selectedDate]);
 
   const handleWeekChange = (dir: number) => { setWeekOffset(weekOffset + dir); setSelectedDate(prev => addWeeks(prev, dir)); };
 
@@ -567,6 +571,7 @@ export default function RoutinePage() {
         onCrossDayDragStart={(logId, timeOfDayMs) => setCrossDayDrag({ logId, timeOfDayMs })}
         onCrossDayDragEnd={() => setCrossDayDrag(null)}
         onPendingBaseSlotClick={(type, scheduledMs) => setPendingBaseInfo({ type, scheduledMs })}
+        trainingSessions={selectedDayTraining}
       />
           </div>
         );

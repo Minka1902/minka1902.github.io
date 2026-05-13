@@ -13,15 +13,19 @@ interface Props {
   dogId: string;
   template: TrainingTemplate | null;
   onTrainingTypeChange?: (type: TrainingType) => void;
+  initialDurationMin?: number;
+  initialNotes?: string;
 }
 
-export default function TrainingSessionForm({ dogId, template, onTrainingTypeChange }: Props) {
+export default function TrainingSessionForm({ dogId, template, onTrainingTypeChange, initialDurationMin, initialNotes }: Props) {
   const { createSession } = useTraining(dogId);
   const { user } = useAuth();
   const navigate = useNavigate();
   const [trainingType, setTrainingType] = useState<TrainingType>('obedience');
   const [objective, setObjective] = useState('');
   const [location, setLocation] = useState('');
+  const [durationMin, setDurationMin] = useState<string>(initialDurationMin ? String(Math.round(initialDurationMin)) : '');
+  const [notes, setNotes] = useState(initialNotes ?? '');
   const [typeSpecificData, setTypeSpecificData] = useState<Record<string, string | number | boolean>>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -45,6 +49,8 @@ export default function TrainingSessionForm({ dogId, template, onTrainingTypeCha
     const now = Date.now();
     await createSession({
       dogId, trainingType, objective, location: location || undefined,
+      durationActualMin: durationMin ? parseFloat(durationMin) : undefined,
+      notes: notes || undefined,
       exercises: [], typeSpecificData,
       trainerId: user!.uid, trainerName: user!.displayName,
       scheduledAt: now, templateUsed: !!template, createdAt: now, updatedAt: now,
@@ -72,6 +78,23 @@ export default function TrainingSessionForm({ dogId, template, onTrainingTypeCha
         values={typeSpecificData}
         onChange={setTypeSpecificData}
       />
+
+      <div className="space-y-1.5">
+        <Label htmlFor="durationMin" className="text-sm font-medium">Duration <span className="text-muted-foreground font-normal">(minutes, optional)</span></Label>
+        <Input id="durationMin" type="number" min={0} step={0.5} placeholder="e.g. 30" value={durationMin} onChange={e => setDurationMin(e.target.value)} />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="notes" className="text-sm font-medium">Notes <span className="text-muted-foreground font-normal">(optional)</span></Label>
+        <textarea
+          id="notes"
+          rows={3}
+          placeholder="Observations, incidents, handler notes…"
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none outline-none focus:border-primary/50 transition-colors"
+        />
+      </div>
 
       <div className="flex items-center justify-between pt-2">
         {template

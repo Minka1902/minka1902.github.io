@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom';
-import { Dumbbell, PlusCircle } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Dumbbell, PlusCircle, Play } from 'lucide-react';
 import { useDog } from '@/contexts/DogContext';
 import { useTraining } from '@/hooks/useTraining';
 import TrainingSessionCard from '@/components/training/TrainingSessionCard';
@@ -7,6 +7,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export default function TrainingPage() {
+  const navigate = useNavigate();
   const { activeDog } = useDog();
   const { sessions } = useTraining(activeDog?.id ?? '');
 
@@ -18,9 +19,18 @@ export default function TrainingPage() {
     <div className="max-w-2xl mx-auto space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Training</h1>
-        <Link to="/training/new" className={cn(buttonVariants({ size: 'sm' }), 'gap-2')}>
-          <PlusCircle className="h-4 w-4" /> New Session
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate('/training/active')}
+            className={cn(buttonVariants({ size: 'sm' }), 'gap-2')}
+            style={{ backgroundColor: 'oklch(0.55 0.15 280)', borderColor: 'oklch(0.55 0.15 280)' }}
+          >
+            <Play className="h-4 w-4" /> Start Session
+          </button>
+          <Link to="/training/new" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'gap-2')}>
+            <PlusCircle className="h-4 w-4" /> Log Session
+          </Link>
+        </div>
       </div>
 
       {sessions.length === 0 ? (

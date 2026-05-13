@@ -14,7 +14,8 @@ import TimelineBlock from './TimelineBlock';
 import AllDayStrip from './AllDayStrip';
 import QuickAddPopover from './QuickAddPopover';
 import LogDetailSheet from './LogDetailSheet';
-import type { RoutineLog, ScheduledLog } from '@/types';
+import { useNavigate } from 'react-router-dom';
+import type { RoutineLog, ScheduledLog, TrainingSession } from '@/types';
 import type { LogSelection } from './LogDetailSheet';
 import type { BaseRoutineSlots } from '@/hooks/useBaseRoutine';
 import type { MedicalCalendarEvent } from '@/hooks/useMedical';
@@ -39,6 +40,7 @@ export interface DayTimelineProps {
   onCrossDayDragStart?: (logId: string, timeOfDayMs: number) => void;
   onCrossDayDragEnd?: () => void;
   onPendingBaseSlotClick?: (type: string, scheduledMs: number) => void;
+  trainingSessions?: TrainingSession[];
 }
 
 function getRoutineMeta(type: string, customLabel?: string) {
@@ -110,8 +112,9 @@ export default function DayTimeline({
   selectedDate, isToday, baseSlots, allBaseSlots, onSaveBaseSlots,
   logs, scheduledLogs, medicalEvents, dogId, onLogDeleted, onScheduledLogDeleted,
   onScheduledLogConfirmed, onMedicalConfirmed,
-  onCrossDayDragStart, onCrossDayDragEnd, onPendingBaseSlotClick,
+  onCrossDayDragStart, onCrossDayDragEnd, onPendingBaseSlotClick, trainingSessions = [],
 }: DayTimelineProps) {
+  const navigate = useNavigate();
   const [timeRange, setTimeRange]       = useState(loadTimeRange);
   const [showSettings, setShowSettings] = useState(false);
   const [settingsDraft, setSettingsDraft] = useState(timeRange);
@@ -186,6 +189,12 @@ export default function DayTimeline({
       const d = new Date(log.scheduledFor);
       const top = minutesToPx(d.getHours() * 60 + d.getMinutes(), startHour);
       items.push({ id: log.id, top, bottom: top + BLOCK_MIN_HEIGHT });
+    }
+    for (const s of trainingSessions) {
+      const d = new Date(s.scheduledAt);
+      const top = minutesToPx(d.getHours() * 60 + d.getMinutes(), startHour);
+      const height = Math.max(40, ((s.durationActualMin ?? 30) / 60) * PX_PER_HOUR);
+      items.push({ id: `training-${s.id}`, top, bottom: top + height });
     }
     return computeColumns(items);
   }, [slotEvents, displayedStandaloneLogs, scheduledLogs, startHour]);
@@ -501,6 +510,29 @@ export default function DayTimeline({
                     })}
                     draggable
                     onDragStart={e => handleDragStart(e, { kind: 'scheduled', id: log.id })}
+                  />
+                </div>
+              );
+            })}
+            {/* Training session blocks */}
+            {trainingSessions.map(s => {
+              const d = new Date(s.scheduledAt);
+              const top = minutesToPx(d.getHours() * 60 + d.getMinutes(), startHour);
+              const height = Math.max(40, ((s.durationActualMin ?? 30) / 60) * PX_PER_HOUR);
+              const { col, totalCols } = columnLayout.get(`training-${s.id}`) ?? { col: 0, totalCols: 1 };
+              return (
+                <div key={s.id} data-block="">
+                  <TimelineBlock
+                    kind="standalone-log"
+                    icon="🎯"
+                    color="oklch(0.55 0.15 280)"
+                    label={s.trainingType.replace(/_/g, ' ')}
+                    sublabel={fmtTime(s.scheduledAt)}
+                    top={top}
+                    height={height}
+                    col={col}
+                    totalCols={totalCols}
+                    onClick={() => navigate(`/training/${s.id}`)}
                   />
                 </div>
               );
