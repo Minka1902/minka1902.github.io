@@ -12,7 +12,7 @@ interface Props {
 
 export default function MonitoringPanel({ logs, sessions, dogName }: Props) {
   return (
-    <aside className="space-y-5 sticky top-20">
+    <aside className="space-y-5">
       <div>
         <h2 className="text-lg font-bold tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
           Insights

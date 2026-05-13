@@ -280,8 +280,8 @@ export default function RoutinePage() {
   if (!activeDog) return <div className="text-muted-foreground p-4">No active dog selected.</div>;
 
   return (
-    <div className="flex flex-col lg:grid lg:grid-cols-[minmax(0,480px)_1fr] lg:gap-8 lg:items-start w-full">
-    <div className="flex flex-col min-h-full">
+    <div className="flex flex-col flex-1 min-h-0 lg:grid lg:grid-cols-[minmax(0,480px)_1fr] lg:gap-8 lg:items-stretch lg:h-full w-full">
+    <div className="flex flex-col min-h-0">
       {/* ── Page header ── */}
       <div className="px-1 pt-1 pb-4 flex items-start justify-between gap-2">
         <div>
@@ -546,7 +546,7 @@ export default function RoutinePage() {
         // sectionId === 'timeline'
         return (
           <div key="timeline" draggable={editLayout} onDragStart={handleDragStart} onDragOver={handleDragOver} onDrop={handleDrop}
-            className={cn('relative', editLayout && 'cursor-grab')}>
+            className={cn('relative flex flex-col flex-1 min-h-0', editLayout && 'cursor-grab')}>
             {editLayout && (
               <div className="flex items-center gap-1 mb-1 pl-1">
                 <GripVertical className="h-3 w-3 text-primary/60" />
@@ -590,7 +590,7 @@ export default function RoutinePage() {
     </div>
 
     {/* Desktop monitoring panel — hidden on mobile */}
-    <div className="hidden lg:block">
+    <div className="hidden lg:flex lg:flex-col lg:min-h-0 lg:overflow-y-auto">
       <MonitoringPanel
         logs={monitorLogs}
         sessions={trainingSessions}
