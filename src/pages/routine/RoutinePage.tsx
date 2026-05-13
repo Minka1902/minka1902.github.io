@@ -1,7 +1,8 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, addDays, startOfWeek, addWeeks, isSameDay } from 'date-fns';
-import { ChevronLeft, ChevronRight, CalendarRange, Check, X, Clock, CalendarPlus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarRange, X, Clock, CalendarPlus } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useDog } from '@/contexts/DogContext';
@@ -83,6 +84,7 @@ export default function RoutinePage() {
   const [showScheduleSheet, setShowScheduleSheet] = useState(false);
   const [showCustomLog, setShowCustomLog] = useState(false);
   const [customLabel, setCustomLabel] = useState('');
+  const [customDateTime, setCustomDateTime] = useState('');
   const [savingCustom, setSavingCustom] = useState(false);
   const customInputRef = useRef<HTMLInputElement>(null);
   const [weekOffset, setWeekOffset] = useState(0);
@@ -137,8 +139,9 @@ export default function RoutinePage() {
     const label = customLabel.trim();
     if (!label) return;
     setSavingCustom(true);
-    await logRoutine('custom', { customLabel: label });
-    setCustomLabel(''); setShowCustomLog(false); setSavingCustom(false);
+    const ts = customDateTime ? new Date(customDateTime).getTime() : Date.now();
+    await logRoutine('custom', { customLabel: label, timestamp: ts });
+    setCustomLabel(''); setCustomDateTime(''); setShowCustomLog(false); setSavingCustom(false);
   };
 
   const logsByDay = useMemo(() => {
@@ -424,7 +427,7 @@ export default function RoutinePage() {
             <LogButton key={type} type={type} label={label} icon={icon} color={color} dogId={activeDog.id} />
           )
         ))}
-        <button onClick={() => setShowCustomLog(true)}
+        <button onClick={() => { setShowCustomLog(true); setCustomDateTime(format(new Date(), "yyyy-MM-dd'T'HH:mm")); }}
           className="flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-all active:scale-95 border border-dashed border-border/60 text-muted-foreground hover:text-foreground">
           + Log activity
         </button>
@@ -432,21 +435,31 @@ export default function RoutinePage() {
 
       {/* ── Inline custom log form ── */}
       {showCustomLog && (
-        <div className="flex items-center gap-2 rounded-xl border bg-card px-3 py-2 mb-4 shadow-sm">
-          <span className="text-xl shrink-0">✏️</span>
-          <input ref={customInputRef} value={customLabel} onChange={e => setCustomLabel(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleSaveCustom(); if (e.key === 'Escape') { setShowCustomLog(false); setCustomLabel(''); } }}
-            placeholder="What happened? (e.g. grooming, vet visit…)"
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" disabled={savingCustom} />
-          <button onClick={() => { setShowCustomLog(false); setCustomLabel(''); }}
-            className="shrink-0 p-1 rounded-md text-muted-foreground hover:text-foreground transition-colors" aria-label="Cancel">
-            <X className="h-4 w-4" />
-          </button>
-          <button onClick={handleSaveCustom} disabled={!customLabel.trim() || savingCustom}
-            className={cn('shrink-0 p-1 rounded-md transition-colors', customLabel.trim() ? 'text-primary hover:text-primary/80' : 'text-muted-foreground/40 cursor-not-allowed')}
-            aria-label="Save">
-            <Check className="h-4 w-4" />
-          </button>
+        <div className="rounded-xl border bg-card px-3 py-2.5 mb-4 shadow-sm space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xl shrink-0">✏️</span>
+            <input ref={customInputRef} value={customLabel} onChange={e => setCustomLabel(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleSaveCustom(); if (e.key === 'Escape') { setShowCustomLog(false); setCustomLabel(''); setCustomDateTime(''); } }}
+              placeholder="What happened? (e.g. grooming, vet visit…)"
+              className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" disabled={savingCustom} />
+            <button onClick={() => { setShowCustomLog(false); setCustomLabel(''); setCustomDateTime(''); }}
+              className="shrink-0 p-1 rounded-md text-muted-foreground hover:text-foreground transition-colors" aria-label="Cancel">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="flex items-center gap-2 pl-8">
+            <input
+              type="datetime-local"
+              value={customDateTime}
+              onChange={e => setCustomDateTime(e.target.value)}
+              className="flex-1 text-xs bg-background border border-input rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-ring text-foreground"
+              disabled={savingCustom}
+            />
+            <button onClick={handleSaveCustom} disabled={!customLabel.trim() || savingCustom}
+              className={cn('shrink-0 px-3 py-1 rounded-lg text-xs font-semibold transition-colors', customLabel.trim() && !savingCustom ? 'bg-primary/10 text-primary hover:bg-primary/20' : 'text-muted-foreground/40 cursor-not-allowed')}>
+              {savingCustom ? 'Saving…' : 'Log'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -483,14 +496,55 @@ export default function RoutinePage() {
 }
 
 function LogButton({ type, label, icon, color, dogId }: { type: string; label: string; icon: string; color: string; dogId: string }) {
+  const [open, setOpen] = useState(false);
+  const [logTime, setLogTime] = useState('');
   const [loading, setLoading] = useState(false);
   const { logRoutine } = useRoutine(dogId);
-  const handleClick = async () => { if (loading) return; setLoading(true); await logRoutine(type as import('@/types').RoutineType); setLoading(false); };
+
+  const handleOpenChange = (isOpen: boolean) => {
+    if (isOpen) setLogTime(format(new Date(), "yyyy-MM-dd'T'HH:mm"));
+    setOpen(isOpen);
+  };
+
+  const handleLog = async () => {
+    if (loading) return;
+    setLoading(true);
+    const ts = logTime ? new Date(logTime).getTime() : Date.now();
+    await logRoutine(type as import('@/types').RoutineType, { timestamp: ts });
+    setLoading(false);
+    setOpen(false);
+  };
+
   return (
-    <button onClick={handleClick} disabled={loading}
-      className="flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-all active:scale-95 disabled:opacity-50"
-      style={{ backgroundColor: color + '18', border: `1.5px solid ${color}40`, color }}>
-      <span>{loading ? '…' : icon}</span> {label}
-    </button>
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>
+        <button
+          className="flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-all active:scale-95"
+          style={{ backgroundColor: color + '18', border: `1.5px solid ${color}40`, color }}>
+          <span>{icon}</span> {label}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-3" align="start">
+        <div className="space-y-2.5">
+          <p className="text-xs font-semibold">{icon} Log {label}</p>
+          <div className="space-y-1">
+            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">When</label>
+            <input
+              type="datetime-local"
+              value={logTime}
+              onChange={e => setLogTime(e.target.value)}
+              className="w-full text-xs bg-background border border-input rounded-md px-2 py-1.5 outline-none focus:ring-1 focus:ring-ring text-foreground"
+            />
+          </div>
+          <button
+            onClick={handleLog}
+            disabled={loading}
+            className="w-full py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
+            style={{ backgroundColor: color + '20', border: `1.5px solid ${color}50`, color }}>
+            {loading ? 'Logging…' : `Log ${label}`}
+          </button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
