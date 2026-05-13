@@ -1,5 +1,5 @@
 import { useEffect, lazy, Suspense } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useDog } from '@/contexts/DogContext';
 import { useWalkTracker } from '@/hooks/useWalkTracker';
 import { X, PawPrint, MapPin, Loader2 } from 'lucide-react';
@@ -17,8 +17,10 @@ function fmt(seconds: number): string {
 
 export default function ActiveWalkPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { activeDog } = useDog();
   const tracker = useWalkTracker();
+  const dogIds = (location.state as { dogIds?: string[] } | null)?.dogIds;
 
   useEffect(() => {
     tracker.start();
@@ -45,6 +47,7 @@ export default function ActiveWalkPage() {
         elapsedSeconds: tracker.elapsedSeconds,
         distanceKm: tracker.distanceKm,
         avgSpeedKmh: tracker.avgSpeedKmh,
+        dogIds,
       },
     });
   };
@@ -55,9 +58,13 @@ export default function ActiveWalkPage() {
     navigate('/');
   };
 
+  const { dogs } = useDog();
   const hasGPS = tracker.coords.length > 0;
   const distStr = tracker.distanceKm >= 0.05 ? `${tracker.distanceKm.toFixed(2)} km` : null;
   const speedStr = tracker.currentSpeedKmh >= 0.5 ? `${tracker.currentSpeedKmh.toFixed(1)} km/h` : null;
+  const walkLabel = dogIds && dogIds.length > 1
+    ? dogs.filter(d => dogIds.includes(d.id)).map(d => d.name).join(', ')
+    : (activeDog?.name ?? 'Walk');
 
   return (
     <div className="fixed inset-0 z-[100] overflow-hidden" style={{ backgroundColor: '#1a1612' }}>
@@ -79,7 +86,7 @@ export default function ActiveWalkPage() {
           <div className="flex items-center gap-2">
             <PawPrint className="h-4 w-4" style={{ color: '#F59E0B' }} />
             <span className="text-white text-sm font-semibold capitalize">
-              {activeDog?.name ?? 'Walk'}
+              {walkLabel}
             </span>
             {!hasGPS && (
               <span className="text-xs text-white/50 flex items-center gap-1">

@@ -1,5 +1,4 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { format, addDays, startOfWeek, addWeeks, isSameDay } from 'date-fns';
 import { ChevronLeft, ChevronRight, CalendarRange, X, Clock, CalendarPlus, GripVertical, Pencil } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -18,6 +17,7 @@ import BaseRoutineForm from '@/components/routine/BaseRoutineForm';
 import DayTimeline from '@/components/routine/DayTimeline';
 import ScheduleLogSheet from '@/components/routine/ScheduleLogSheet';
 import AssignRoutineSheet from '@/components/routine/AssignRoutineSheet';
+import DogSelectForWalkDialog from '@/components/walk/DogSelectForWalkDialog';
 import MonitoringPanel from '@/components/routine/monitoring/MonitoringPanel';
 import type { RoutineLog, ScheduledLog } from '@/types';
 import type { MedicalCalendarEvent } from '@/hooks/useMedical';
@@ -94,10 +94,10 @@ function PendingApprovalRow({
 
 
 export default function RoutinePage() {
-  const navigate = useNavigate();
   const { activeDog, isMainHuman } = useDog();
   const { user } = useAuth();
   const [showBaseRoutine, setShowBaseRoutine] = useState(false);
+  const [showWalkDialog, setShowWalkDialog] = useState(false);
   const [pendingBaseInfo, setPendingBaseInfo] = useState<{ type: string; scheduledMs: number } | null>(null);
   const [editLayout, setEditLayout] = useState(false);
   const [sections, setSections] = useState<SectionId[]>(loadSectionOrder);
@@ -492,7 +492,7 @@ export default function RoutinePage() {
       <div className={cn('flex gap-2 overflow-x-auto pb-1 mb-4 scrollbar-none', editLayout && 'ring-1 ring-dashed ring-primary/30 rounded-full px-2 pt-2')}>
         {QUICK_LOG_TYPES.map(({ type, label, icon, color }) => (
           type === 'walk' ? (
-            <button key={type} onClick={() => navigate('/walk/active')}
+            <button key={type} onClick={() => setShowWalkDialog(true)}
               className="flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-all active:scale-95"
               style={{ backgroundColor: color + '18', border: `1.5px solid ${color}40`, color }}>
               <span>{icon}</span> {label}
@@ -580,6 +580,8 @@ export default function RoutinePage() {
           onClose={() => setPendingBaseInfo(null)}
         />
       )}
+
+      {showWalkDialog && <DogSelectForWalkDialog onClose={() => setShowWalkDialog(false)} />}
     </div>
 
     {/* Desktop monitoring panel — hidden on mobile */}
