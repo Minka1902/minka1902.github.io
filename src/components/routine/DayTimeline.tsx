@@ -38,6 +38,7 @@ export interface DayTimelineProps {
   onMedicalConfirmed?: (event: MedicalCalendarEvent) => void;
   onCrossDayDragStart?: (logId: string, timeOfDayMs: number) => void;
   onCrossDayDragEnd?: () => void;
+  onPendingBaseSlotClick?: (type: string, scheduledMs: number) => void;
 }
 
 function getRoutineMeta(type: string, customLabel?: string) {
@@ -109,7 +110,7 @@ export default function DayTimeline({
   selectedDate, isToday, baseSlots, allBaseSlots, onSaveBaseSlots,
   logs, scheduledLogs, medicalEvents, dogId, onLogDeleted, onScheduledLogDeleted,
   onScheduledLogConfirmed, onMedicalConfirmed,
-  onCrossDayDragStart, onCrossDayDragEnd,
+  onCrossDayDragStart, onCrossDayDragEnd, onPendingBaseSlotClick,
 }: DayTimelineProps) {
   const [timeRange, setTimeRange]       = useState(loadTimeRange);
   const [showSettings, setShowSettings] = useState(false);
@@ -424,7 +425,12 @@ export default function DayTimeline({
                         subLogs: subs,
                         onDelete: () => { subs?.forEach(s => onLogDeleted(s.id)); onLogDeleted(sl.id); },
                       });
-                    } : undefined}
+                    } : (!completed && onPendingBaseSlotClick ? () => {
+                      const d = new Date(selectedDate);
+                      const [h, m] = slot.slotTimeStr.split(':').map(Number);
+                      d.setHours(h, m, 0, 0);
+                      onPendingBaseSlotClick(slot.type, d.getTime());
+                    } : undefined)}
                     draggable
                     onDragStart={e => handleDragStart(e, { kind: 'base', id: slot.slotKey, slotKey: slot.slotKey })}
                   />

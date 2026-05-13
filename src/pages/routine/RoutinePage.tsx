@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import BaseRoutineForm from '@/components/routine/BaseRoutineForm';
 import DayTimeline from '@/components/routine/DayTimeline';
 import ScheduleLogSheet from '@/components/routine/ScheduleLogSheet';
+import AssignRoutineSheet from '@/components/routine/AssignRoutineSheet';
 import MonitoringPanel from '@/components/routine/monitoring/MonitoringPanel';
 import type { RoutineLog, ScheduledLog } from '@/types';
 import type { MedicalCalendarEvent } from '@/hooks/useMedical';
@@ -81,6 +82,7 @@ export default function RoutinePage() {
   const { activeDog, isMainHuman } = useDog();
   const { user } = useAuth();
   const [showBaseRoutine, setShowBaseRoutine] = useState(false);
+  const [pendingBaseInfo, setPendingBaseInfo] = useState<{ type: string; scheduledMs: number } | null>(null);
   const [showScheduleSheet, setShowScheduleSheet] = useState(false);
   const [showCustomLog, setShowCustomLog] = useState(false);
   const [customLabel, setCustomLabel] = useState('');
@@ -480,7 +482,17 @@ export default function RoutinePage() {
         onMedicalConfirmed={handleConfirmMedical}
         onCrossDayDragStart={(logId, timeOfDayMs) => setCrossDayDrag({ logId, timeOfDayMs })}
         onCrossDayDragEnd={() => setCrossDayDrag(null)}
+        onPendingBaseSlotClick={(type, scheduledMs) => setPendingBaseInfo({ type, scheduledMs })}
       />
+
+      {pendingBaseInfo && (
+        <AssignRoutineSheet
+          dogId={activeDog.id}
+          type={pendingBaseInfo.type}
+          scheduledMs={pendingBaseInfo.scheduledMs}
+          onClose={() => setPendingBaseInfo(null)}
+        />
+      )}
     </div>
 
     {/* Desktop monitoring panel — hidden on mobile */}
