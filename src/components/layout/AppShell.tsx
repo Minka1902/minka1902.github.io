@@ -20,15 +20,13 @@ export default function AppShell() {
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">
         <Topbar onMenuClick={() => setMobileOpen(true)} />
         <main
-          className="flex flex-col flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 lg:p-6 pb-20 md:pb-4 lg:pb-6"
+          className="flex flex-col flex-1 min-h-0 overflow-y-auto lg:overflow-hidden p-2 pb-20 md:p-3 md:pb-4 lg:p-0"
           style={{
             backgroundColor: 'var(--color-muted, oklch(0.97 0.005 72 / 0.25))',
             boxShadow: 'inset 0 1px 0 0 oklch(0.5 0 0 / 0.05), inset 2px 0 8px -4px oklch(0 0 0 / 0.04)',
           }}
         >
-          <div className="max-w-5xl xl:max-w-6xl mx-auto w-full flex-1 flex flex-col min-h-0">
-            <Outlet />
-          </div>
+          <Outlet />
         </main>
       </div>
       {/* Mobile bottom nav */}
