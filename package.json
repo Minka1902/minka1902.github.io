@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest"
+    "test": "vitest",
+    "seed": "ts-node --project scripts/tsconfig.json scripts/seed-demo.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
@@ -52,11 +53,13 @@
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
+    "firebase-admin": "^13.10.0",
     "globals": "^17.5.0",
     "happy-dom": "^20.9.0",
     "jsdom": "^29.1.1",
     "playwright": "^1.59.1",
     "tailwindcss": "^4.2.4",
+    "ts-node": "^10.9.2",
     "typescript": "^6.0.3",
     "vite": "^8.0.10",
     "vitest": "^4.1.5"
