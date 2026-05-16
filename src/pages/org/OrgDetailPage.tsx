@@ -39,7 +39,7 @@ import type {
 const TYPE_LABELS: Record<string, string> = {
   rescue: 'Rescue', shelter: 'Shelter', breeder: 'Breeder',
   training: 'Training', daycare: 'Daycare', spa: 'Spa',
-  veterinary: 'Veterinary', boarding: 'Boarding', other: 'Other',
+  veterinary: 'Veterinary', boarding: 'Boarding', shop: 'Shop', other: 'Other',
 };
 
 const SERVICE_OPTIONS: { value: OrgServiceType; label: string }[] = [

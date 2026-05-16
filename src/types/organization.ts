@@ -2,7 +2,7 @@
 
 export type OrgType =
   | 'rescue' | 'shelter' | 'breeder' | 'training'
-  | 'daycare' | 'spa' | 'veterinary' | 'boarding' | 'other';
+  | 'daycare' | 'spa' | 'veterinary' | 'boarding' | 'shop' | 'other';
 
 /** 'leader' = can manage org, members, dogs, tasks. 'staff' = operational role. */
 export type OrgMemberRole = 'leader' | 'staff';
