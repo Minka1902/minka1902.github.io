@@ -3,13 +3,19 @@ import { Link } from 'react-router-dom';
 import { Pencil } from 'lucide-react';
 import { useRoutine } from '@/hooks/useRoutine';
 import LabDog from '@/components/dog/LabDog';
+import QuickLogBar from '@/components/routine/QuickLogBar';
 import { timeAgo } from '@/lib/utils';
 import { ROUTINE_TYPES } from '@/lib/constants';
 import type { Dog, RoutineType } from '@/types';
 
 const STAT_KEYS: RoutineType[] = ['walk', 'eat', 'drink'];
 
-export default function DogOverviewCard({ dog }: { dog: Dog }) {
+interface DogOverviewCardProps {
+  dog: Dog;
+  showQuickLog?: boolean;
+}
+
+export default function DogOverviewCard({ dog, showQuickLog }: DogOverviewCardProps) {
   const { todayLogs } = useRoutine(dog.id);
 
   const lastOf = useMemo(() => {
@@ -27,15 +33,18 @@ export default function DogOverviewCard({ dog }: { dog: Dog }) {
     : null;
 
   return (
-    <div className="rounded-2xl overflow-hidden border bg-card" style={{ borderColor: 'var(--border)' }}>
+    <div
+      className="h-full flex flex-col rounded-2xl overflow-hidden border bg-card"
+      style={{ borderColor: 'var(--border)' }}
+    >
       {/* Orange accent stripe */}
       <div
-        className="h-[3px] w-full"
+        className="h-[3px] w-full flex-shrink-0"
         style={{ background: 'linear-gradient(90deg, var(--primary) 0%, oklch(0.78 0.14 62) 100%)' }}
       />
 
-      {/* Main row */}
-      <div className="px-5 pt-4 pb-4 flex items-start gap-4">
+      {/* Main row — flex-1 so it grows */}
+      <div className="flex-1 px-5 pt-4 pb-4 flex items-start gap-4">
         {/* Avatar */}
         <div
           className="shrink-0 w-[68px] h-[68px] rounded-2xl overflow-hidden flex items-end justify-center"
@@ -99,7 +108,7 @@ export default function DogOverviewCard({ dog }: { dog: Dog }) {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-3 border-t" style={{ borderColor: 'var(--border)' }}>
+      <div className="grid grid-cols-3 border-t flex-shrink-0" style={{ borderColor: 'var(--border)' }}>
         {STAT_KEYS.map((key, i) => {
           const rt = ROUTINE_TYPES.find(r => r.type === key)!;
           const ts = lastOf[key];
@@ -128,6 +137,14 @@ export default function DogOverviewCard({ dog }: { dog: Dog }) {
           );
         })}
       </div>
+
+      {/* Quick log (conditional) */}
+      {showQuickLog && (
+        <div className="border-t px-4 py-3 flex-shrink-0" style={{ borderColor: 'var(--border)' }}>
+          <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-2">Quick Log</p>
+          <QuickLogBar />
+        </div>
+      )}
     </div>
   );
 }
