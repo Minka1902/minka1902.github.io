@@ -3,10 +3,14 @@ import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { PawPrint, PlusCircle, Search, Pencil } from 'lucide-react';
 import { useDog } from '@/contexts/DogContext';
-import { useRoutine } from '@/hooks/useRoutine';
+import { useRoutine, useRoutineWindow } from '@/hooks/useRoutine';
+import { useTraining } from '@/hooks/useTraining';
 import QuickLogBar from '@/components/routine/QuickLogBar';
 import RoutineTimeline from '@/components/routine/RoutineTimeline';
 import DayRecapStrip from '@/components/routine/DayRecapStrip';
+import WalkStatsChart from '@/components/routine/monitoring/WalkStatsChart';
+import FeedingLogChart from '@/components/routine/monitoring/FeedingLogChart';
+import TrainingProgressChart from '@/components/routine/monitoring/TrainingProgressChart';
 import { buttonVariants } from '@/components/ui/button';
 import { timeAgo, cn } from '@/lib/utils';
 import { ROUTINE_TYPES } from '@/lib/constants';
@@ -41,6 +45,11 @@ function getLastActivityLabel(log: { type: string; customLabel?: string }): stri
 export default function DashboardPage() {
   const { activeDog, dogs } = useDog();
   const { todayLogs } = useRoutine(activeDog?.id ?? '');
+  const { sessions: trainingSessions } = useTraining(activeDog?.id ?? '');
+
+  const monitorStart = useMemo(() => Date.now() - 30 * 24 * 60 * 60 * 1000, []);
+  const monitorEnd   = useMemo(() => Date.now() + 86_400_000, []);
+  const monitorLogs  = useRoutineWindow(activeDog?.id ?? '', monitorStart, monitorEnd);
 
   const today = useMemo(() => new Date(), []);
 
@@ -232,6 +241,24 @@ export default function DashboardPage() {
 
       {/* ── Yesterday's recap ── */}
       <DayRecapStrip dogId={activeDog.id} />
+
+      {/* ── Analytics ── */}
+      <div>
+        <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground mb-3 px-0.5">
+          Analytics · Last 30 Days
+        </p>
+        <div className="space-y-3">
+          <div className="rounded-2xl border bg-card p-4">
+            <WalkStatsChart logs={monitorLogs} />
+          </div>
+          <div className="rounded-2xl border bg-card p-4">
+            <FeedingLogChart logs={monitorLogs} />
+          </div>
+          <div className="rounded-2xl border bg-card p-4">
+            <TrainingProgressChart sessions={trainingSessions} />
+          </div>
+        </div>
+      </div>
 
     </div>
   );

@@ -18,7 +18,6 @@ import DayTimeline from '@/components/routine/DayTimeline';
 import ScheduleLogSheet from '@/components/routine/ScheduleLogSheet';
 import AssignRoutineSheet from '@/components/routine/AssignRoutineSheet';
 import DogSelectForWalkDialog from '@/components/walk/DogSelectForWalkDialog';
-import MonitoringPanel from '@/components/routine/monitoring/MonitoringPanel';
 import type { RoutineLog, ScheduledLog } from '@/types';
 import type { MedicalCalendarEvent } from '@/hooks/useMedical';
 import type { MedicalRecord } from '@/types';
@@ -129,10 +128,6 @@ export default function RoutinePage() {
   const { slots: baseSlots, save: saveBaseSlots } = useBaseRoutine(activeDog?.id ?? '');
   const [crossDayDrag, setCrossDayDrag] = useState<{ logId: string; timeOfDayMs: number } | null>(null);
 
-  // Wider window for monitoring charts (30 days back) — memoized to avoid re-triggering listener
-  const monitorStart = useMemo(() => Date.now() - 30 * 24 * 60 * 60 * 1000, []);
-  const monitorEnd   = useMemo(() => Date.now() + 86_400_000, []);
-  const monitorLogs  = useRoutineWindow(activeDog?.id ?? '', monitorStart, monitorEnd);
   const { sessions: trainingSessions } = useTraining(activeDog?.id ?? '');
 
   const isLead = activeDog ? isMainHuman(activeDog.id) : false;
@@ -281,7 +276,7 @@ export default function RoutinePage() {
   if (!activeDog) return <div className="text-muted-foreground p-4">No active dog selected.</div>;
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 lg:grid lg:grid-cols-[minmax(0,480px)_1fr] lg:gap-8 lg:items-stretch lg:h-full w-full">
+    <div className="flex flex-col flex-1 min-h-0 w-full max-w-2xl">
     <div className="flex flex-col min-h-0">
       {/* ── Page header ── */}
       <div className="px-1 pt-1 pb-4 flex items-start justify-between gap-2">
@@ -592,14 +587,6 @@ export default function RoutinePage() {
       {showWalkDialog && <DogSelectForWalkDialog onClose={() => setShowWalkDialog(false)} />}
     </div>
 
-    {/* Desktop monitoring panel — hidden on mobile */}
-    <div className="hidden lg:flex lg:flex-col lg:min-h-0 lg:overflow-y-auto">
-      <MonitoringPanel
-        logs={monitorLogs}
-        sessions={trainingSessions}
-        dogName={activeDog.name}
-      />
-    </div>
     </div>
   );
 }
