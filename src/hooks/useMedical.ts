@@ -5,7 +5,7 @@ import { medicalCol } from '@/lib/firestore';
 import { useAuth } from '@/hooks/useAuth';
 import { MEDICAL_CATEGORIES } from '@/lib/constants';
 import { stripUndefined } from '@/lib/utils';
-import type { MedicalRecord, MedicalCategory } from '@/types';
+import type { MedicalRecord, MedicalCategory, Medication } from '@/types';
 
 export function useMedical(dogId: string, category: MedicalCategory) {
   const { user } = useAuth();
@@ -87,6 +87,28 @@ export function useMedicalWindow(dogId: string, startMs: number, endMs: number) 
   }, [dogId, startMs, endMs]);
 
   return events;
+}
+
+export function useActiveMedications(dogId: string) {
+  const [medications, setMedications] = useState<Medication[]>([]);
+
+  useEffect(() => {
+    if (!dogId) return;
+    let cancelled = false;
+    setMedications([]);
+
+    getDocs(query(medicalCol(dogId, 'medication'), orderBy('date', 'desc'))).then(snap => {
+      if (cancelled) return;
+      const active = snap.docs
+        .map(d => ({ id: d.id, ...d.data() } as Medication))
+        .filter(m => m.isActive && m.administrationTimes && m.administrationTimes.length > 0);
+      setMedications(active);
+    });
+
+    return () => { cancelled = true; };
+  }, [dogId]);
+
+  return medications;
 }
 
 export function useUpcomingDue(dogId: string) {

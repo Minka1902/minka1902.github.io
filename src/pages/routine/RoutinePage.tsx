@@ -7,7 +7,7 @@ import { db } from '@/lib/firebase';
 import { useDog } from '@/contexts/DogContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useRoutine, useRoutineWindow } from '@/hooks/useRoutine';
-import { useMedicalWindow } from '@/hooks/useMedical';
+import { useMedicalWindow, useActiveMedications } from '@/hooks/useMedical';
 import { useScheduledLogs, useScheduledLogsWindow } from '@/hooks/useScheduledLogs';
 import { useBaseRoutine } from '@/hooks/useBaseRoutine';
 import { useTraining } from '@/hooks/useTraining';
@@ -121,7 +121,8 @@ export default function RoutinePage() {
   const windowEnd   = addDays(weekStart, 7).getTime() - 1;
 
   const windowLogs    = useRoutineWindow(activeDog?.id ?? '', windowStart, windowEnd);
-  const medicalEvents = useMedicalWindow(activeDog?.id ?? '', windowStart, windowEnd);
+  const medicalEvents    = useMedicalWindow(activeDog?.id ?? '', windowStart, windowEnd);
+  const activeMedications = useActiveMedications(activeDog?.id ?? '');
   const scheduledLogs = useScheduledLogsWindow(activeDog?.id ?? '', windowStart, windowEnd);
   const { logs: allScheduledLogs, createScheduledLog, approveScheduledLog, declineScheduledLog, completeScheduledLog, deleteScheduledLog } = useScheduledLogs(activeDog?.id ?? '');
   const { deleteLog, logRoutine, updateLogTimestamp } = useRoutine(activeDog?.id ?? '');
@@ -573,6 +574,7 @@ export default function RoutinePage() {
         onPendingBaseSlotClick={(type, scheduledMs) => setPendingBaseInfo({ type, scheduledMs })}
         onRescheduleLog={updateLogTimestamp}
         trainingSessions={selectedDayTraining}
+        activeMedications={activeMedications}
       />
           </div>
         );

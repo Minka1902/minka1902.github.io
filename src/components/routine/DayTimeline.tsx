@@ -15,7 +15,7 @@ import AllDayStrip from './AllDayStrip';
 import QuickAddPopover from './QuickAddPopover';
 import LogDetailSheet from './LogDetailSheet';
 import { useNavigate } from 'react-router-dom';
-import type { RoutineLog, ScheduledLog, TrainingSession } from '@/types';
+import type { RoutineLog, ScheduledLog, TrainingSession, Medication } from '@/types';
 import type { LogSelection } from './LogDetailSheet';
 import type { BaseRoutineSlots } from '@/hooks/useBaseRoutine';
 import type { MedicalCalendarEvent } from '@/hooks/useMedical';
@@ -42,6 +42,7 @@ export interface DayTimelineProps {
   onPendingBaseSlotClick?: (type: string, scheduledMs: number) => void;
   onRescheduleLog?: (logId: string, newTimestamp: number) => void;
   trainingSessions?: TrainingSession[];
+  activeMedications?: Medication[];
 }
 
 function getRoutineMeta(type: string, customLabel?: string) {
@@ -113,7 +114,7 @@ export default function DayTimeline({
   selectedDate, isToday, baseSlots, allBaseSlots, onSaveBaseSlots,
   logs, scheduledLogs, medicalEvents, dogId, onLogDeleted, onScheduledLogDeleted,
   onScheduledLogConfirmed, onMedicalConfirmed,
-  onCrossDayDragStart, onCrossDayDragEnd, onPendingBaseSlotClick, onRescheduleLog, trainingSessions = [],
+  onCrossDayDragStart, onCrossDayDragEnd, onPendingBaseSlotClick, onRescheduleLog, trainingSessions = [], activeMedications = [],
 }: DayTimelineProps) {
   const navigate = useNavigate();
   const [timeRange, setTimeRange]       = useState(loadTimeRange);
@@ -517,6 +518,31 @@ export default function DayTimeline({
                 </div>
               );
             })}
+            {/* Medication administration time blocks */}
+            {activeMedications.flatMap(med =>
+              (med.administrationTimes ?? []).map(timeStr => {
+                const [h, m] = timeStr.split(':').map(Number);
+                if (isNaN(h) || isNaN(m)) return null;
+                const top = minutesToPx(h * 60 + m, startHour);
+                const key = `med-${med.id}-${timeStr}`;
+                return (
+                  <div key={key} data-block="">
+                    <TimelineBlock
+                      kind="standalone-log"
+                      icon="💊"
+                      color="oklch(0.6 0.18 160)"
+                      label={med.medicationName || med.title}
+                      sublabel={timeStr}
+                      top={top}
+                      height={BLOCK_MIN_HEIGHT}
+                      col={0}
+                      totalCols={1}
+                    />
+                  </div>
+                );
+              }).filter(Boolean)
+            )}
+
             {/* Training session blocks */}
             {trainingSessions.map(s => {
               const d = new Date(s.scheduledAt);
