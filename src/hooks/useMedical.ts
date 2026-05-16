@@ -10,13 +10,16 @@ import type { MedicalRecord, MedicalCategory } from '@/types';
 export function useMedical(dogId: string, category: MedicalCategory) {
   const { user } = useAuth();
   const [records, setRecords] = useState<MedicalRecord[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setRecords([]);
-    if (!dogId) return;
+    setLoading(true);
+    if (!dogId) { setLoading(false); return; }
     const q = query(medicalCol(dogId, category), orderBy('date', 'desc'));
     return onSnapshot(q, snap => {
       setRecords(snap.docs.map(d => ({ id: d.id, ...d.data() } as MedicalRecord)));
+      setLoading(false);
     });
   }, [dogId, category]);
 
@@ -38,7 +41,7 @@ export function useMedical(dogId: string, category: MedicalCategory) {
     await deleteDoc(doc(db, 'dogs', dogId, collectionName, recordId));
   };
 
-  return { records, addRecord, updateRecord, deleteRecord };
+  return { records, loading, addRecord, updateRecord, deleteRecord };
 }
 
 export interface MedicalCalendarEvent {

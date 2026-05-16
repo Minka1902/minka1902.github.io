@@ -5,6 +5,7 @@ import { useMedical, useUpcomingDue } from '@/hooks/useMedical';
 import MedicalRecordCard from '@/components/medical/MedicalRecordCard';
 import MedicalRecordForm from '@/components/medical/MedicalRecordForm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
 import { MEDICAL_CATEGORIES } from '@/lib/constants';
 import { fmtDate } from '@/lib/utils';
 import type { MedicalCategory } from '@/types';
@@ -80,7 +81,7 @@ function DueSoonStrip({ dogId }: { dogId: string }) {
 function CategorySection({ dogId, category, label, icon }: {
   dogId: string; category: MedicalCategory; label: string; icon: string;
 }) {
-  const { records, deleteRecord } = useMedical(dogId, category);
+  const { records, loading, deleteRecord } = useMedical(dogId, category);
   const [addOpen, setAddOpen] = useState(false);
   const [editRecord, setEditRecord] = useState<import('@/types').MedicalRecord | null>(null);
 
@@ -97,7 +98,11 @@ function CategorySection({ dogId, category, label, icon }: {
         </button>
       </div>
 
-      {records.length === 0 ? (
+      {loading ? (
+        <div className="space-y-2">
+          {[1, 2].map(i => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
+        </div>
+      ) : records.length === 0 ? (
         <button
           onClick={() => setAddOpen(true)}
           className="w-full flex items-center justify-center gap-2 py-6 rounded-xl border border-dashed border-border/60 text-sm text-muted-foreground/60 hover:text-muted-foreground hover:border-border transition-colors"

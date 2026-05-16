@@ -7,12 +7,15 @@ import type { DogHuman, PendingHuman, HumanRole } from '@/types';
 
 export function useHumans(dogId: string) {
   const [humans, setHumans] = useState<DogHuman[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setHumans([]);
-    if (!dogId) return;
+    setLoading(true);
+    if (!dogId) { setLoading(false); return; }
     return onSnapshot(humansCol(dogId), snap => {
       setHumans(snap.docs.map(d => ({ ...d.data(), userId: d.id } as DogHuman)));
+      setLoading(false);
     });
   }, [dogId]);
 
@@ -22,7 +25,7 @@ export function useHumans(dogId: string) {
     await updateDoc(doc(db, 'dogs', dogId), { memberUserIds: arrayRemove(userId) }).catch(console.error);
   };
 
-  return { humans, revokeHuman };
+  return { humans, loading, revokeHuman };
 }
 
 export function usePendingHumans(dogId: string) {

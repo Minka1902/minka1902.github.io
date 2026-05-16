@@ -8,6 +8,7 @@ import { useHumans, usePendingHumans } from '@/hooks/useHumans';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrg } from '@/contexts/OrgContext';
 import HumanCard from '@/components/humans/HumanCard';
+import { Skeleton } from '@/components/ui/skeleton';
 import PendingRequestCard from '@/components/humans/PendingRequestCard';
 import OrgTeamCard from '@/components/dog/OrgTeamCard';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -24,7 +25,7 @@ export default function HumansPage() {
   const { orgs } = useOrg();
   const dogId = activeDog?.id ?? '';
   const linkedOrg = activeDog?.orgId ? orgs.find(o => o.id === activeDog.orgId) : undefined;
-  const { humans, revokeHuman } = useHumans(dogId);
+  const { humans, loading: humansLoading, revokeHuman } = useHumans(dogId);
   const { pending, approveHuman, rejectHuman, addHumanDirectly } = usePendingHumans(dogId);
   const isMain = isMainHuman(dogId);
 
@@ -191,9 +192,21 @@ export default function HumansPage() {
       {/* Team members */}
       <div className="space-y-3">
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-          Team Members ({humans.length})
+          Team Members {!humansLoading && `(${humans.length})`}
         </h2>
-        {humans.length === 0 ? (
+        {humansLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="flex items-center gap-3 p-3 rounded-xl border bg-card">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-3.5 w-32" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : humans.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-14 rounded-xl border border-dashed bg-background gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
               <Users className="h-6 w-6 text-muted-foreground" />

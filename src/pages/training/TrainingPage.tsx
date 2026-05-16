@@ -5,6 +5,7 @@ import { useDog } from '@/contexts/DogContext';
 import { useTraining } from '@/hooks/useTraining';
 import TrainingSessionCard from '@/components/training/TrainingSessionCard';
 import ScoreChart from '@/components/training/ScoreChart';
+import { Skeleton } from '@/components/ui/skeleton';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -13,7 +14,7 @@ type TabId = 'sessions' | 'scores';
 export default function TrainingPage() {
   const navigate = useNavigate();
   const { activeDog } = useDog();
-  const { sessions } = useTraining(activeDog?.id ?? '');
+  const { sessions, loading } = useTraining(activeDog?.id ?? '');
   const [activeTab, setActiveTab] = useState<TabId>('sessions');
 
   if (!activeDog) {
@@ -66,7 +67,24 @@ export default function TrainingPage() {
         </div>
       )}
 
-      {activeTab === 'sessions' && (
+      {activeTab === 'sessions' && loading && (
+        <div className="space-y-3">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="rounded-xl border bg-card p-4 space-y-2">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-8 w-8 rounded-lg" />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-3.5 w-32" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+                <Skeleton className="h-6 w-12 rounded-full" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activeTab === 'sessions' && !loading && (
         sessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4 rounded-xl border border-dashed bg-background">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
