@@ -40,7 +40,7 @@ export default function FeedingLogChart({ logs }: Props) {
       ) : (
         <ResponsiveContainer width="100%" height={140}>
           <BarChart data={data} margin={{ top: 4, right: 4, left: -24, bottom: 0 }} barSize={10} barCategoryGap="30%">
-            <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.5 0 0 / 0.1)" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.5 0 0 / 0.08)" vertical={false} />
             <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'oklch(0.55 0 0)' }} axisLine={false} tickLine={false} />
             <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'oklch(0.55 0 0)' }} axisLine={false} tickLine={false} />
             <Tooltip
@@ -49,8 +49,8 @@ export default function FeedingLogChart({ logs }: Props) {
               )}
             />
             <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-            <Bar dataKey="meals" name="Meals" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="water" name="Water" fill="#38bdf8" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="meals" name="Meals" fill="#f59e0b" radius={[4, 4, 0, 0]} activeBar={{ fill: '#f59e0b70', radius: 4 }} />
+            <Bar dataKey="water" name="Water" fill="#38bdf8" radius={[4, 4, 0, 0]} activeBar={{ fill: '#38bdf870', radius: 4 }} />
           </BarChart>
         </ResponsiveContainer>
       )}

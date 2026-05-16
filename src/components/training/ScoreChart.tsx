@@ -57,7 +57,7 @@ export default function ScoreChart({ sessions }: Props) {
       <p className="text-xs text-muted-foreground mb-3">Session scores — last 90 days</p>
       <ResponsiveContainer width="100%" height={180}>
         <ComposedChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.5 0 0 / 10%)" />
+          <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.5 0 0 / 8%)" />
           <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'oklch(0.5 0 0)' }} />
           <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: 'oklch(0.5 0 0)' }} />
           <Tooltip content={({ active, payload, label }) => {

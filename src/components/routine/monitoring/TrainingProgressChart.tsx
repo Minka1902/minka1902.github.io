@@ -41,7 +41,7 @@ export default function TrainingProgressChart({ sessions }: Props) {
       ) : (
         <ResponsiveContainer width="100%" height={140}>
           <BarChart data={data} margin={{ top: 4, right: 4, left: -24, bottom: 0 }} barSize={24}>
-            <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.5 0 0 / 0.1)" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.5 0 0 / 0.08)" vertical={false} />
             <XAxis dataKey="week" tick={{ fontSize: 11, fill: 'oklch(0.55 0 0)' }} axisLine={false} tickLine={false} />
             <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'oklch(0.55 0 0)' }} axisLine={false} tickLine={false} />
             <Tooltip
@@ -54,7 +54,7 @@ export default function TrainingProgressChart({ sessions }: Props) {
                 />
               )}
             />
-            <Bar dataKey="sessions" name="Sessions" fill="oklch(0.55 0.15 280)" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="sessions" name="Sessions" fill="oklch(0.55 0.15 280)" radius={[4, 4, 0, 0]} activeBar={{ fill: 'oklch(0.55 0.15 280 / 0.45)', radius: 4 }} />
           </BarChart>
         </ResponsiveContainer>
       )}
