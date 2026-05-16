@@ -40,6 +40,9 @@ export default function SettingsPage() {
   const [savingPhone, setSavingPhone] = useState(false);
   const [phoneSaved, setPhoneSaved] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [apiKeySaved, setApiKeySaved] = useState(false);
+  const savedApiKey = typeof window !== 'undefined' ? localStorage.getItem('packops_gemini_api_key') : null;
 
   useEffect(() => {
     setPhone(user?.phoneNumber ?? '');
@@ -185,6 +188,53 @@ export default function SettingsPage() {
           <Link to="/dogs/new" className="text-sm text-primary hover:underline underline-offset-2 font-medium">
             + Add another dog
           </Link>
+        </div>
+      </Section>
+
+      {/* AI Integration */}
+      <Section title="AI Integration" description="Analyze training sessions with Gemini AI">
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Enter your own{' '}
+            <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">Google Gemini API key</a>
+            {' '}to use AI scoring. Stored locally on this device only.
+          </p>
+          {savedApiKey && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+              <Check className="h-3.5 w-3.5 text-green-500 shrink-0" />
+              Key saved: <span className="font-mono">{savedApiKey.slice(0, 8)}••••</span>
+              <button
+                onClick={() => { localStorage.removeItem('packops_gemini_api_key'); window.location.reload(); }}
+                className="ml-auto text-destructive hover:text-destructive/80 transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Input
+              type="password"
+              placeholder="AIzaSy…"
+              value={apiKeyInput}
+              onChange={e => setApiKeyInput(e.target.value)}
+              className="flex-1 font-mono text-xs"
+              autoComplete="off"
+            />
+            <Button
+              onClick={() => {
+                if (!apiKeyInput.trim()) return;
+                localStorage.setItem('packops_gemini_api_key', apiKeyInput.trim());
+                setApiKeyInput('');
+                setApiKeySaved(true);
+                setTimeout(() => setApiKeySaved(false), 2000);
+                window.location.reload();
+              }}
+              disabled={!apiKeyInput.trim()}
+              className="shrink-0"
+            >
+              {apiKeySaved ? <Check className="h-4 w-4" /> : 'Save'}
+            </Button>
+          </div>
         </div>
       </Section>
 

@@ -12,8 +12,8 @@ export interface AIScoreResult {
 }
 
 export async function scoreTrainingSession(session: TrainingSession): Promise<AIScoreResult> {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
-  if (!apiKey) throw new Error('VITE_GEMINI_API_KEY is not set');
+  const apiKey = localStorage.getItem('packops_gemini_api_key') || (import.meta.env.VITE_GEMINI_API_KEY as string | undefined);
+  if (!apiKey) throw new Error('No Gemini API key configured. Add one in Settings → AI Integration.');
 
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
