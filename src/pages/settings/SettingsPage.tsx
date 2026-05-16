@@ -7,6 +7,7 @@ import { auth, db, storage } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { useDog } from '@/contexts/DogContext';
 import { useNavConfig } from '@/hooks/useNavConfig';
+import { useTheme, COLOR_THEMES, type ColorTheme } from '@/hooks/useTheme';
 import { NAV_ITEMS } from '@/lib/nav';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +16,12 @@ import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PawPrint, ExternalLink, LogOut, Check, Camera, Loader2 } from 'lucide-react';
+
+const COLOR_THEME_META: Record<ColorTheme, { label: string; bg: string; primary: string }> = {
+  'warm-cream':     { label: 'Warm Cream',     bg: '#f5e8d0', primary: '#c17d3c' },
+  'white-sage':     { label: 'White & Sage',   bg: '#f0f7f0', primary: '#3d8a5a' },
+  'neutral-slate':  { label: 'Neutral & Slate', bg: '#f0f2f7', primary: '#4a6fa5' },
+};
 
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -34,6 +41,7 @@ export default function SettingsPage() {
   const { user, logout } = useAuth();
   const { dogs } = useDog();
   const { selected, toggle, max } = useNavConfig();
+  const { theme, toggle: toggleTheme, colorTheme, setColorTheme } = useTheme();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [phone, setPhone] = useState('');
@@ -151,6 +159,61 @@ export default function SettingsPage() {
             >
               {savingPhone ? 'Saving…' : phoneSaved ? <Check className="h-4 w-4" /> : 'Save'}
             </Button>
+          </div>
+        </div>
+      </Section>
+
+      {/* Appearance */}
+      <Section title="Appearance" description="Choose your color palette and display mode">
+        <div className="space-y-4">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-3">Color palette</p>
+            <div className="flex gap-3">
+              {COLOR_THEMES.map((ct) => {
+                const meta = COLOR_THEME_META[ct];
+                const isActive = colorTheme === ct;
+                return (
+                  <button
+                    key={ct}
+                    type="button"
+                    onClick={() => setColorTheme(ct)}
+                    className={`flex flex-col items-center gap-2 p-2.5 rounded-xl border-2 transition-all hover:opacity-90 ${
+                      isActive
+                        ? 'border-primary shadow-sm'
+                        : 'border-border hover:border-border/80'
+                    }`}
+                    aria-label={meta.label}
+                    aria-pressed={isActive}
+                  >
+                    <div
+                      className="h-10 w-10 rounded-lg shadow-sm flex items-center justify-center"
+                      style={{ backgroundColor: meta.bg }}
+                    >
+                      <div
+                        className="h-5 w-5 rounded-full"
+                        style={{ backgroundColor: meta.primary }}
+                      />
+                    </div>
+                    <span className="text-[10px] font-medium text-muted-foreground leading-tight text-center max-w-[56px]">
+                      {meta.label}
+                    </span>
+                    {isActive && (
+                      <Check className="h-3 w-3 text-primary -mt-1" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Dark mode</p>
+              <p className="text-xs text-muted-foreground">Switch between light and dark display</p>
+            </div>
+            <Switch checked={theme === 'dark'} onCheckedChange={toggleTheme} />
           </div>
         </div>
       </Section>
