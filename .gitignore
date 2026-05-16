@@ -12,6 +12,8 @@ dist
 dist-ssr
 *.local
 .claude/*
+.superpowers/
+scripts/service-account.json
 
 # Editor directories and files
 .vscode/*
