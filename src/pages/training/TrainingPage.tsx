@@ -49,7 +49,7 @@ export default function TrainingPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-5">
+    <div className="max-w-2xl mx-auto space-y-5 lg:flex-1 lg:overflow-y-auto lg:p-4">
 
       {/* ── Tactical header ── */}
       <div

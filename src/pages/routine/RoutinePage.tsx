@@ -276,7 +276,7 @@ export default function RoutinePage() {
   if (!activeDog) return <div className="text-muted-foreground p-4">No active dog selected.</div>;
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 w-full max-w-2xl">
+    <div className="flex flex-col flex-1 min-h-0 w-full max-w-2xl lg:flex-1 lg:overflow-y-auto lg:p-4">
     <div className="flex flex-col min-h-0">
       {/* ── Page header ── */}
       <div className="px-1 pt-1 pb-4 flex items-start justify-between gap-2">

@@ -160,7 +160,7 @@ export default function MedicalPage() {
   if (!activeDog) return <div className="text-muted-foreground p-4">No active dog selected.</div>;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-5">
+    <div className="max-w-2xl mx-auto space-y-5 lg:flex-1 lg:overflow-y-auto lg:p-4">
       {/* Header */}
       <div className="px-1 pt-1">
         <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
