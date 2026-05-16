@@ -571,6 +571,7 @@ export default function RoutinePage() {
         onCrossDayDragStart={(logId, timeOfDayMs) => setCrossDayDrag({ logId, timeOfDayMs })}
         onCrossDayDragEnd={() => setCrossDayDrag(null)}
         onPendingBaseSlotClick={(type, scheduledMs) => setPendingBaseInfo({ type, scheduledMs })}
+        onRescheduleLog={updateLogTimestamp}
         trainingSessions={selectedDayTraining}
       />
           </div>

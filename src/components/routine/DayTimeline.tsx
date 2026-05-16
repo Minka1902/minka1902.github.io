@@ -40,6 +40,7 @@ export interface DayTimelineProps {
   onCrossDayDragStart?: (logId: string, timeOfDayMs: number) => void;
   onCrossDayDragEnd?: () => void;
   onPendingBaseSlotClick?: (type: string, scheduledMs: number) => void;
+  onRescheduleLog?: (logId: string, newTimestamp: number) => void;
   trainingSessions?: TrainingSession[];
 }
 
@@ -112,7 +113,7 @@ export default function DayTimeline({
   selectedDate, isToday, baseSlots, allBaseSlots, onSaveBaseSlots,
   logs, scheduledLogs, medicalEvents, dogId, onLogDeleted, onScheduledLogDeleted,
   onScheduledLogConfirmed, onMedicalConfirmed,
-  onCrossDayDragStart, onCrossDayDragEnd, onPendingBaseSlotClick, trainingSessions = [],
+  onCrossDayDragStart, onCrossDayDragEnd, onPendingBaseSlotClick, onRescheduleLog, trainingSessions = [],
 }: DayTimelineProps) {
   const navigate = useNavigate();
   const [timeRange, setTimeRange]       = useState(loadTimeRange);
@@ -433,6 +434,7 @@ export default function DayTimeline({
                         kind: 'log', log: sl,
                         subLogs: subs,
                         onDelete: () => { subs?.forEach(s => onLogDeleted(s.id)); onLogDeleted(sl.id); },
+                        onReschedule: (ts) => onRescheduleLog?.(sl.id, ts),
                       });
                     } : (!completed && onPendingBaseSlotClick ? () => {
                       const d = new Date(selectedDate);
@@ -471,6 +473,7 @@ export default function DayTimeline({
                     onClick={() => setSelectedLog({
                       kind: 'log', log, subLogs: subs,
                       onDelete: () => { subs?.forEach(s => onLogDeleted(s.id)); onLogDeleted(log.id); },
+                      onReschedule: (ts) => onRescheduleLog?.(log.id, ts),
                     })}
                     draggable
                     onDragStart={e => handleDragStart(e, { kind: 'log', id: log.id }, log)}
