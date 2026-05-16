@@ -27,6 +27,7 @@ function getInitialColorTheme(): ColorTheme {
 
 function applyColorTheme(colorTheme: ColorTheme) {
   const html = document.documentElement;
+  if (html.classList.contains(THEME_CLASSES[colorTheme])) return; // already applied, skip
   // Remove all theme-* classes
   COLOR_THEMES.forEach(t => html.classList.remove(THEME_CLASSES[t]));
   // Add the new theme class
