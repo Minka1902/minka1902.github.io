@@ -49,6 +49,16 @@ export function useAlerts(dogId: string): Alert[] {
       }
     }
 
+    // User has no profile photo
+    if (user && !user.photoURL) {
+      alerts.push({
+        id: 'no_user_photo', type: 'incomplete_profile', dogId,
+        severity: 'info',
+        message: 'Add a profile photo — required for org members',
+        actionRoute: '/settings', generatedAt: now,
+      });
+    }
+
     // Walk overdue
     const lastWalk = todayLogs
       .filter(l => l.type === 'walk')

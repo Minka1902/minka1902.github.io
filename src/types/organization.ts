@@ -63,6 +63,7 @@ export interface OrgMember {
   userId: string;
   displayName: string;
   email: string;
+  photoURL?: string;
   role: OrgMemberRole;
   /** Specific job function for staff members. */
   staffRole?: OrgStaffRole;
