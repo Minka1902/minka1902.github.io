@@ -10,7 +10,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id: string) => {
-          if (id.includes('firebase')) return 'vendor-firebase';
+          if (id.includes('node_modules/firebase') || id.includes('node_modules\\firebase')) return 'vendor-firebase';
           if (['react', 'react-dom', 'react-router-dom'].some(pkg => id.includes(`node_modules/${pkg}/`) || id.includes(`node_modules\\${pkg}\\`))) return 'vendor-react';
           if (id.includes('lucide-react')) return 'vendor-ui';
         },
