@@ -87,19 +87,19 @@ export default function DashboardPage() {
         </div>
         {/* Right column */}
         <div className="flex-1 flex flex-col gap-3 min-h-0">
-          {/* Timeline panel — scrolls internally */}
-          <div className="flex-1 overflow-y-auto rounded-2xl border bg-card p-4 min-h-0">
-            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground mb-3">Today's Activity</p>
-            <RoutineTimeline dogId={activeDog.id} dogName={activeDog.name} canDelete />
-          </div>
-          {/* Analytics strip — fixed height */}
-          <div className="h-48 flex-shrink-0 rounded-2xl border bg-card p-4">
+          {/* Analytics panel — 60% height */}
+          <div className="flex-[3] overflow-hidden min-h-0 rounded-2xl border bg-card p-4">
             <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground mb-2">Analytics · Last 30 Days</p>
             <div className="flex gap-3 h-32">
               <div className="flex-1 min-w-0"><WalkStatsChart logs={monitorLogs} /></div>
               <div className="flex-1 min-w-0"><FeedingLogChart logs={monitorLogs} /></div>
               <div className="flex-1 min-w-0"><TrainingProgressChart sessions={trainingSessions} /></div>
             </div>
+          </div>
+          {/* Timeline panel — 40% height, scrolls internally */}
+          <div className="flex-[2] overflow-y-auto rounded-2xl border bg-card p-4 min-h-0">
+            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground mb-3">Today's Activity</p>
+            <RoutineTimeline dogId={activeDog.id} dogName={activeDog.name} canDelete />
           </div>
         </div>
       </div>
