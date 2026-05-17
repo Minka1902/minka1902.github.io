@@ -5,18 +5,21 @@ import { medicalCol } from '@/lib/firestore';
 import { useAuth } from '@/hooks/useAuth';
 import { MEDICAL_CATEGORIES } from '@/lib/constants';
 import { stripUndefined } from '@/lib/utils';
-import type { MedicalRecord, MedicalCategory } from '@/types';
+import type { MedicalRecord, MedicalCategory, Medication } from '@/types';
 
 export function useMedical(dogId: string, category: MedicalCategory) {
   const { user } = useAuth();
   const [records, setRecords] = useState<MedicalRecord[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setRecords([]);
-    if (!dogId) return;
+    setLoading(true);
+    if (!dogId) { setLoading(false); return; }
     const q = query(medicalCol(dogId, category), orderBy('date', 'desc'));
     return onSnapshot(q, snap => {
       setRecords(snap.docs.map(d => ({ id: d.id, ...d.data() } as MedicalRecord)));
+      setLoading(false);
     });
   }, [dogId, category]);
 
@@ -38,7 +41,7 @@ export function useMedical(dogId: string, category: MedicalCategory) {
     await deleteDoc(doc(db, 'dogs', dogId, collectionName, recordId));
   };
 
-  return { records, addRecord, updateRecord, deleteRecord };
+  return { records, loading, addRecord, updateRecord, deleteRecord };
 }
 
 export interface MedicalCalendarEvent {
@@ -84,6 +87,28 @@ export function useMedicalWindow(dogId: string, startMs: number, endMs: number) 
   }, [dogId, startMs, endMs]);
 
   return events;
+}
+
+export function useActiveMedications(dogId: string) {
+  const [medications, setMedications] = useState<Medication[]>([]);
+
+  useEffect(() => {
+    if (!dogId) return;
+    let cancelled = false;
+    setMedications([]);
+
+    getDocs(query(medicalCol(dogId, 'medication'), orderBy('date', 'desc'))).then(snap => {
+      if (cancelled) return;
+      const active = snap.docs
+        .map(d => ({ id: d.id, ...d.data() } as Medication))
+        .filter(m => m.isActive && m.administrationTimes && m.administrationTimes.length > 0);
+      setMedications(active);
+    });
+
+    return () => { cancelled = true; };
+  }, [dogId]);
+
+  return medications;
 }
 
 export function useUpcomingDue(dogId: string) {

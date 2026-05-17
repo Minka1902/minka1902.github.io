@@ -1,14 +1,21 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2 } from 'lucide-react';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { Camera, Loader2, Plus, Trash2, ChevronsUpDown, Check } from 'lucide-react';
+import { storage } from '@/lib/firebase';
 import { useDogActions } from '@/hooks/useDog';
+import { useAuth } from '@/hooks/useAuth';
 import { useOrg } from '@/contexts/OrgContext';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 import BreedAutocomplete from './BreedAutocomplete';
 import EmergencyContactInput from './EmergencyContactInput';
 import AddressLocationPicker from './AddressLocationPicker';
@@ -24,8 +31,12 @@ interface Props {
 
 export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
   const { createDog, updateDog } = useDogActions();
+  const { user } = useAuth();
   const { orgs } = useOrg();
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [photoURL, setPhotoURL] = useState(initial?.photoURL ?? '');
+  const [photoUploading, setPhotoUploading] = useState(false);
   const [name, setName] = useState(initial?.name ?? '');
   const [breed, setBreed] = useState(initial?.breed ?? '');
   const [sex, setSex] = useState<Dog['sex']>(initial?.sex ?? 'unknown');
@@ -35,8 +46,8 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
   const [foodType, setFoodType] = useState(initial?.foodType ?? '');
   const [feedings, setFeedings] = useState<FeedingEntry[]>(initial?.feedings ?? []);
   const [behaviorNotes, setBehaviorNotes] = useState(initial?.behaviorNotes ?? '');
-  const [rescueOrg, setRescueOrg] = useState(initial?.rescueOrg ?? '');
   const [orgId, setOrgId] = useState(initial?.orgId ?? '');
+  const [orgSearchOpen, setOrgSearchOpen] = useState(false);
   const [emergencyContact, setEmergencyContact] = useState<EmergencyContact>(() => {
     const raw = initial?.emergencyContact;
     if (raw && typeof raw === 'object' && 'name' in raw) return raw as EmergencyContact;
@@ -60,17 +71,33 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
   const updateFeeding = (i: number, field: keyof FeedingEntry, value: string) =>
     setFeedings(prev => prev.map((f, idx) => idx === i ? { ...f, [field]: value } : f));
 
+  const handlePhotoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setPhotoUploading(true);
+    try {
+      const ext = file.name.split('.').pop() ?? 'jpg';
+      const path = `dog-photos/${dogId ?? user.uid}_${Date.now()}.${ext}`;
+      const snap = await uploadBytes(storageRef(storage, path), file);
+      const url = await getDownloadURL(snap.ref);
+      setPhotoURL(url);
+    } finally {
+      setPhotoUploading(false);
+      e.target.value = '';
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     const data: DogFormFields = {
       name, breed: breed || undefined, sex, isMix,
+      photoURL: photoURL || undefined,
       weightKg: weightKg ? parseFloat(weightKg) : undefined,
       chipId: chipId || undefined,
       foodType: foodType || undefined,
       feedings: feedings.filter(f => f.time).length > 0 ? feedings.filter(f => f.time) : undefined,
       behaviorNotes: behaviorNotes || undefined,
-      rescueOrg: rescueOrg || undefined,
       orgId: orgId || undefined,
       emergencyContact: (emergencyContact.name || emergencyContact.phone) ? emergencyContact : undefined,
       homeAddress: homeLocation.address ? homeLocation : undefined,
@@ -89,6 +116,26 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Photo */}
+      <div className="flex justify-center">
+        <div className="relative">
+          <Avatar className="h-24 w-24">
+            {photoURL ? <AvatarImage src={photoURL} alt="Dog photo" /> : null}
+            <AvatarFallback className="text-2xl">{name?.[0]?.toUpperCase() ?? '🐾'}</AvatarFallback>
+          </Avatar>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={photoUploading}
+            className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md hover:opacity-90 transition-opacity disabled:opacity-50"
+            aria-label="Upload photo"
+          >
+            {photoUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+          </button>
+          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoFile} />
+        </div>
+      </div>
+
       {/* Basic info */}
       <div className="space-y-4">
         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Basic Info</p>
@@ -190,28 +237,52 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
       <div className="space-y-4">
         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Contact & Organization</p>
         <div className="space-y-1.5">
-          <Label htmlFor="rescueOrg">Rescue Organization (free text)</Label>
-          <Input id="rescueOrg" value={rescueOrg} onChange={e => setRescueOrg(e.target.value)} placeholder="e.g. Happy Paws Rescue" />
+          <Label>Organization</Label>
+          <Popover open={orgSearchOpen} onOpenChange={setOrgSearchOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                role="combobox"
+                aria-expanded={orgSearchOpen}
+                className="w-full justify-between font-normal"
+              >
+                {orgId ? (orgs.find(o => o.id === orgId)?.name ?? 'Unknown org') : 'None'}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Search organizations…" />
+                <CommandList>
+                  <CommandEmpty>No organizations found.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      value="none"
+                      onSelect={() => { setOrgId(''); setOrgSearchOpen(false); }}
+                    >
+                      <Check className={cn('mr-2 h-4 w-4', orgId === '' ? 'opacity-100' : 'opacity-0')} />
+                      None
+                    </CommandItem>
+                    {orgs.map(o => (
+                      <CommandItem
+                        key={o.id}
+                        value={o.name}
+                        onSelect={() => { setOrgId(o.id); setOrgSearchOpen(false); }}
+                      >
+                        <Check className={cn('mr-2 h-4 w-4', orgId === o.id ? 'opacity-100' : 'opacity-0')} />
+                        {o.name}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+          <p className="text-xs text-muted-foreground">
+            Org members will automatically see this dog.
+          </p>
         </div>
-        {orgs.length > 0 && (
-          <div className="space-y-1.5">
-            <Label>Link to Organization</Label>
-            <Select value={orgId} onValueChange={v => setOrgId(v ?? '')}>
-              <SelectTrigger>
-                <SelectValue placeholder="None" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">None</SelectItem>
-                {orgs.map(o => (
-                  <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              Org members will automatically see this dog.
-            </p>
-          </div>
-        )}
         <EmergencyContactInput value={emergencyContact} onChange={setEmergencyContact} />
         <AddressLocationPicker value={homeLocation} onChange={setHomeLocation} />
       </div>

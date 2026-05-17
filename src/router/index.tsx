@@ -11,6 +11,7 @@ import PublicQRPage from '@/pages/qr/PublicQRPage';
 // All other pages lazy-loaded: downloaded only when first visited
 const ActiveWalkPage            = lazy(() => import('@/pages/walk/ActiveWalkPage'));
 const WalkSummaryPage           = lazy(() => import('@/pages/walk/WalkSummaryPage'));
+const ActiveTrainingPage        = lazy(() => import('@/pages/training/ActiveTrainingPage'));
 const DashboardPage             = lazy(() => import('@/pages/dashboard/DashboardPage'));
 const CreateDogPage             = lazy(() => import('@/pages/dog/CreateDogPage'));
 const EditDogPage               = lazy(() => import('@/pages/dog/EditDogPage'));
@@ -45,9 +46,10 @@ export const router = createBrowserRouter([
   {
     element: <ProtectedRoute />,
     children: [
-      // Full-screen walk UI — no AppShell
-      { path: '/walk/active',  element: <Suspense fallback={null}><ActiveWalkPage /></Suspense> },
-      { path: '/walk/summary', element: <Suspense fallback={null}><WalkSummaryPage /></Suspense> },
+      // Full-screen walk/training UI — no AppShell
+      { path: '/walk/active',     element: <Suspense fallback={null}><ActiveWalkPage /></Suspense> },
+      { path: '/walk/summary',    element: <Suspense fallback={null}><WalkSummaryPage /></Suspense> },
+      { path: '/training/active', element: <Suspense fallback={null}><ActiveTrainingPage /></Suspense> },
       // Main app with sidebar/topbar/bottom-nav
       {
         element: (

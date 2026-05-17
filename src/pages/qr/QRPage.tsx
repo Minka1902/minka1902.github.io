@@ -26,10 +26,11 @@ export default function QRPage() {
         </Button>
       </div>
 
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden qr-print-card">
+        <style>{`@media print { .qr-print-card { border: none !important; box-shadow: none !important; } .qr-print-wrapper { transform: scale(1.6); transform-origin: center top; margin-bottom: 2rem; } }`}</style>
         <div className="flex flex-col items-center py-8 px-6 bg-gradient-to-b from-muted/30 to-background">
-          <div className="rounded-2xl bg-white p-4 shadow-sm border">
-            <QRCodeDisplay dogId={activeDog.id} size={200} />
+          <div className="qr-print-wrapper rounded-2xl bg-white p-4 shadow-sm border">
+            <QRCodeDisplay dogId={activeDog.id} size={260} />
           </div>
           <p className="mt-4 text-sm font-medium capitalize">{dog.name}</p>
           <p className="text-xs text-muted-foreground mt-0.5">

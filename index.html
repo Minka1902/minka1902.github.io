@@ -11,6 +11,11 @@
         if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches)) {
           document.documentElement.classList.add('dark');
         }
+        var ct = localStorage.getItem('packops_color_theme');
+        var validThemes = ['warm-cream', 'white-sage', 'neutral-slate'];
+        if (ct && validThemes.indexOf(ct) !== -1 && ct !== 'warm-cream') {
+          document.documentElement.classList.add('theme-' + ct);
+        }
       })();
     </script>
   </head>

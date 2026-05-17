@@ -39,7 +39,7 @@ import type {
 const TYPE_LABELS: Record<string, string> = {
   rescue: 'Rescue', shelter: 'Shelter', breeder: 'Breeder',
   training: 'Training', daycare: 'Daycare', spa: 'Spa',
-  veterinary: 'Veterinary', boarding: 'Boarding', other: 'Other',
+  veterinary: 'Veterinary', boarding: 'Boarding', shop: 'Shop', other: 'Other',
 };
 
 const SERVICE_OPTIONS: { value: OrgServiceType; label: string }[] = [
@@ -596,7 +596,7 @@ export default function OrgDetailPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-5">
+    <div className="max-w-2xl mx-auto space-y-5 lg:flex-1 lg:overflow-y-auto lg:p-4">
 
       {/* ── Header ── */}
       <div className="flex items-start gap-4">
@@ -621,22 +621,26 @@ export default function OrgDetailPage() {
         )}
       </div>
 
-      <Tabs defaultValue="today">
+      <Tabs defaultValue={amLeader ? 'today' : 'staff'}>
         <TabsList className="w-full">
-          <TabsTrigger value="today" className="flex-1">Today</TabsTrigger>
-          <TabsTrigger value="dogs" className="flex-1">
-            Dogs {enrolled.filter(e => e.status === 'active').length > 0 ? `(${enrolled.filter(e => e.status === 'active').length})` : ''}
-          </TabsTrigger>
-          <TabsTrigger value="tasks" className="flex-1">
-            Tasks {activeTasks.length > 0 ? `(${activeTasks.length})` : ''}
-          </TabsTrigger>
+          {amLeader && <TabsTrigger value="today" className="flex-1">Today</TabsTrigger>}
+          {amLeader && (
+            <TabsTrigger value="dogs" className="flex-1">
+              Dogs {enrolled.filter(e => e.status === 'active').length > 0 ? `(${enrolled.filter(e => e.status === 'active').length})` : ''}
+            </TabsTrigger>
+          )}
+          {amLeader && (
+            <TabsTrigger value="tasks" className="flex-1">
+              Tasks {activeTasks.length > 0 ? `(${activeTasks.length})` : ''}
+            </TabsTrigger>
+          )}
           <TabsTrigger value="staff" className="flex-1">
             Staff {pending.length > 0 && amLeader ? `(${pending.length}!)` : `(${members.length})`}
           </TabsTrigger>
         </TabsList>
 
         {/* ══════════════════════════════════ TODAY TAB ══════════════════════════════════ */}
-        <TabsContent value="today" className="space-y-4 mt-4">
+        {amLeader && <TabsContent value="today" className="space-y-4 mt-4">
 
           {/* Stat tiles */}
           <div className="grid grid-cols-2 gap-3">
@@ -748,10 +752,10 @@ export default function OrgDetailPage() {
               )}
             </div>
           )}
-        </TabsContent>
+        </TabsContent>}
 
         {/* ══════════════════════════════════ DOGS TAB ══════════════════════════════════ */}
-        <TabsContent value="dogs" className="space-y-3 mt-4">
+        {amLeader && <TabsContent value="dogs" className="space-y-3 mt-4">
           {/* Search + filter */}
           <div className="space-y-2">
             <div className="relative">
@@ -792,10 +796,10 @@ export default function OrgDetailPage() {
               ))}
             </div>
           )}
-        </TabsContent>
+        </TabsContent>}
 
         {/* ══════════════════════════════════ TASKS TAB ══════════════════════════════════ */}
-        <TabsContent value="tasks" className="space-y-3 mt-4">
+        {amLeader && <TabsContent value="tasks" className="space-y-3 mt-4">
           <div className="flex items-center justify-between gap-2">
             <div className="flex gap-1.5">
               {(['all', 'mine'] as const).map(v => (
@@ -842,7 +846,7 @@ export default function OrgDetailPage() {
               ))}
             </div>
           )}
-        </TabsContent>
+        </TabsContent>}
 
         {/* ══════════════════════════════════ STAFF TAB ══════════════════════════════════ */}
         <TabsContent value="staff" className="space-y-4 mt-4">

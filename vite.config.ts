@@ -9,10 +9,10 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage'],
-          'vendor-react':    ['react', 'react-dom', 'react-router-dom'],
-          'vendor-ui':       ['lucide-react'],
+        manualChunks: (id: string) => {
+          if (id.includes('firebase')) return 'vendor-firebase';
+          if (['react', 'react-dom', 'react-router-dom'].some(pkg => id.includes(`node_modules/${pkg}/`) || id.includes(`node_modules\\${pkg}\\`))) return 'vendor-react';
+          if (id.includes('lucide-react')) return 'vendor-ui';
         },
       },
     },

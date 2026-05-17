@@ -6,8 +6,11 @@ import { Users, UserPlus, Clock, Search } from 'lucide-react';
 import { useDog } from '@/contexts/DogContext';
 import { useHumans, usePendingHumans } from '@/hooks/useHumans';
 import { useAuth } from '@/hooks/useAuth';
+import { useOrg } from '@/contexts/OrgContext';
 import HumanCard from '@/components/humans/HumanCard';
+import { Skeleton } from '@/components/ui/skeleton';
 import PendingRequestCard from '@/components/humans/PendingRequestCard';
+import OrgTeamCard from '@/components/dog/OrgTeamCard';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -19,8 +22,10 @@ import type { HumanRole, UserProfile } from '@/types';
 export default function HumansPage() {
   const { activeDog, isMainHuman } = useDog();
   const { user } = useAuth();
+  const { orgs } = useOrg();
   const dogId = activeDog?.id ?? '';
-  const { humans, revokeHuman } = useHumans(dogId);
+  const linkedOrg = activeDog?.orgId ? orgs.find(o => o.id === activeDog.orgId) : undefined;
+  const { humans, loading: humansLoading, revokeHuman } = useHumans(dogId);
   const { pending, approveHuman, rejectHuman, addHumanDirectly } = usePendingHumans(dogId);
   const isMain = isMainHuman(dogId);
 
@@ -80,7 +85,7 @@ export default function HumansPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6 lg:flex-1 lg:overflow-y-auto lg:p-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Team</h1>
         <Link to="/dogs/join" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'gap-1.5')}>
@@ -174,12 +179,34 @@ export default function HumansPage() {
         </div>
       )}
 
+      {/* Linked organization */}
+      {linkedOrg && (
+        <div className="space-y-2">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            Organization
+          </h2>
+          <OrgTeamCard org={linkedOrg} />
+        </div>
+      )}
+
       {/* Team members */}
       <div className="space-y-3">
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-          Team Members ({humans.length})
+          Team Members {!humansLoading && `(${humans.length})`}
         </h2>
-        {humans.length === 0 ? (
+        {humansLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="flex items-center gap-3 p-3 rounded-xl border bg-card">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-3.5 w-32" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : humans.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-14 rounded-xl border border-dashed bg-background gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
               <Users className="h-6 w-6 text-muted-foreground" />

@@ -1,4 +1,4 @@
-import { X, ShieldCheck, ShieldMinus, BadgeCheck } from 'lucide-react';
+import { X, ShieldCheck, ShieldMinus, BadgeCheck, AlertTriangle } from 'lucide-react';
 import OrgRoleBadge from './OrgRoleBadge';
 import type { OrgMember } from '@/types';
 
@@ -20,8 +20,12 @@ interface Props {
 export default function OrgMemberCard({ member, canManage, isCurrentUser, onRemove, onPromote, onDemote }: Props) {
   return (
     <div className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3 group">
-      <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary shrink-0">
-        {member.displayName.slice(0, 2).toUpperCase()}
+      <div className="relative shrink-0">
+        {member.photoURL
+          ? <img src={member.photoURL} alt={member.displayName} className="h-9 w-9 rounded-full object-cover" />
+          : <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary">{member.displayName.slice(0, 2).toUpperCase()}</div>
+        }
+        {!member.photoURL && <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-amber-500 flex items-center justify-center" title="No profile photo"><AlertTriangle className="h-2 w-2 text-white" /></span>}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold truncate capitalize flex items-center gap-1">

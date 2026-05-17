@@ -21,6 +21,7 @@ const ORG_TYPES: { value: OrgType; label: string }[] = [
   { value: 'veterinary',label: 'Veterinary' },
   { value: 'spa',       label: 'Grooming & Spa' },
   { value: 'boarding',  label: 'Boarding' },
+  { value: 'shop',      label: 'Shop' },
   { value: 'other',     label: 'Other' },
 ];
 

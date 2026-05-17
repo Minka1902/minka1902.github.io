@@ -28,6 +28,7 @@ export interface Medication extends MedicalBase {
   dosage?: string;
   frequency?: string;
   isActive: boolean;
+  administrationTimes?: string[]; // HH:MM strings, e.g. ['08:00', '20:00']
 }
 export interface FleaTick extends MedicalBase { category: 'flea_tick'; productName?: string; }
 export interface Deworming extends MedicalBase { category: 'deworming'; productName?: string; }

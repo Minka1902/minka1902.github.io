@@ -3,6 +3,7 @@ import { subDays, format, startOfDay } from 'date-fns';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
+import { ChartTooltip } from './ChartTooltip';
 import type { RoutineLog } from '@/types';
 
 interface Props {
@@ -39,20 +40,17 @@ export default function FeedingLogChart({ logs }: Props) {
       ) : (
         <ResponsiveContainer width="100%" height={140}>
           <BarChart data={data} margin={{ top: 4, right: 4, left: -24, bottom: 0 }} barSize={10} barCategoryGap="30%">
-            <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.5 0 0 / 0.1)" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.5 0 0 / 0.08)" vertical={false} />
             <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'oklch(0.55 0 0)' }} axisLine={false} tickLine={false} />
             <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'oklch(0.55 0 0)' }} axisLine={false} tickLine={false} />
             <Tooltip
-              contentStyle={{
-                borderRadius: 8, fontSize: 12,
-                border: '1px solid oklch(0.85 0 0)',
-                backgroundColor: 'var(--background)',
-                color: 'var(--foreground)',
-              }}
+              content={({ active, payload, label }) => (
+                <ChartTooltip active={active} payload={payload} label={label} />
+              )}
             />
             <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-            <Bar dataKey="meals" name="Meals" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="water" name="Water" fill="#38bdf8" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="meals" name="Meals" fill="#f59e0b" radius={[4, 4, 0, 0]} activeBar={{ fill: '#f59e0b70', radius: 4 }} />
+            <Bar dataKey="water" name="Water" fill="#38bdf8" radius={[4, 4, 0, 0]} activeBar={{ fill: '#38bdf870', radius: 4 }} />
           </BarChart>
         </ResponsiveContainer>
       )}

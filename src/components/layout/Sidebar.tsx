@@ -125,7 +125,12 @@ export function SidebarContent({ onClose }: SidebarContentProps) {
 
 export default function Sidebar() {
   return (
-    <aside className="hidden lg:flex w-60 shrink-0 flex-col">
+    <aside
+      className="hidden lg:flex w-60 shrink-0 flex-col"
+      style={{
+        boxShadow: '1px 0 0 0 oklch(0.5 0 0 / 0.08), 2px 0 8px -2px oklch(0 0 0 / 0.08)',
+      }}
+    >
       <SidebarContent />
     </aside>
   );

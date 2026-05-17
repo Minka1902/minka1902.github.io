@@ -1,13 +1,13 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { format, addDays, startOfWeek, addWeeks, isSameDay } from 'date-fns';
-import { ChevronLeft, ChevronRight, CalendarRange, Check, X, Clock, CalendarPlus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarRange, X, Clock, CalendarPlus, GripVertical, Pencil } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useDog } from '@/contexts/DogContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useRoutine, useRoutineWindow } from '@/hooks/useRoutine';
-import { useMedicalWindow } from '@/hooks/useMedical';
+import { useMedicalWindow, useActiveMedications } from '@/hooks/useMedical';
 import { useScheduledLogs, useScheduledLogsWindow } from '@/hooks/useScheduledLogs';
 import { useBaseRoutine } from '@/hooks/useBaseRoutine';
 import { useTraining } from '@/hooks/useTraining';
@@ -16,12 +16,29 @@ import { cn } from '@/lib/utils';
 import BaseRoutineForm from '@/components/routine/BaseRoutineForm';
 import DayTimeline from '@/components/routine/DayTimeline';
 import ScheduleLogSheet from '@/components/routine/ScheduleLogSheet';
-import MonitoringPanel from '@/components/routine/monitoring/MonitoringPanel';
+import AssignRoutineSheet from '@/components/routine/AssignRoutineSheet';
+import DogSelectForWalkDialog from '@/components/walk/DogSelectForWalkDialog';
 import type { RoutineLog, ScheduledLog } from '@/types';
 import type { MedicalCalendarEvent } from '@/hooks/useMedical';
 import type { MedicalRecord } from '@/types';
 
 const DAY_ABBR = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+type SectionId = 'calendar' | 'quicklog' | 'timeline';
+const DEFAULT_SECTION_ORDER: SectionId[] = ['calendar', 'quicklog', 'timeline'];
+const LAYOUT_KEY = 'packops_routine_layout';
+
+function loadSectionOrder(): SectionId[] {
+  try {
+    const saved = localStorage.getItem(LAYOUT_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved) as SectionId[];
+      if (Array.isArray(parsed) && parsed.length === DEFAULT_SECTION_ORDER.length &&
+          DEFAULT_SECTION_ORDER.every(id => parsed.includes(id))) return parsed;
+    }
+  } catch { /* ignore */ }
+  return DEFAULT_SECTION_ORDER;
+}
 
 // dayIdx 0=Mon … 6=Sun — matches the DAYS order in BaseRoutineForm
 function weekdayIdx(date: Date): number {
@@ -76,13 +93,18 @@ function PendingApprovalRow({
 
 
 export default function RoutinePage() {
-  const navigate = useNavigate();
   const { activeDog, isMainHuman } = useDog();
   const { user } = useAuth();
   const [showBaseRoutine, setShowBaseRoutine] = useState(false);
+  const [showWalkDialog, setShowWalkDialog] = useState(false);
+  const [pendingBaseInfo, setPendingBaseInfo] = useState<{ type: string; scheduledMs: number } | null>(null);
+  const [editLayout, setEditLayout] = useState(false);
+  const [sections, setSections] = useState<SectionId[]>(loadSectionOrder);
+  const dragSectionRef = useRef<SectionId | null>(null);
   const [showScheduleSheet, setShowScheduleSheet] = useState(false);
   const [showCustomLog, setShowCustomLog] = useState(false);
   const [customLabel, setCustomLabel] = useState('');
+  const [customDateTime, setCustomDateTime] = useState('');
   const [savingCustom, setSavingCustom] = useState(false);
   const customInputRef = useRef<HTMLInputElement>(null);
   const [weekOffset, setWeekOffset] = useState(0);
@@ -98,17 +120,14 @@ export default function RoutinePage() {
   const windowEnd   = addDays(weekStart, 7).getTime() - 1;
 
   const windowLogs    = useRoutineWindow(activeDog?.id ?? '', windowStart, windowEnd);
-  const medicalEvents = useMedicalWindow(activeDog?.id ?? '', windowStart, windowEnd);
+  const medicalEvents    = useMedicalWindow(activeDog?.id ?? '', windowStart, windowEnd);
+  const activeMedications = useActiveMedications(activeDog?.id ?? '');
   const scheduledLogs = useScheduledLogsWindow(activeDog?.id ?? '', windowStart, windowEnd);
   const { logs: allScheduledLogs, createScheduledLog, approveScheduledLog, declineScheduledLog, completeScheduledLog, deleteScheduledLog } = useScheduledLogs(activeDog?.id ?? '');
   const { deleteLog, logRoutine, updateLogTimestamp } = useRoutine(activeDog?.id ?? '');
   const { slots: baseSlots, save: saveBaseSlots } = useBaseRoutine(activeDog?.id ?? '');
   const [crossDayDrag, setCrossDayDrag] = useState<{ logId: string; timeOfDayMs: number } | null>(null);
 
-  // Wider window for monitoring charts (30 days back) — memoized to avoid re-triggering listener
-  const monitorStart = useMemo(() => Date.now() - 30 * 24 * 60 * 60 * 1000, []);
-  const monitorEnd   = useMemo(() => Date.now() + 86_400_000, []);
-  const monitorLogs  = useRoutineWindow(activeDog?.id ?? '', monitorStart, monitorEnd);
   const { sessions: trainingSessions } = useTraining(activeDog?.id ?? '');
 
   const isLead = activeDog ? isMainHuman(activeDog.id) : false;
@@ -137,8 +156,9 @@ export default function RoutinePage() {
     const label = customLabel.trim();
     if (!label) return;
     setSavingCustom(true);
-    await logRoutine('custom', { customLabel: label });
-    setCustomLabel(''); setShowCustomLog(false); setSavingCustom(false);
+    const ts = customDateTime ? new Date(customDateTime).getTime() : Date.now();
+    await logRoutine('custom', { customLabel: label, timestamp: ts });
+    setCustomLabel(''); setCustomDateTime(''); setShowCustomLog(false); setSavingCustom(false);
   };
 
   const logsByDay = useMemo(() => {
@@ -243,6 +263,10 @@ export default function RoutinePage() {
   const selectedDayMedical  = useMemo(() => { const k = format(selectedDate, 'yyyy-MM-dd'); return medicalByDay.get(k) ?? []; }, [medicalByDay, selectedDate]);
   const selectedDayScheduled = useMemo(() => { const k = format(selectedDate, 'yyyy-MM-dd'); return (scheduledByDay.get(k) ?? []).filter(l => l.status !== 'declined' && l.status !== 'pending_approval'); }, [scheduledByDay, selectedDate]);
   const selectedDayPending   = useMemo(() => { const k = format(selectedDate, 'yyyy-MM-dd'); return (scheduledByDay.get(k) ?? []).filter(l => l.status === 'pending_approval'); }, [scheduledByDay, selectedDate]);
+  const selectedDayTraining  = useMemo(() => {
+    const k = format(selectedDate, 'yyyy-MM-dd');
+    return trainingSessions.filter(s => format(new Date(s.scheduledAt), 'yyyy-MM-dd') === k);
+  }, [trainingSessions, selectedDate]);
 
   const handleWeekChange = (dir: number) => { setWeekOffset(weekOffset + dir); setSelectedDate(prev => addWeeks(prev, dir)); };
 
@@ -252,8 +276,8 @@ export default function RoutinePage() {
   if (!activeDog) return <div className="text-muted-foreground p-4">No active dog selected.</div>;
 
   return (
-    <div className="flex flex-col lg:grid lg:grid-cols-[minmax(0,480px)_1fr] lg:gap-8 lg:items-start w-full">
-    <div className="flex flex-col min-h-full">
+    <div className="flex flex-col flex-1 min-h-0 w-full max-w-2xl lg:flex-1 lg:overflow-y-auto lg:p-4">
+    <div className="flex flex-col min-h-0">
       {/* ── Page header ── */}
       <div className="px-1 pt-1 pb-4 flex items-start justify-between gap-2">
         <div>
@@ -261,16 +285,30 @@ export default function RoutinePage() {
           <p className="text-sm text-muted-foreground capitalize mt-0.5">{activeDog.name}</p>
         </div>
         <div className="flex items-center gap-2 mt-1">
-          {isLead && (
-            <button onClick={() => setShowScheduleSheet(true)}
-              className="flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold border border-primary/30 text-primary hover:bg-primary/8 transition-colors">
-              <CalendarPlus className="h-3.5 w-3.5" /> Schedule
+          {editLayout ? (
+            <button onClick={() => setEditLayout(false)}
+              className="flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+              Done
             </button>
+          ) : (
+            <>
+              {isLead && (
+                <button onClick={() => setShowScheduleSheet(true)}
+                  className="flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold border border-primary/30 text-primary hover:bg-primary/8 transition-colors">
+                  <CalendarPlus className="h-3.5 w-3.5" /> Schedule
+                </button>
+              )}
+              <button onClick={() => setShowBaseRoutine(true)}
+                className="flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                <CalendarRange className="h-3.5 w-3.5" /> Base Routine
+              </button>
+              <button onClick={() => setEditLayout(true)}
+                className="h-8 w-8 rounded-full flex items-center justify-center border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                aria-label="Edit layout">
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+            </>
           )}
-          <button onClick={() => setShowBaseRoutine(true)}
-            className="flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-            <CalendarRange className="h-3.5 w-3.5" /> Base Routine
-          </button>
         </div>
       </div>
 
@@ -317,8 +355,36 @@ export default function RoutinePage() {
         </div>
       )}
 
+      {/* ── Reorderable sections ── */}
+      {sections.map(sectionId => {
+        const handleDragStart = (e: React.DragEvent) => { e.stopPropagation(); dragSectionRef.current = sectionId; };
+        const handleDragOver  = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); };
+        const handleDrop      = (e: React.DragEvent) => {
+          e.preventDefault(); e.stopPropagation();
+          const from = dragSectionRef.current;
+          if (!from || from === sectionId) return;
+          setSections(prev => {
+            const next = [...prev];
+            const fi = next.indexOf(from), ti = next.indexOf(sectionId);
+            next.splice(fi, 1); next.splice(ti, 0, from);
+            localStorage.setItem(LAYOUT_KEY, JSON.stringify(next));
+            return next;
+          });
+          dragSectionRef.current = null;
+        };
+        const dragLabel = sectionId === 'calendar' ? 'Calendar' : sectionId === 'quicklog' ? 'Quick Log' : 'Timeline';
+
+        if (sectionId === 'calendar') return (
+          <div key="calendar" draggable={editLayout} onDragStart={handleDragStart} onDragOver={handleDragOver} onDrop={handleDrop}
+            className={cn('relative', editLayout && 'cursor-grab')}>
+            {editLayout && (
+              <div className="absolute -top-0 left-2 z-10 flex items-center gap-1 bg-primary/10 border border-primary/30 rounded-full px-2 py-0.5 pointer-events-none select-none">
+                <GripVertical className="h-3 w-3 text-primary/60" />
+                <span className="text-[9px] font-semibold text-primary/60 uppercase tracking-wider">{dragLabel}</span>
+              </div>
+            )}
       {/* ── Calendar strip ── */}
-      <div className="rounded-2xl border bg-card shadow-sm overflow-hidden mb-4">
+      <div className={cn('rounded-2xl border bg-card shadow-sm overflow-hidden mb-4', editLayout && 'ring-1 ring-dashed ring-primary/30')}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
           <span className="text-sm font-semibold" style={{ fontFamily: 'var(--font-heading)' }}>
             {format(headerDate, 'MMMM yyyy')}
@@ -410,12 +476,23 @@ export default function RoutinePage() {
           </span>
         </div>
       </div>
+          </div>
+        );
 
+        if (sectionId === 'quicklog') return (
+          <div key="quicklog" draggable={editLayout} onDragStart={handleDragStart} onDragOver={handleDragOver} onDrop={handleDrop}
+            className={cn('relative', editLayout && 'cursor-grab')}>
+            {editLayout && (
+              <div className="absolute -top-0 left-2 z-10 flex items-center gap-1 bg-primary/10 border border-primary/30 rounded-full px-2 py-0.5 pointer-events-none select-none">
+                <GripVertical className="h-3 w-3 text-primary/60" />
+                <span className="text-[9px] font-semibold text-primary/60 uppercase tracking-wider">{dragLabel}</span>
+              </div>
+            )}
       {/* ── Quick log strip ── */}
-      <div className="flex gap-2 overflow-x-auto pb-1 mb-4 scrollbar-none">
+      <div className={cn('flex gap-2 overflow-x-auto pb-1 mb-4 scrollbar-none', editLayout && 'ring-1 ring-dashed ring-primary/30 rounded-full px-2 pt-2')}>
         {QUICK_LOG_TYPES.map(({ type, label, icon, color }) => (
           type === 'walk' ? (
-            <button key={type} onClick={() => navigate('/walk/active')}
+            <button key={type} onClick={() => setShowWalkDialog(true)}
               className="flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-all active:scale-95"
               style={{ backgroundColor: color + '18', border: `1.5px solid ${color}40`, color }}>
               <span>{icon}</span> {label}
@@ -424,7 +501,7 @@ export default function RoutinePage() {
             <LogButton key={type} type={type} label={label} icon={icon} color={color} dogId={activeDog.id} />
           )
         ))}
-        <button onClick={() => setShowCustomLog(true)}
+        <button onClick={() => { setShowCustomLog(true); setCustomDateTime(format(new Date(), "yyyy-MM-dd'T'HH:mm")); }}
           className="flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-all active:scale-95 border border-dashed border-border/60 text-muted-foreground hover:text-foreground">
           + Log activity
         </button>
@@ -432,24 +509,46 @@ export default function RoutinePage() {
 
       {/* ── Inline custom log form ── */}
       {showCustomLog && (
-        <div className="flex items-center gap-2 rounded-xl border bg-card px-3 py-2 mb-4 shadow-sm">
-          <span className="text-xl shrink-0">✏️</span>
-          <input ref={customInputRef} value={customLabel} onChange={e => setCustomLabel(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleSaveCustom(); if (e.key === 'Escape') { setShowCustomLog(false); setCustomLabel(''); } }}
-            placeholder="What happened? (e.g. grooming, vet visit…)"
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" disabled={savingCustom} />
-          <button onClick={() => { setShowCustomLog(false); setCustomLabel(''); }}
-            className="shrink-0 p-1 rounded-md text-muted-foreground hover:text-foreground transition-colors" aria-label="Cancel">
-            <X className="h-4 w-4" />
-          </button>
-          <button onClick={handleSaveCustom} disabled={!customLabel.trim() || savingCustom}
-            className={cn('shrink-0 p-1 rounded-md transition-colors', customLabel.trim() ? 'text-primary hover:text-primary/80' : 'text-muted-foreground/40 cursor-not-allowed')}
-            aria-label="Save">
-            <Check className="h-4 w-4" />
-          </button>
+        <div className="rounded-xl border bg-card px-3 py-2.5 mb-4 shadow-sm space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xl shrink-0">✏️</span>
+            <input ref={customInputRef} value={customLabel} onChange={e => setCustomLabel(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleSaveCustom(); if (e.key === 'Escape') { setShowCustomLog(false); setCustomLabel(''); setCustomDateTime(''); } }}
+              placeholder="What happened? (e.g. grooming, vet visit…)"
+              className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" disabled={savingCustom} />
+            <button onClick={() => { setShowCustomLog(false); setCustomLabel(''); setCustomDateTime(''); }}
+              className="shrink-0 p-1 rounded-md text-muted-foreground hover:text-foreground transition-colors" aria-label="Cancel">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="flex items-center gap-2 pl-8">
+            <input
+              type="datetime-local"
+              value={customDateTime}
+              onChange={e => setCustomDateTime(e.target.value)}
+              className="flex-1 text-xs bg-background border border-input rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-ring text-foreground"
+              disabled={savingCustom}
+            />
+            <button onClick={handleSaveCustom} disabled={!customLabel.trim() || savingCustom}
+              className={cn('shrink-0 px-3 py-1 rounded-lg text-xs font-semibold transition-colors', customLabel.trim() && !savingCustom ? 'bg-primary/10 text-primary hover:bg-primary/20' : 'text-muted-foreground/40 cursor-not-allowed')}>
+              {savingCustom ? 'Saving…' : 'Log'}
+            </button>
+          </div>
         </div>
       )}
+          </div>
+        );
 
+        // sectionId === 'timeline'
+        return (
+          <div key="timeline" draggable={editLayout} onDragStart={handleDragStart} onDragOver={handleDragOver} onDrop={handleDrop}
+            className={cn('relative flex flex-col flex-1 min-h-0', editLayout && 'cursor-grab')}>
+            {editLayout && (
+              <div className="flex items-center gap-1 mb-1 pl-1">
+                <GripVertical className="h-3 w-3 text-primary/60" />
+                <span className="text-[9px] font-semibold text-primary/60 uppercase tracking-wider">{dragLabel}</span>
+              </div>
+            )}
       {/* ── Day timeline ── */}
       <DayTimeline
         selectedDate={selectedDate}
@@ -467,30 +566,81 @@ export default function RoutinePage() {
         onMedicalConfirmed={handleConfirmMedical}
         onCrossDayDragStart={(logId, timeOfDayMs) => setCrossDayDrag({ logId, timeOfDayMs })}
         onCrossDayDragEnd={() => setCrossDayDrag(null)}
+        onPendingBaseSlotClick={(type, scheduledMs) => setPendingBaseInfo({ type, scheduledMs })}
+        onRescheduleLog={updateLogTimestamp}
+        trainingSessions={selectedDayTraining}
+        activeMedications={activeMedications}
       />
+          </div>
+        );
+      })}
+
+      {pendingBaseInfo && (
+        <AssignRoutineSheet
+          dogId={activeDog.id}
+          type={pendingBaseInfo.type}
+          scheduledMs={pendingBaseInfo.scheduledMs}
+          onClose={() => setPendingBaseInfo(null)}
+        />
+      )}
+
+      {showWalkDialog && <DogSelectForWalkDialog onClose={() => setShowWalkDialog(false)} />}
     </div>
 
-    {/* Desktop monitoring panel — hidden on mobile */}
-    <div className="hidden lg:block">
-      <MonitoringPanel
-        logs={monitorLogs}
-        sessions={trainingSessions}
-        dogName={activeDog.name}
-      />
-    </div>
     </div>
   );
 }
 
 function LogButton({ type, label, icon, color, dogId }: { type: string; label: string; icon: string; color: string; dogId: string }) {
+  const [open, setOpen] = useState(false);
+  const [logTime, setLogTime] = useState('');
   const [loading, setLoading] = useState(false);
   const { logRoutine } = useRoutine(dogId);
-  const handleClick = async () => { if (loading) return; setLoading(true); await logRoutine(type as import('@/types').RoutineType); setLoading(false); };
+
+  const handleOpenChange = (isOpen: boolean) => {
+    if (isOpen) setLogTime(format(new Date(), "yyyy-MM-dd'T'HH:mm"));
+    setOpen(isOpen);
+  };
+
+  const handleLog = async () => {
+    if (loading) return;
+    setLoading(true);
+    const ts = logTime ? new Date(logTime).getTime() : Date.now();
+    await logRoutine(type as import('@/types').RoutineType, { timestamp: ts });
+    setLoading(false);
+    setOpen(false);
+  };
+
   return (
-    <button onClick={handleClick} disabled={loading}
-      className="flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-all active:scale-95 disabled:opacity-50"
-      style={{ backgroundColor: color + '18', border: `1.5px solid ${color}40`, color }}>
-      <span>{loading ? '…' : icon}</span> {label}
-    </button>
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>
+        <button
+          className="flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-all active:scale-95"
+          style={{ backgroundColor: color + '18', border: `1.5px solid ${color}40`, color }}>
+          <span>{icon}</span> {label}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-3" align="start">
+        <div className="space-y-2.5">
+          <p className="text-xs font-semibold">{icon} Log {label}</p>
+          <div className="space-y-1">
+            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">When</label>
+            <input
+              type="datetime-local"
+              value={logTime}
+              onChange={e => setLogTime(e.target.value)}
+              className="w-full text-xs bg-background border border-input rounded-md px-2 py-1.5 outline-none focus:ring-1 focus:ring-ring text-foreground"
+            />
+          </div>
+          <button
+            onClick={handleLog}
+            disabled={loading}
+            className="w-full py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
+            style={{ backgroundColor: color + '20', border: `1.5px solid ${color}50`, color }}>
+            {loading ? 'Logging…' : `Log ${label}`}
+          </button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

@@ -14,7 +14,8 @@ import TimelineBlock from './TimelineBlock';
 import AllDayStrip from './AllDayStrip';
 import QuickAddPopover from './QuickAddPopover';
 import LogDetailSheet from './LogDetailSheet';
-import type { RoutineLog, ScheduledLog } from '@/types';
+import { useNavigate } from 'react-router-dom';
+import type { RoutineLog, ScheduledLog, TrainingSession, Medication } from '@/types';
 import type { LogSelection } from './LogDetailSheet';
 import type { BaseRoutineSlots } from '@/hooks/useBaseRoutine';
 import type { MedicalCalendarEvent } from '@/hooks/useMedical';
@@ -38,6 +39,10 @@ export interface DayTimelineProps {
   onMedicalConfirmed?: (event: MedicalCalendarEvent) => void;
   onCrossDayDragStart?: (logId: string, timeOfDayMs: number) => void;
   onCrossDayDragEnd?: () => void;
+  onPendingBaseSlotClick?: (type: string, scheduledMs: number) => void;
+  onRescheduleLog?: (logId: string, newTimestamp: number) => void;
+  trainingSessions?: TrainingSession[];
+  activeMedications?: Medication[];
 }
 
 function getRoutineMeta(type: string, customLabel?: string) {
@@ -109,8 +114,9 @@ export default function DayTimeline({
   selectedDate, isToday, baseSlots, allBaseSlots, onSaveBaseSlots,
   logs, scheduledLogs, medicalEvents, dogId, onLogDeleted, onScheduledLogDeleted,
   onScheduledLogConfirmed, onMedicalConfirmed,
-  onCrossDayDragStart, onCrossDayDragEnd,
+  onCrossDayDragStart, onCrossDayDragEnd, onPendingBaseSlotClick, onRescheduleLog, trainingSessions = [], activeMedications = [],
 }: DayTimelineProps) {
+  const navigate = useNavigate();
   const [timeRange, setTimeRange]       = useState(loadTimeRange);
   const [showSettings, setShowSettings] = useState(false);
   const [settingsDraft, setSettingsDraft] = useState(timeRange);
@@ -185,6 +191,12 @@ export default function DayTimeline({
       const d = new Date(log.scheduledFor);
       const top = minutesToPx(d.getHours() * 60 + d.getMinutes(), startHour);
       items.push({ id: log.id, top, bottom: top + BLOCK_MIN_HEIGHT });
+    }
+    for (const s of trainingSessions) {
+      const d = new Date(s.scheduledAt);
+      const top = minutesToPx(d.getHours() * 60 + d.getMinutes(), startHour);
+      const height = Math.max(40, ((s.durationActualMin ?? 30) / 60) * PX_PER_HOUR);
+      items.push({ id: `training-${s.id}`, top, bottom: top + height });
     }
     return computeColumns(items);
   }, [slotEvents, displayedStandaloneLogs, scheduledLogs, startHour]);
@@ -380,16 +392,18 @@ export default function DayTimeline({
 
             {/* Current time indicator */}
             {isToday && nowMin >= startHour * 60 && nowMin <= endHour * 60 && (
-              <div
-                className="absolute left-10 right-0 flex items-center pointer-events-none z-20"
-                style={{ top: minutesToPx(nowMin, startHour) }}
-              >
-                <div className="h-2 w-2 rounded-full bg-red-500 shrink-0 -ml-1" />
-                <span className="text-[9px] font-bold tabular-nums text-red-500 ml-1 leading-none">
+              <>
+                <span
+                  className="absolute text-[9px] font-bold tabular-nums text-red-500 pointer-events-none z-20 select-none"
+                  style={{ top: minutesToPx(nowMin, startHour) - 7, left: 0, width: 44, textAlign: 'right', paddingRight: 6 }}
+                >
                   {String(Math.floor(nowMin / 60)).padStart(2, '0')}:{String(nowMin % 60).padStart(2, '0')}
                 </span>
-                <div className="flex-1 h-px bg-red-500 ml-1" />
-              </div>
+                <div
+                  className="absolute h-px bg-red-500 pointer-events-none z-20"
+                  style={{ top: minutesToPx(nowMin, startHour), left: 48, right: 0 }}
+                />
+              </>
             )}
 
             {/* Base routine slot blocks */}
@@ -421,8 +435,14 @@ export default function DayTimeline({
                         kind: 'log', log: sl,
                         subLogs: subs,
                         onDelete: () => { subs?.forEach(s => onLogDeleted(s.id)); onLogDeleted(sl.id); },
+                        onReschedule: (ts) => onRescheduleLog?.(sl.id, ts),
                       });
-                    } : undefined}
+                    } : (!completed && onPendingBaseSlotClick ? () => {
+                      const d = new Date(selectedDate);
+                      const [h, m] = slot.slotTimeStr.split(':').map(Number);
+                      d.setHours(h, m, 0, 0);
+                      onPendingBaseSlotClick(slot.type, d.getTime());
+                    } : undefined)}
                     draggable
                     onDragStart={e => handleDragStart(e, { kind: 'base', id: slot.slotKey, slotKey: slot.slotKey })}
                   />
@@ -454,6 +474,7 @@ export default function DayTimeline({
                     onClick={() => setSelectedLog({
                       kind: 'log', log, subLogs: subs,
                       onDelete: () => { subs?.forEach(s => onLogDeleted(s.id)); onLogDeleted(log.id); },
+                      onReschedule: (ts) => onRescheduleLog?.(log.id, ts),
                     })}
                     draggable
                     onDragStart={e => handleDragStart(e, { kind: 'log', id: log.id }, log)}
@@ -493,6 +514,54 @@ export default function DayTimeline({
                     })}
                     draggable
                     onDragStart={e => handleDragStart(e, { kind: 'scheduled', id: log.id })}
+                  />
+                </div>
+              );
+            })}
+            {/* Medication administration time blocks */}
+            {activeMedications.flatMap(med =>
+              (med.administrationTimes ?? []).map(timeStr => {
+                const [h, m] = timeStr.split(':').map(Number);
+                if (isNaN(h) || isNaN(m)) return null;
+                const top = minutesToPx(h * 60 + m, startHour);
+                const key = `med-${med.id}-${timeStr}`;
+                return (
+                  <div key={key} data-block="">
+                    <TimelineBlock
+                      kind="standalone-log"
+                      icon="💊"
+                      color="oklch(0.6 0.18 160)"
+                      label={med.medicationName || med.title}
+                      sublabel={timeStr}
+                      top={top}
+                      height={BLOCK_MIN_HEIGHT}
+                      col={0}
+                      totalCols={1}
+                    />
+                  </div>
+                );
+              }).filter(Boolean)
+            )}
+
+            {/* Training session blocks */}
+            {trainingSessions.map(s => {
+              const d = new Date(s.scheduledAt);
+              const top = minutesToPx(d.getHours() * 60 + d.getMinutes(), startHour);
+              const height = Math.max(40, ((s.durationActualMin ?? 30) / 60) * PX_PER_HOUR);
+              const { col, totalCols } = columnLayout.get(`training-${s.id}`) ?? { col: 0, totalCols: 1 };
+              return (
+                <div key={s.id} data-block="">
+                  <TimelineBlock
+                    kind="standalone-log"
+                    icon="🎯"
+                    color="oklch(0.55 0.15 280)"
+                    label={s.trainingType.replace(/_/g, ' ')}
+                    sublabel={fmtTime(s.scheduledAt)}
+                    top={top}
+                    height={height}
+                    col={col}
+                    totalCols={totalCols}
+                    onClick={() => navigate(`/training/${s.id}`)}
                   />
                 </div>
               );

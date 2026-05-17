@@ -1,18 +1,27 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { updateProfile } from 'firebase/auth';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { auth, db, storage } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { useDog } from '@/contexts/DogContext';
 import { useNavConfig } from '@/hooks/useNavConfig';
+import { useTheme, COLOR_THEMES, type ColorTheme } from '@/hooks/useTheme';
 import { NAV_ITEMS } from '@/lib/nav';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { PawPrint, ExternalLink, LogOut, Check } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PawPrint, ExternalLink, LogOut, Check, Camera, Loader2 } from 'lucide-react';
+
+const COLOR_THEME_META: Record<ColorTheme, { label: string; bg: string; primary: string }> = {
+  'warm-cream':     { label: 'Warm Cream',     bg: '#f5e8d0', primary: '#c17d3c' },
+  'white-sage':     { label: 'White & Sage',   bg: '#f0f7f0', primary: '#3d8a5a' },
+  'neutral-slate':  { label: 'Neutral & Slate', bg: '#f0f2f7', primary: '#4a6fa5' },
+};
 
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -32,10 +41,16 @@ export default function SettingsPage() {
   const { user, logout } = useAuth();
   const { dogs } = useDog();
   const { selected, toggle, max } = useNavConfig();
+  const { theme, toggle: toggleTheme, colorTheme, setColorTheme } = useTheme();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [phone, setPhone] = useState('');
   const [savingPhone, setSavingPhone] = useState(false);
   const [phoneSaved, setPhoneSaved] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [apiKeySaved, setApiKeySaved] = useState(false);
+  const savedApiKey = typeof window !== 'undefined' ? localStorage.getItem('packops_gemini_api_key') : null;
 
   useEffect(() => {
     setPhone(user?.phoneNumber ?? '');
@@ -53,6 +68,23 @@ export default function SettingsPage() {
     await logout();
   };
 
+  const handlePhotoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setPhotoUploading(true);
+    try {
+      const ext = file.name.split('.').pop() ?? 'jpg';
+      const path = `user-avatars/${user.uid}_${Date.now()}.${ext}`;
+      const snap = await uploadBytes(storageRef(storage, path), file);
+      const url = await getDownloadURL(snap.ref);
+      if (auth.currentUser) await updateProfile(auth.currentUser, { photoURL: url });
+      await updateDoc(doc(db, 'users', user.uid), { photoURL: url, updatedAt: Date.now() });
+    } finally {
+      setPhotoUploading(false);
+      e.target.value = '';
+    }
+  };
+
   const handleSavePhone = async () => {
     if (!user) return;
     setSavingPhone(true);
@@ -65,7 +97,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="max-w-xl mx-auto space-y-5">
+    <div className="max-w-xl mx-auto space-y-5 lg:flex-1 lg:overflow-y-auto lg:p-4">
       {/* Header */}
       <div className="px-1 pt-1">
         <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
@@ -76,17 +108,31 @@ export default function SettingsPage() {
       {/* Account */}
       <Section title="Account" description="Your profile information">
         <div className="flex items-center gap-4 mb-5">
-          <Avatar className="h-14 w-14 shrink-0">
-            <AvatarFallback
-              className="text-base font-bold"
-              style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)' }}
+          <div className="relative shrink-0">
+            <Avatar className="h-14 w-14">
+              {user?.photoURL ? <AvatarImage src={user.photoURL} alt={user.displayName ?? ''} /> : null}
+              <AvatarFallback
+                className="text-base font-bold"
+                style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)' }}
+              >
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={photoUploading}
+              className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md hover:opacity-90 transition-opacity disabled:opacity-50"
+              aria-label="Upload profile photo"
             >
-              {initials}
-            </AvatarFallback>
-          </Avatar>
+              {photoUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+            </button>
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoFile} />
+          </div>
           <div>
             <p className="font-semibold capitalize">{user?.displayName}</p>
             <p className="text-sm text-muted-foreground">{user?.email}</p>
+            {!user?.photoURL && <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">No profile photo yet</p>}
           </div>
         </div>
 
@@ -113,6 +159,61 @@ export default function SettingsPage() {
             >
               {savingPhone ? 'Saving…' : phoneSaved ? <Check className="h-4 w-4" /> : 'Save'}
             </Button>
+          </div>
+        </div>
+      </Section>
+
+      {/* Appearance */}
+      <Section title="Appearance" description="Choose your color palette and display mode">
+        <div className="space-y-4">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-3">Color palette</p>
+            <div className="flex gap-3">
+              {COLOR_THEMES.map((ct) => {
+                const meta = COLOR_THEME_META[ct];
+                const isActive = colorTheme === ct;
+                return (
+                  <button
+                    key={ct}
+                    type="button"
+                    onClick={() => setColorTheme(ct)}
+                    className={`flex flex-col items-center gap-2 p-2.5 rounded-xl border-2 transition-all hover:opacity-90 ${
+                      isActive
+                        ? 'border-primary shadow-sm'
+                        : 'border-border hover:border-border/80'
+                    }`}
+                    aria-label={meta.label}
+                    aria-pressed={isActive}
+                  >
+                    <div
+                      className="h-10 w-10 rounded-lg shadow-sm flex items-center justify-center"
+                      style={{ backgroundColor: meta.bg }}
+                    >
+                      <div
+                        className="h-5 w-5 rounded-full"
+                        style={{ backgroundColor: meta.primary }}
+                      />
+                    </div>
+                    <span className="text-[10px] font-medium text-muted-foreground leading-tight text-center max-w-[56px]">
+                      {meta.label}
+                    </span>
+                    {isActive && (
+                      <Check className="h-3 w-3 text-primary -mt-1" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Dark mode</p>
+              <p className="text-xs text-muted-foreground">Switch between light and dark display</p>
+            </div>
+            <Switch checked={theme === 'dark'} onCheckedChange={toggleTheme} />
           </div>
         </div>
       </Section>
@@ -150,6 +251,53 @@ export default function SettingsPage() {
           <Link to="/dogs/new" className="text-sm text-primary hover:underline underline-offset-2 font-medium">
             + Add another dog
           </Link>
+        </div>
+      </Section>
+
+      {/* AI Integration */}
+      <Section title="AI Integration" description="Analyze training sessions with Gemini AI">
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Enter your own{' '}
+            <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">Google Gemini API key</a>
+            {' '}to use AI scoring. Stored locally on this device only.
+          </p>
+          {savedApiKey && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+              <Check className="h-3.5 w-3.5 text-green-500 shrink-0" />
+              Key saved: <span className="font-mono">{savedApiKey.slice(0, 8)}••••</span>
+              <button
+                onClick={() => { localStorage.removeItem('packops_gemini_api_key'); window.location.reload(); }}
+                className="ml-auto text-destructive hover:text-destructive/80 transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Input
+              type="password"
+              placeholder="AIzaSy…"
+              value={apiKeyInput}
+              onChange={e => setApiKeyInput(e.target.value)}
+              className="flex-1 font-mono text-xs"
+              autoComplete="off"
+            />
+            <Button
+              onClick={() => {
+                if (!apiKeyInput.trim()) return;
+                localStorage.setItem('packops_gemini_api_key', apiKeyInput.trim());
+                setApiKeyInput('');
+                setApiKeySaved(true);
+                setTimeout(() => setApiKeySaved(false), 2000);
+                window.location.reload();
+              }}
+              disabled={!apiKeyInput.trim()}
+              className="shrink-0"
+            >
+              {apiKeySaved ? <Check className="h-4 w-4" /> : 'Save'}
+            </Button>
+          </div>
         </div>
       </Section>
 

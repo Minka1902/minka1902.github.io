@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import { format } from 'date-fns';
 import {
   User, Clock, Smartphone, PenLine, Footprints, Moon, Utensils, Droplets,
-  CalendarClock, CheckCircle2, AlertCircle, Timer, Trash2, CheckCheck, Calendar,
+  CalendarClock, CheckCircle2, AlertCircle, Timer, Trash2, CheckCheck, Calendar, Pencil, Check, X,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ROUTINE_TYPES, PEE_COLOR, POOP_COLOR, MEDICAL_CATEGORY_META, MEDICAL_CATEGORIES } from '@/lib/constants';
@@ -9,7 +10,7 @@ import type { RoutineLog, ScheduledLog } from '@/types';
 import type { MedicalCalendarEvent } from '@/hooks/useMedical';
 
 export type LogSelection =
-  | { kind: 'log';       log: RoutineLog;            subLogs?: RoutineLog[]; onDelete?: () => void }
+  | { kind: 'log';       log: RoutineLog;            subLogs?: RoutineLog[]; onDelete?: () => void; onReschedule?: (newTimestamp: number) => void }
   | { kind: 'scheduled'; log: ScheduledLog;           onDelete?: () => void; onConfirm?: () => void }
   | { kind: 'medical';   event: MedicalCalendarEvent; onConfirm?: () => void };
 
@@ -58,7 +59,7 @@ export default function LogDetailSheet({ selection, onClose }: Props) {
       <SheetContent side="bottom" className="rounded-t-2xl max-h-[80dvh] overflow-y-auto pb-safe">
         {selection && (
           <>
-            {selection.kind === 'log'       && <LogContent log={selection.log} subLogs={selection.subLogs} />}
+            {selection.kind === 'log'       && <LogContent log={selection.log} subLogs={selection.subLogs} onReschedule={selection.onReschedule} />}
             {selection.kind === 'scheduled' && <ScheduledContent log={selection.log} />}
             {selection.kind === 'medical'   && <MedicalContent event={selection.event} />}
 
@@ -93,7 +94,19 @@ export default function LogDetailSheet({ selection, onClose }: Props) {
   );
 }
 
-function LogContent({ log, subLogs }: { log: RoutineLog; subLogs?: RoutineLog[] }) {
+function LogContent({ log, subLogs, onReschedule }: { log: RoutineLog; subLogs?: RoutineLog[]; onReschedule?: (newTimestamp: number) => void }) {
+  const [editingTime, setEditingTime] = useState(false);
+  const [timeInput, setTimeInput] = useState('');
+
+  const handleEditTime = () => {
+    setTimeInput(format(new Date(log.timestamp), "yyyy-MM-dd'T'HH:mm"));
+    setEditingTime(true);
+  };
+
+  const handleSaveTime = () => {
+    const ts = new Date(timeInput).getTime();
+    if (!isNaN(ts)) { onReschedule?.(ts); setEditingTime(false); }
+  };
   const meta = getTypeMeta(log.type);
   const label = log.type === 'custom' && log.customLabel ? log.customLabel : meta.label;
 
@@ -112,7 +125,29 @@ function LogContent({ log, subLogs }: { log: RoutineLog; subLogs?: RoutineLog[] 
         </div>
       </SheetHeader>
       <div className="px-4 pb-4">
-        <Row icon={Clock}    label="Time"      value={format(new Date(log.timestamp), 'EEEE, MMM d · h:mm a')} />
+        <Row icon={Clock} label="Time" value={
+          <span className="flex items-center gap-2">
+            {format(new Date(log.timestamp), 'EEEE, MMM d · h:mm a')}
+            {onReschedule && !editingTime && (
+              <button onClick={handleEditTime} className="p-0.5 rounded text-muted-foreground hover:text-foreground transition-colors" aria-label="Change time">
+                <Pencil className="h-3 w-3" />
+              </button>
+            )}
+          </span>
+        } />
+        {editingTime && (
+          <div className="flex items-center gap-2 py-2 border-b border-border/40">
+            <input
+              type="datetime-local"
+              value={timeInput}
+              onChange={e => setTimeInput(e.target.value)}
+              className="flex-1 text-xs border border-input rounded-lg px-2 py-1.5 bg-background outline-none focus:border-primary/50"
+              autoFocus
+            />
+            <button onClick={handleSaveTime} className="p-1 rounded-lg text-green-500 hover:text-green-400 transition-colors"><Check className="h-3.5 w-3.5" /></button>
+            <button onClick={() => setEditingTime(false)} className="p-1 rounded-lg text-muted-foreground hover:text-foreground transition-colors"><X className="h-3.5 w-3.5" /></button>
+          </div>
+        )}
         <Row icon={User}     label="Logged by" value={log.loggedByName} />
         <Row icon={log.source === 'device' ? Smartphone : PenLine} label="Source" value={log.source === 'device' ? 'Device' : 'Manual entry'} />
         {log.type === 'walk' && (

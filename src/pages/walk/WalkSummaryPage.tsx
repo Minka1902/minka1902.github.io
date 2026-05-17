@@ -1,13 +1,18 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { addDoc } from 'firebase/firestore';
 import { MapPin, Clock, Zap, TrendingUp } from 'lucide-react';
 import { useDog } from '@/contexts/DogContext';
 import { useRoutine } from '@/hooks/useRoutine';
+import { useAuth } from '@/hooks/useAuth';
+import { routinesCol } from '@/lib/firestore';
+import { stripUndefined } from '@/lib/utils';
 
 interface WalkState {
   elapsedSeconds: number;
   distanceKm: number;
   avgSpeedKmh: number;
+  dogIds?: string[];
 }
 
 function fmtDuration(seconds: number): string {
@@ -52,9 +57,12 @@ export default function WalkSummaryPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { activeDog } = useDog();
+  const { user } = useAuth();
   const { logRoutine } = useRoutine(activeDog?.id ?? '');
 
   const state = location.state as WalkState | null;
+  const dogIds = state?.dogIds;
+  const extraDogIds = dogIds ? dogIds.filter(id => id !== activeDog?.id) : [];
   const [peed, setPeed] = useState(false);
   const [pooped, setPooped] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -73,14 +81,27 @@ export default function WalkSummaryPage() {
   const handleSave = async () => {
     setSaving(true);
     const now = Date.now();
-    const walkId = await logRoutine('walk', {
+    const walkStats = {
       walkDurationMin: Math.round(elapsedSeconds / 60 * 10) / 10,
       walkDistanceKm: parseFloat(distanceKm.toFixed(3)),
       walkAvgSpeedKmh: parseFloat(avgSpeedKmh.toFixed(2)),
       timestamp: now,
-    });
+    };
+    const walkId = await logRoutine('walk', walkStats);
     if (peed)   await logRoutine('pee',  { timestamp: now, parentLogId: walkId });
     if (pooped) await logRoutine('poop', { timestamp: now, parentLogId: walkId });
+
+    // Log for additional dogs sharing the walk
+    await Promise.all(extraDogIds.map(async dogId => {
+      const ref = await addDoc(routinesCol(dogId), stripUndefined({
+        dogId, type: 'walk', source: 'manual',
+        loggedBy: user!.uid, loggedByName: user!.displayName,
+        ...walkStats,
+      }));
+      if (peed)   await addDoc(routinesCol(dogId), stripUndefined({ dogId, type: 'pee',  timestamp: now, source: 'manual', loggedBy: user!.uid, loggedByName: user!.displayName, parentLogId: ref.id }));
+      if (pooped) await addDoc(routinesCol(dogId), stripUndefined({ dogId, type: 'poop', timestamp: now, source: 'manual', loggedBy: user!.uid, loggedByName: user!.displayName, parentLogId: ref.id }));
+    }));
+
     navigate('/routine', { replace: true });
   };
 
@@ -106,7 +127,7 @@ export default function WalkSummaryPage() {
             Walk Complete
           </h1>
           <p className="text-sm mt-1.5 capitalize" style={{ color: 'oklch(0.52 0.01 55)' }}>
-            {activeDog.name} · great job!
+            {dogIds && dogIds.length > 1 ? `${dogIds.length} dogs` : activeDog.name} · great job!
           </p>
         </div>
 

@@ -9,7 +9,7 @@ export default function OrgListPage() {
   const { orgs, isOrgAdmin } = useOrg();
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6 lg:flex-1 lg:overflow-y-auto lg:p-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Organizations</h1>
         <div className="flex items-center gap-2">

@@ -41,12 +41,14 @@ export default function BottomNav() {
                 className={cn('h-5 w-5 transition-all', isActive ? 'scale-110' : 'scale-100')}
                 style={{ color: isActive ? 'var(--primary)' : 'oklch(0.5 0 0)', strokeWidth: isActive ? 2.2 : 1.7 }}
               />
-              <span
-                className="text-[10px] font-semibold tracking-wide transition-colors"
-                style={{ color: isActive ? 'var(--primary)' : 'oklch(0.55 0 0)' }}
-              >
-                {label === 'QR Code' ? 'QR' : label}
-              </span>
+              {isActive && (
+                <span
+                  className="text-[10px] font-semibold tracking-wide"
+                  style={{ color: 'var(--primary)' }}
+                >
+                  {label === 'QR Code' ? 'QR' : label}
+                </span>
+              )}
             </>
           )}
         </NavLink>

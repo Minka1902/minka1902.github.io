@@ -27,26 +27,36 @@ export function useAlerts(dogId: string): Alert[] {
     if (isMainHuman(dogId)) {
       const dog = dogs.find(d => d.id === dogId);
       if (dog) {
-        const hasIncomplete =
-          !dog.photoURL ||
-          !dog.breed ||
-          !dog.weightKg ||
-          !dog.emergencyContact?.name ||
-          !dog.homeAddress?.address ||
-          !dog.name ||
-          dog.sex === 'unknown';
-        if (hasIncomplete) {
+        const missing: string[] = [];
+        if (!dog.photoURL)                  missing.push('photo');
+        if (!dog.breed)                     missing.push('breed');
+        if (!dog.weightKg)                  missing.push('weight');
+        if (!dog.emergencyContact?.name)    missing.push('emergency contact');
+        if (!dog.homeAddress?.address)      missing.push('home address');
+        if (!dog.name)                      missing.push('name');
+        if (dog.sex === 'unknown')          missing.push('sex');
+        if (missing.length > 0) {
           alerts.push({
             id: 'incomplete_profile',
             type: 'incomplete_profile',
             dogId,
             severity: 'info',
-            message: "Dog profile has missing information",
+            message: `Missing info: ${missing.join(', ')}`,
             actionRoute: `/dogs/${dogId}/edit`,
             generatedAt: now,
           });
         }
       }
+    }
+
+    // User has no profile photo
+    if (user && !user.photoURL) {
+      alerts.push({
+        id: 'no_user_photo', type: 'incomplete_profile', dogId,
+        severity: 'info',
+        message: 'Add a profile photo — required for org members',
+        actionRoute: '/settings', generatedAt: now,
+      });
     }
 
     // Walk overdue

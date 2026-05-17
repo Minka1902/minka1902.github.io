@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { addDoc, onSnapshot, query, orderBy, where, getDocs, setDoc, doc, deleteDoc } from 'firebase/firestore';
+import { addDoc, onSnapshot, query, orderBy, where, getDocs, setDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { sessionsCol, templatesCol } from '@/lib/firestore';
 import { useAuth } from '@/hooks/useAuth';
@@ -55,5 +55,9 @@ export function useTraining(dogId: string) {
     await deleteDoc(doc(db, 'dogs', dogId, 'trainingTemplates', templateId));
   };
 
-  return { sessions, loading, getTemplate, createSession, updateTemplate, resetTemplate };
+  const updateSession = async (sessionId: string, data: Partial<TrainingSession>) => {
+    await updateDoc(doc(db, 'dogs', dogId, 'trainingSessions', sessionId), stripUndefined({ ...data, updatedAt: Date.now() }));
+  };
+
+  return { sessions, loading, getTemplate, createSession, updateSession, updateTemplate, resetTemplate };
 }

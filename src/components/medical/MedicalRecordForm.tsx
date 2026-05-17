@@ -35,6 +35,9 @@ export default function MedicalRecordForm({ dogId, category, onSaved, record }: 
   const [condition,      setCondition]      = useState((record as Diagnosis)?.condition ?? '');
   const [procedure,      setProcedure]      = useState((record as Surgery)?.procedure ?? '');
 
+  const [isActive,        setIsActive]        = useState((record as Medication)?.isActive ?? true);
+  const [administrationTimes, setAdministrationTimes] = useState<string[]>((record as Medication)?.administrationTimes ?? []);
+
   const [submitting, setSubmitting] = useState(false);
   const [dateError, setDateError] = useState('');
 
@@ -62,7 +65,7 @@ export default function MedicalRecordForm({ dogId, category, onSaved, record }: 
     if (isEdit) {
       const extra: Partial<MedicalRecord> = {};
       if (category === 'vaccination') (extra as Partial<Vaccination>).vaccineName = vaccineName;
-      if (category === 'medication')  { (extra as Partial<Medication>).medicationName = medicationName; (extra as Partial<Medication>).dosage = dosage || undefined; }
+      if (category === 'medication')  { (extra as Partial<Medication>).medicationName = medicationName; (extra as Partial<Medication>).dosage = dosage || undefined; (extra as Partial<Medication>).isActive = isActive; (extra as Partial<Medication>).administrationTimes = administrationTimes.length ? administrationTimes : undefined; }
       if (category === 'allergy')     (extra as Partial<Allergy>).allergen = allergen;
       if (category === 'diagnosis')   (extra as Partial<Diagnosis>).condition = condition;
       if (category === 'surgery')     (extra as Partial<Surgery>).procedure = procedure;
@@ -76,7 +79,7 @@ export default function MedicalRecordForm({ dogId, category, onSaved, record }: 
       if (category === 'vaccination') {
         newRecord = { ...fullBase, category: 'vaccination', vaccineName } as Omit<Vaccination, 'id'>;
       } else if (category === 'medication') {
-        newRecord = { ...fullBase, category: 'medication', medicationName, dosage: dosage || undefined, isActive: true } as Omit<Medication, 'id'>;
+        newRecord = { ...fullBase, category: 'medication', medicationName, dosage: dosage || undefined, isActive, administrationTimes: administrationTimes.length ? administrationTimes : undefined } as Omit<Medication, 'id'>;
       } else if (category === 'allergy') {
         newRecord = { ...fullBase, category: 'allergy', allergen } as Omit<Allergy, 'id'>;
       } else if (category === 'diagnosis') {
@@ -115,6 +118,46 @@ export default function MedicalRecordForm({ dogId, category, onSaved, record }: 
           <div className="space-y-1">
             <Label htmlFor="dosage">Dosage</Label>
             <Input id="dosage" value={dosage} onChange={e => setDosage(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Label>Daily Administration Times</Label>
+              <p className="text-xs text-muted-foreground">Show on timeline</p>
+            </div>
+            {administrationTimes.map((t, i) => (
+              <div key={i} className="flex gap-2 items-center">
+                <input
+                  type="time"
+                  value={t}
+                  onChange={e => setAdministrationTimes(prev => prev.map((x, j) => j === i ? e.target.value : x))}
+                  className="flex-1 text-sm border border-input rounded-lg px-2 py-1.5 bg-background outline-none focus:border-primary/50"
+                />
+                <button
+                  type="button"
+                  onClick={() => setAdministrationTimes(prev => prev.filter((_, j) => j !== i))}
+                  className="text-muted-foreground hover:text-destructive transition-colors text-sm px-2"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setAdministrationTimes(prev => [...prev, '08:00'])}
+              className="text-xs text-primary hover:underline underline-offset-2"
+            >
+              + Add time
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="isActive"
+              checked={isActive}
+              onChange={e => setIsActive(e.target.checked)}
+              className="h-4 w-4 rounded border-input"
+            />
+            <Label htmlFor="isActive">Currently active</Label>
           </div>
         </>
       )}
