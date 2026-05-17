@@ -1,7 +1,6 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { format, addDays, startOfWeek, addWeeks, isSameDay } from 'date-fns';
-import { ChevronLeft, ChevronRight, CalendarRange, X, Clock, CalendarPlus, GripVertical, Pencil } from 'lucide-react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ChevronLeft, ChevronRight, CalendarRange, Clock, CalendarPlus, GripVertical, Pencil } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useDog } from '@/contexts/DogContext';
@@ -11,21 +10,21 @@ import { useMedicalWindow, useActiveMedications } from '@/hooks/useMedical';
 import { useScheduledLogs, useScheduledLogsWindow } from '@/hooks/useScheduledLogs';
 import { useBaseRoutine } from '@/hooks/useBaseRoutine';
 import { useTraining } from '@/hooks/useTraining';
-import { ROUTINE_TYPES, QUICK_LOG_TYPES, PEE_COLOR, POOP_COLOR, MEDICAL_CATEGORY_META, MEDICAL_CATEGORIES } from '@/lib/constants';
+import { ROUTINE_TYPES, PEE_COLOR, POOP_COLOR, MEDICAL_CATEGORY_META, MEDICAL_CATEGORIES } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import BaseRoutineForm from '@/components/routine/BaseRoutineForm';
 import DayTimeline from '@/components/routine/DayTimeline';
 import ScheduleLogSheet from '@/components/routine/ScheduleLogSheet';
 import AssignRoutineSheet from '@/components/routine/AssignRoutineSheet';
-import DogSelectForWalkDialog from '@/components/walk/DogSelectForWalkDialog';
+
 import type { RoutineLog, ScheduledLog } from '@/types';
 import type { MedicalCalendarEvent } from '@/hooks/useMedical';
 import type { MedicalRecord } from '@/types';
 
 const DAY_ABBR = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-type SectionId = 'calendar' | 'quicklog' | 'timeline';
-const DEFAULT_SECTION_ORDER: SectionId[] = ['calendar', 'quicklog', 'timeline'];
+type SectionId = 'calendar' | 'timeline';
+const DEFAULT_SECTION_ORDER: SectionId[] = ['calendar', 'timeline'];
 const LAYOUT_KEY = 'packops_routine_layout';
 
 function loadSectionOrder(): SectionId[] {
@@ -96,17 +95,12 @@ export default function RoutinePage() {
   const { activeDog, isMainHuman } = useDog();
   const { user } = useAuth();
   const [showBaseRoutine, setShowBaseRoutine] = useState(false);
-  const [showWalkDialog, setShowWalkDialog] = useState(false);
   const [pendingBaseInfo, setPendingBaseInfo] = useState<{ type: string; scheduledMs: number } | null>(null);
   const [editLayout, setEditLayout] = useState(false);
   const [sections, setSections] = useState<SectionId[]>(loadSectionOrder);
   const dragSectionRef = useRef<SectionId | null>(null);
   const [showScheduleSheet, setShowScheduleSheet] = useState(false);
-  const [showCustomLog, setShowCustomLog] = useState(false);
-  const [customLabel, setCustomLabel] = useState('');
-  const [customDateTime, setCustomDateTime] = useState('');
-  const [savingCustom, setSavingCustom] = useState(false);
-  const customInputRef = useRef<HTMLInputElement>(null);
+  const [logSheetDate, setLogSheetDate] = useState<Date | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedDate, setSelectedDate] = useState<Date>(() => {
     const d = new Date(); d.setHours(0, 0, 0, 0); return d;
@@ -138,8 +132,6 @@ export default function RoutinePage() {
     [allScheduledLogs, user?.uid],
   );
 
-  useEffect(() => { if (showCustomLog) customInputRef.current?.focus(); }, [showCustomLog]);
-
   const handleConfirmScheduled = async (log: ScheduledLog) => {
     await completeScheduledLog(log.id);
     await logRoutine(log.type, { timestamp: log.scheduledFor });
@@ -150,15 +142,6 @@ export default function RoutinePage() {
     const colName = MEDICAL_CATEGORIES.find(c => c.category === r.category)?.collectionName;
     if (!colName || !activeDog) return;
     await updateDoc(doc(db, 'dogs', activeDog.id, colName, r.id), { date: Date.now(), updatedAt: Date.now() });
-  };
-
-  const handleSaveCustom = async () => {
-    const label = customLabel.trim();
-    if (!label) return;
-    setSavingCustom(true);
-    const ts = customDateTime ? new Date(customDateTime).getTime() : Date.now();
-    await logRoutine('custom', { customLabel: label, timestamp: ts });
-    setCustomLabel(''); setCustomDateTime(''); setShowCustomLog(false); setSavingCustom(false);
   };
 
   const logsByDay = useMemo(() => {
@@ -372,7 +355,7 @@ export default function RoutinePage() {
           });
           dragSectionRef.current = null;
         };
-        const dragLabel = sectionId === 'calendar' ? 'Calendar' : sectionId === 'quicklog' ? 'Quick Log' : 'Timeline';
+        const dragLabel = sectionId === 'calendar' ? 'Calendar' : 'Timeline';
 
         if (sectionId === 'calendar') return (
           <div key="calendar" draggable={editLayout} onDragStart={handleDragStart} onDragOver={handleDragOver} onDrop={handleDrop}
@@ -410,7 +393,7 @@ export default function RoutinePage() {
             const isCrossDrop   = crossDayDrag !== null && !isSelected;
             return (
               <button key={i}
-                onClick={() => setSelectedDate(day)}
+                onClick={() => { setSelectedDate(day); setLogSheetDate(new Date(day)); }}
                 onDragOver={isCrossDrop ? e => e.preventDefault() : undefined}
                 onDrop={isCrossDrop ? async e => {
                   e.preventDefault();
@@ -479,66 +462,6 @@ export default function RoutinePage() {
           </div>
         );
 
-        if (sectionId === 'quicklog') return (
-          <div key="quicklog" draggable={editLayout} onDragStart={handleDragStart} onDragOver={handleDragOver} onDrop={handleDrop}
-            className={cn('relative', editLayout && 'cursor-grab')}>
-            {editLayout && (
-              <div className="absolute -top-0 left-2 z-10 flex items-center gap-1 bg-primary/10 border border-primary/30 rounded-full px-2 py-0.5 pointer-events-none select-none">
-                <GripVertical className="h-3 w-3 text-primary/60" />
-                <span className="text-[9px] font-semibold text-primary/60 uppercase tracking-wider">{dragLabel}</span>
-              </div>
-            )}
-      {/* ── Quick log strip ── */}
-      <div className={cn('flex gap-2 overflow-x-auto pb-1 mb-4 scrollbar-none', editLayout && 'ring-1 ring-dashed ring-primary/30 rounded-full px-2 pt-2')}>
-        {QUICK_LOG_TYPES.map(({ type, label, icon, color }) => (
-          type === 'walk' ? (
-            <button key={type} onClick={() => setShowWalkDialog(true)}
-              className="flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-all active:scale-95"
-              style={{ backgroundColor: color + '18', border: `1.5px solid ${color}40`, color }}>
-              <span>{icon}</span> {label}
-            </button>
-          ) : (
-            <LogButton key={type} type={type} label={label} icon={icon} color={color} dogId={activeDog.id} />
-          )
-        ))}
-        <button onClick={() => { setShowCustomLog(true); setCustomDateTime(format(new Date(), "yyyy-MM-dd'T'HH:mm")); }}
-          className="flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-all active:scale-95 border border-dashed border-border/60 text-muted-foreground hover:text-foreground">
-          + Log activity
-        </button>
-      </div>
-
-      {/* ── Inline custom log form ── */}
-      {showCustomLog && (
-        <div className="rounded-xl border bg-card px-3 py-2.5 mb-4 shadow-sm space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="text-xl shrink-0">✏️</span>
-            <input ref={customInputRef} value={customLabel} onChange={e => setCustomLabel(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleSaveCustom(); if (e.key === 'Escape') { setShowCustomLog(false); setCustomLabel(''); setCustomDateTime(''); } }}
-              placeholder="What happened? (e.g. grooming, vet visit…)"
-              className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" disabled={savingCustom} />
-            <button onClick={() => { setShowCustomLog(false); setCustomLabel(''); setCustomDateTime(''); }}
-              className="shrink-0 p-1 rounded-md text-muted-foreground hover:text-foreground transition-colors" aria-label="Cancel">
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="flex items-center gap-2 pl-8">
-            <input
-              type="datetime-local"
-              value={customDateTime}
-              onChange={e => setCustomDateTime(e.target.value)}
-              className="flex-1 text-xs bg-background border border-input rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-ring text-foreground"
-              disabled={savingCustom}
-            />
-            <button onClick={handleSaveCustom} disabled={!customLabel.trim() || savingCustom}
-              className={cn('shrink-0 px-3 py-1 rounded-lg text-xs font-semibold transition-colors', customLabel.trim() && !savingCustom ? 'bg-primary/10 text-primary hover:bg-primary/20' : 'text-muted-foreground/40 cursor-not-allowed')}>
-              {savingCustom ? 'Saving…' : 'Log'}
-            </button>
-          </div>
-        </div>
-      )}
-          </div>
-        );
-
         // sectionId === 'timeline'
         return (
           <div key="timeline" draggable={editLayout} onDragStart={handleDragStart} onDragOver={handleDragOver} onDrop={handleDrop}
@@ -584,63 +507,23 @@ export default function RoutinePage() {
         />
       )}
 
-      {showWalkDialog && <DogSelectForWalkDialog onClose={() => setShowWalkDialog(false)} />}
-    </div>
-
-    </div>
-  );
-}
-
-function LogButton({ type, label, icon, color, dogId }: { type: string; label: string; icon: string; color: string; dogId: string }) {
-  const [open, setOpen] = useState(false);
-  const [logTime, setLogTime] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { logRoutine } = useRoutine(dogId);
-
-  const handleOpenChange = (isOpen: boolean) => {
-    if (isOpen) setLogTime(format(new Date(), "yyyy-MM-dd'T'HH:mm"));
-    setOpen(isOpen);
-  };
-
-  const handleLog = async () => {
-    if (loading) return;
-    setLoading(true);
-    const ts = logTime ? new Date(logTime).getTime() : Date.now();
-    await logRoutine(type as import('@/types').RoutineType, { timestamp: ts });
-    setLoading(false);
-    setOpen(false);
-  };
-
-  return (
-    <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <button
-          className="flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-all active:scale-95"
-          style={{ backgroundColor: color + '18', border: `1.5px solid ${color}40`, color }}>
-          <span>{icon}</span> {label}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-56 p-3" align="start">
-        <div className="space-y-2.5">
-          <p className="text-xs font-semibold">{icon} Log {label}</p>
-          <div className="space-y-1">
-            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">When</label>
-            <input
-              type="datetime-local"
-              value={logTime}
-              onChange={e => setLogTime(e.target.value)}
-              className="w-full text-xs bg-background border border-input rounded-md px-2 py-1.5 outline-none focus:ring-1 focus:ring-ring text-foreground"
+      {/* ── Calendar-click log sheet ── */}
+      {logSheetDate && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setLogSheetDate(null)} />
+          <div className="relative ml-auto w-full max-w-lg bg-card flex flex-col h-full shadow-2xl">
+            <ScheduleLogSheet
+              dogId={activeDog.id}
+              onSave={createScheduledLog}
+              onClose={() => setLogSheetDate(null)}
+              initialDate={logSheetDate}
             />
           </div>
-          <button
-            onClick={handleLog}
-            disabled={loading}
-            className="w-full py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
-            style={{ backgroundColor: color + '20', border: `1.5px solid ${color}50`, color }}>
-            {loading ? 'Logging…' : `Log ${label}`}
-          </button>
         </div>
-      </PopoverContent>
-    </Popover>
+      )}
+    </div>
+
+    </div>
   );
 }
+
