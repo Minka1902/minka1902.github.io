@@ -87,7 +87,7 @@ export default function QuickLogBar() {
   }
 
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+    <div className="flex flex-wrap justify-center gap-2">
       {ROUTINE_TYPES.map(({ type, label, icon }) => (
         <button
           key={type}
@@ -95,7 +95,7 @@ export default function QuickLogBar() {
           onClick={() => handleLog(type)}
           aria-label={label}
           className={cn(
-            'flex flex-col items-center gap-1.5 rounded-xl border bg-background py-3 px-2 text-center transition-all',
+            'flex flex-col items-center gap-1.5 rounded-xl border bg-background py-3 px-2 text-center transition-all min-w-[60px]',
             'hover:bg-muted hover:border-border hover:scale-105 active:scale-95',
             'disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100',
             type === 'walk' && 'border-primary/30 bg-primary/5 hover:bg-primary/10',
