@@ -79,12 +79,12 @@ export default function TrainingSessionDetailPage() {
       {/* AI Score card */}
       <Card>
         <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <CardTitle className="text-base">Session Score</CardTitle>
             {!analyzing && (
               <button
                 onClick={handleAnalyze}
-                className="flex items-center gap-1.5 px-3 h-7 rounded-full text-xs font-semibold transition-colors"
+                className="flex items-center gap-1.5 px-3 h-7 rounded-full text-xs font-semibold transition-colors w-full sm:w-auto justify-center sm:justify-start"
                 style={{ backgroundColor: 'oklch(0.55 0.15 280 / 0.12)', color: 'oklch(0.72 0.15 280)' }}
               >
                 <Sparkles className="h-3 w-3" />
@@ -92,7 +92,7 @@ export default function TrainingSessionDetailPage() {
               </button>
             )}
             {analyzing && (
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground w-full sm:w-auto">
                 <Loader2 className="h-3 w-3 animate-spin" /> Analyzing…
               </span>
             )}
@@ -100,7 +100,7 @@ export default function TrainingSessionDetailPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {effectiveScore !== undefined ? (
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               {/* Score display */}
               <div className="flex items-center gap-2">
                 <span
@@ -155,7 +155,7 @@ export default function TrainingSessionDetailPage() {
             </p>
           )}
           {session.aiAnalysis && (
-            <p className="text-sm text-muted-foreground border-t pt-3">{session.aiAnalysis}</p>
+            <p className="text-sm leading-relaxed text-muted-foreground border-t pt-3">{session.aiAnalysis}</p>
           )}
           {analyzeError && (
             <p className="text-xs text-red-500">{analyzeError}</p>
