@@ -110,7 +110,7 @@ export default function WalkSummaryPage() {
       className="fixed inset-0 z-[100] flex flex-col overflow-y-auto"
       style={{ backgroundColor: 'oklch(0.14 0.014 55)' }}
     >
-      <div className="flex-1 flex flex-col max-w-md mx-auto w-full px-5 pt-12 pb-8">
+      <div className="flex-1 flex flex-col max-w-md mx-auto w-full px-5 pt-12 pb-[88px]">
 
         {/* Header */}
         <div className="flex flex-col items-center mb-10">

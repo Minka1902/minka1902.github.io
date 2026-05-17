@@ -70,7 +70,7 @@ export default function TrainingSessionDetailPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-4">
+    <div className="max-w-2xl mx-auto space-y-4 pb-[88px]">
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-bold flex-1">{typeLabel}</h1>
         <Badge variant="outline">{fmtDate(session.scheduledAt)}</Badge>
