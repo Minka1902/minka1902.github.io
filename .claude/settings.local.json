@@ -85,7 +85,30 @@
       "Bash(Select-Object -First 50)",
       "Bash(xargs wc -l)",
       "Bash(xargs ls -lh)",
-      "Bash(awk '{print $9, $5}')"
+      "Bash(awk '{print $9, $5}')",
+      "Bash(xargs ls -la)",
+      "Bash(npx shadcn@latest add command --yes)",
+      "Bash(grep -v \"//.*error\")",
+      "Bash(Get-ChildItem -Path . -Name)",
+      "Bash(Select-Object -First 20)",
+      "Bash(xargs grep -l \"Loader2\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\User\\\\Desktop\\\\dev\\\\pack-ops\\\\PackOps\" -Recurse -Depth 2)",
+      "Bash(Select-Object -Property FullName, PSIsContainer)",
+      "Bash(Sort-Object FullName)",
+      "Bash(Select-Object -First 100)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\User\\\\Desktop\\\\dev\\\\pack-ops\\\\PackOps\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(xargs grep -l \"interface\\\\|type\")",
+      "Bash(bash *)",
+      "Skill(code-review:code-review)",
+      "PowerShell(gh pr *)",
+      "PowerShell(Get-Command *)",
+      "PowerShell(git *)",
+      "Bash(awk *)",
+      "Bash(Get-ChildItem *)",
+      "Bash(node_modules/.bin/tsc --project scripts/tsconfig.json --noEmit)",
+      "Bash(Select-String -Pattern \"router|Router\")",
+      "Bash(Select-String \"typescript-eslint\")"
     ]
   }
 }

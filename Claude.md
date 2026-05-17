@@ -1,0 +1,1 @@
+you must use skills and plugins for each task
