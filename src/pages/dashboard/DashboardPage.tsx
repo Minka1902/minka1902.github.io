@@ -147,11 +147,11 @@ export default function DashboardPage() {
             {/* Page 3: Analytics */}
             <div className="w-1/3 h-full flex-shrink-0 overflow-y-auto p-3">
               <div className="rounded-2xl border bg-card p-4">
-                <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground mb-2">Analytics · Last 30 Days</p>
-                <div className="space-y-3">
-                  <WalkStatsChart logs={monitorLogs} />
-                  <FeedingLogChart logs={monitorLogs} />
-                  <TrainingProgressChart sessions={trainingSessions} />
+                <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground mb-3">Analytics · Last 30 Days</p>
+                <div className="flex flex-col gap-4">
+                  <div className="min-h-[200px]"><WalkStatsChart logs={monitorLogs} /></div>
+                  <div className="min-h-[200px]"><FeedingLogChart logs={monitorLogs} /></div>
+                  <div className="min-h-[200px]"><TrainingProgressChart sessions={trainingSessions} /></div>
                 </div>
               </div>
             </div>
