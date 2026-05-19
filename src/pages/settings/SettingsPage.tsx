@@ -100,7 +100,7 @@ export default function SettingsPage() {
     <div className="max-w-xl mx-auto space-y-5 lg:flex-1 lg:overflow-y-auto lg:p-4">
       {/* Header */}
       <div className="px-1 pt-1">
-        <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
           Settings
         </h1>
       </div>
@@ -143,7 +143,7 @@ export default function SettingsPage() {
           <p className="text-xs text-muted-foreground">
             Lets other handlers find your dogs by your phone number.
           </p>
-          <div className="flex gap-2 mt-2">
+          <div className="flex flex-wrap gap-2 mt-2">
             <Input
               id="phone"
               type="tel"
@@ -168,7 +168,7 @@ export default function SettingsPage() {
         <div className="space-y-4">
           <div>
             <p className="text-xs font-medium text-muted-foreground mb-3">Color palette</p>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap justify-center gap-3">
               {COLOR_THEMES.map((ct) => {
                 const meta = COLOR_THEME_META[ct];
                 const isActive = colorTheme === ct;
