@@ -333,7 +333,7 @@ export default function RoutinePage() {
               const isCrossDrop   = crossDayDrag !== null && !isSelected;
               return (
                 <button key={i}
-                  onClick={() => { setSelectedDate(day); setLogSheetDate(new Date(day)); }}
+                  onClick={() => { setSelectedDate(day); }}
                   onDragOver={isCrossDrop ? e => e.preventDefault() : undefined}
                   onDrop={isCrossDrop ? async e => {
                     e.preventDefault();
