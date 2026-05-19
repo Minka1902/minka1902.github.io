@@ -34,8 +34,8 @@ function pace(distanceKm: number, seconds: number): string {
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="bg-muted/60 rounded-xl p-4 text-center space-y-1">
-      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{label}</p>
+    <div className="bg-muted/60 rounded-xl p-4 text-center space-y-1 min-h-[72px] flex flex-col items-center justify-center">
+      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{label}</p>
       <p className="text-2xl font-bold leading-none" style={{ fontFamily: 'var(--font-heading)', letterSpacing: '-0.02em' }}>
         {value}
       </p>
@@ -61,7 +61,7 @@ export default function WalkSummarySheet({ open, dogName, result, onSave }: Prop
 
   return (
     <Sheet open={open} onOpenChange={() => { /* controlled — only closes on explicit Save */ }}>
-      <SheetContent side="bottom" className="rounded-t-2xl max-h-[90vh] overflow-y-auto pb-8" showCloseButton={false}>
+      <SheetContent side="bottom" className="rounded-t-2xl max-h-[calc(100dvh-68px)] overflow-y-auto pb-[72px] sm:pb-5" showCloseButton={false}>
         <SheetHeader className="pt-2 pb-5">
           <div className="flex flex-col items-center gap-2">
             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
