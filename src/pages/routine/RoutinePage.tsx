@@ -234,13 +234,46 @@ export default function RoutinePage() {
 
   const handleWeekChange = (dir: number) => { setWeekOffset(weekOffset + dir); setSelectedDate(prev => addWeeks(prev, dir)); };
 
+  const navigateToDate = (date: Date) => {
+    setSelectedDate(date);
+    const inCurrentWeek = weekDays.some(d => isSameDay(d, date));
+    if (!inCurrentWeek) {
+      const todayWeekStart = startOfWeek(today, { weekStartsOn: 1 });
+      const targetWeekStart = startOfWeek(date, { weekStartsOn: 1 });
+      const weeksFromToday = Math.round((targetWeekStart.getTime() - todayWeekStart.getTime()) / (7 * 24 * 3600 * 1000));
+      setWeekOffset(weeksFromToday);
+    }
+  };
+
+  const prevDate = useMemo(() => addDays(selectedDate, -1), [selectedDate]);
+  const nextDate = useMemo(() => addDays(selectedDate, 1), [selectedDate]);
+
+  const getLogsForDate = (date: Date) => {
+    const key = format(date, 'yyyy-MM-dd');
+    return (logsByDay.get(key) ?? []).sort((a, b) => a.timestamp - b.timestamp);
+  };
+  const getMedicalForDate = (date: Date) => {
+    const key = format(date, 'yyyy-MM-dd');
+    return medicalByDay.get(key) ?? [];
+  };
+  const getScheduledForDate = (date: Date) => {
+    const key = format(date, 'yyyy-MM-dd');
+    const all = scheduledByDay.get(key) ?? [];
+    return [...all.filter(l => l.status !== 'declined' && l.status !== 'pending_approval'),
+            ...all.filter(l => l.status === 'pending_approval')];
+  };
+  const getTrainingForDate = (date: Date) => {
+    const key = format(date, 'yyyy-MM-dd');
+    return trainingSessions.filter(s => format(new Date(s.scheduledAt), 'yyyy-MM-dd') === key);
+  };
+
   const isSelectedInWindow = weekDays.some(d => isSameDay(d, selectedDate));
   const headerDate = isSelectedInWindow ? selectedDate : weekDays[0];
 
   if (!activeDog) return <div className="text-muted-foreground p-4">No active dog selected.</div>;
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 w-full max-w-2xl lg:flex-1 lg:overflow-y-auto lg:p-4">
+    <div className="flex flex-col flex-1 min-h-0 w-full lg:max-w-none lg:flex-1 lg:overflow-y-auto lg:p-4">
     <div className="flex flex-col min-h-0">
       {/* ── Page header ── */}
       <div className="px-1 pt-1 pb-4 flex items-start justify-between gap-2">
@@ -401,29 +434,82 @@ export default function RoutinePage() {
         </div>
       </div>
 
-      {/* ── Day timeline ── */}
-      <div className="flex flex-col flex-1 min-h-0">
-        <DayTimeline
-          selectedDate={selectedDate}
-          isToday={isSameDay(selectedDate, today)}
-          baseSlots={baseSlots}
-          allBaseSlots={baseSlots}
-          onSaveBaseSlots={saveBaseSlots}
-          logs={selectedDayLogs}
-          scheduledLogs={[...selectedDayScheduled, ...selectedDayPending]}
-          medicalEvents={selectedDayMedical}
-          dogId={activeDog.id}
-          onLogDeleted={deleteLog}
-          onScheduledLogDeleted={deleteScheduledLog}
-          onScheduledLogConfirmed={handleConfirmScheduled}
-          onMedicalConfirmed={handleConfirmMedical}
-          onCrossDayDragStart={(logId, timeOfDayMs) => setCrossDayDrag({ logId, timeOfDayMs })}
-          onCrossDayDragEnd={() => setCrossDayDrag(null)}
-          onPendingBaseSlotClick={(type, scheduledMs) => setPendingBaseInfo({ type, scheduledMs })}
-          onRescheduleLog={updateLogTimestamp}
-          trainingSessions={selectedDayTraining}
-          activeMedications={activeMedications}
-        />
+      {/* ── Day timeline(s) — 1 col on <lg, 3-col on lg+ ── */}
+      <div className="flex flex-col flex-1 min-h-0 lg:grid lg:grid-cols-3 lg:gap-2">
+        {/* Yesterday — lg+ only */}
+        <div className="hidden lg:flex flex-col flex-1 min-h-0 opacity-60">
+          <DayTimeline
+            selectedDate={prevDate}
+            isToday={isSameDay(prevDate, today)}
+            baseSlots={baseSlots}
+            allBaseSlots={baseSlots}
+            onSaveBaseSlots={saveBaseSlots}
+            logs={getLogsForDate(prevDate)}
+            scheduledLogs={getScheduledForDate(prevDate)}
+            medicalEvents={getMedicalForDate(prevDate)}
+            dogId={activeDog.id}
+            onLogDeleted={deleteLog}
+            onScheduledLogDeleted={deleteScheduledLog}
+            onScheduledLogConfirmed={handleConfirmScheduled}
+            onMedicalConfirmed={handleConfirmMedical}
+            onPendingBaseSlotClick={(type, scheduledMs) => setPendingBaseInfo({ type, scheduledMs })}
+            onRescheduleLog={updateLogTimestamp}
+            trainingSessions={getTrainingForDate(prevDate)}
+            activeMedications={activeMedications}
+            onPrevDay={() => navigateToDate(addDays(selectedDate, -1))}
+            onNextDay={() => navigateToDate(addDays(selectedDate, 1))}
+          />
+        </div>
+        {/* Selected day — always visible */}
+        <div className="flex flex-col flex-1 min-h-0">
+          <DayTimeline
+            selectedDate={selectedDate}
+            isToday={isSameDay(selectedDate, today)}
+            baseSlots={baseSlots}
+            allBaseSlots={baseSlots}
+            onSaveBaseSlots={saveBaseSlots}
+            logs={selectedDayLogs}
+            scheduledLogs={[...selectedDayScheduled, ...selectedDayPending]}
+            medicalEvents={selectedDayMedical}
+            dogId={activeDog.id}
+            onLogDeleted={deleteLog}
+            onScheduledLogDeleted={deleteScheduledLog}
+            onScheduledLogConfirmed={handleConfirmScheduled}
+            onMedicalConfirmed={handleConfirmMedical}
+            onCrossDayDragStart={(logId, timeOfDayMs) => setCrossDayDrag({ logId, timeOfDayMs })}
+            onCrossDayDragEnd={() => setCrossDayDrag(null)}
+            onPendingBaseSlotClick={(type, scheduledMs) => setPendingBaseInfo({ type, scheduledMs })}
+            onRescheduleLog={updateLogTimestamp}
+            trainingSessions={selectedDayTraining}
+            activeMedications={activeMedications}
+            onPrevDay={() => navigateToDate(addDays(selectedDate, -1))}
+            onNextDay={() => navigateToDate(addDays(selectedDate, 1))}
+          />
+        </div>
+        {/* Tomorrow — lg+ only */}
+        <div className="hidden lg:flex flex-col flex-1 min-h-0 opacity-60">
+          <DayTimeline
+            selectedDate={nextDate}
+            isToday={isSameDay(nextDate, today)}
+            baseSlots={baseSlots}
+            allBaseSlots={baseSlots}
+            onSaveBaseSlots={saveBaseSlots}
+            logs={getLogsForDate(nextDate)}
+            scheduledLogs={getScheduledForDate(nextDate)}
+            medicalEvents={getMedicalForDate(nextDate)}
+            dogId={activeDog.id}
+            onLogDeleted={deleteLog}
+            onScheduledLogDeleted={deleteScheduledLog}
+            onScheduledLogConfirmed={handleConfirmScheduled}
+            onMedicalConfirmed={handleConfirmMedical}
+            onPendingBaseSlotClick={(type, scheduledMs) => setPendingBaseInfo({ type, scheduledMs })}
+            onRescheduleLog={updateLogTimestamp}
+            trainingSessions={getTrainingForDate(nextDate)}
+            activeMedications={activeMedications}
+            onPrevDay={() => navigateToDate(addDays(selectedDate, -1))}
+            onNextDay={() => navigateToDate(addDays(selectedDate, 1))}
+          />
+        </div>
       </div>
 
       {pendingBaseInfo && (

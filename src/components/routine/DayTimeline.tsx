@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
-import { Settings } from 'lucide-react';
+import { Settings, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { db } from '@/lib/firebase';
 import { makeSlotKey } from '@/hooks/useBaseRoutine';
@@ -43,6 +43,8 @@ export interface DayTimelineProps {
   onRescheduleLog?: (logId: string, newTimestamp: number) => void;
   trainingSessions?: TrainingSession[];
   activeMedications?: Medication[];
+  onPrevDay?: () => void;
+  onNextDay?: () => void;
 }
 
 function getRoutineMeta(type: string, customLabel?: string) {
@@ -115,6 +117,7 @@ export default function DayTimeline({
   logs, scheduledLogs, medicalEvents, dogId, onLogDeleted, onScheduledLogDeleted,
   onScheduledLogConfirmed, onMedicalConfirmed,
   onCrossDayDragStart, onCrossDayDragEnd, onPendingBaseSlotClick, onRescheduleLog, trainingSessions = [], activeMedications = [],
+  onPrevDay, onNextDay,
 }: DayTimelineProps) {
   const navigate = useNavigate();
   const [timeRange, setTimeRange]       = useState(loadTimeRange);
@@ -306,10 +309,22 @@ export default function DayTimeline({
   return (
     <div className="flex flex-col flex-1 rounded-2xl border bg-card shadow-sm overflow-hidden min-h-0">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 shrink-0">
-        <span className="text-sm font-semibold" style={{ fontFamily: 'var(--font-heading)' }}>
-          {isToday ? 'Today' : format(selectedDate, 'EEEE, MMM d')}
-        </span>
+      <div className="flex items-center justify-between px-2 py-3 border-b border-border/50 shrink-0">
+        <div className="flex items-center gap-0.5">
+          {onPrevDay && (
+            <button onClick={onPrevDay} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" aria-label="Previous day">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          )}
+          <span className="px-1.5 text-sm font-semibold" style={{ fontFamily: 'var(--font-heading)' }}>
+            {isToday ? 'Today' : format(selectedDate, 'EEE, MMM d')}
+          </span>
+          {onNextDay && (
+            <button onClick={onNextDay} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" aria-label="Next day">
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          )}
+        </div>
         <button
           onClick={() => { setSettingsDraft(timeRange); setShowSettings(p => !p); }}
           className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
