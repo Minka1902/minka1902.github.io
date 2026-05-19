@@ -95,7 +95,7 @@ function StatTile({
 }: { icon: React.ElementType; label: string; value: number | string; sub?: string; urgent?: boolean }) {
   return (
     <div className={cn(
-      'rounded-2xl border px-4 py-3 flex flex-col gap-1',
+      'rounded-2xl border px-4 py-3 flex flex-col gap-1 min-h-[72px]',
       urgent && value ? 'border-red-200 bg-red-50/50' : 'bg-card',
     )}>
       <div className="flex items-center gap-1.5">
@@ -384,7 +384,7 @@ function DogDetailPanel({
                 {s.displayName.slice(0, 2).toUpperCase()}
               </div>
               <span className="flex-1 text-sm">{s.displayName}</span>
-              <Badge variant="outline" className="text-[10px]">{s.staffRole}</Badge>
+              <Badge variant="outline" className="text-xs">{s.staffRole}</Badge>
               {amLeader && <button onClick={() => unassignStaff(enrollment.dogId, s.userId)} className="text-xs text-muted-foreground hover:text-destructive">×</button>}
             </div>
           ))}
@@ -395,7 +395,7 @@ function DogDetailPanel({
                 <SelectContent>{members.map(m => <SelectItem key={m.userId} value={m.userId}>{m.displayName}</SelectItem>)}</SelectContent>
               </Select>
               <Select value={assignRole} onValueChange={v => setAssignRole(v as OrgStaffRole)}>
-                <SelectTrigger className="w-32 h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full sm:w-32 h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>{STAFF_ROLE_OPTIONS.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectContent>
               </Select>
               <Button variant="outline" size="sm" className="h-8"
@@ -609,8 +609,8 @@ export default function OrgDetailPage() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold tracking-tight">{org.name}</h1>
-            {amLeader && <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-[10px]"><Shield className="h-2.5 w-2.5 mr-0.5" />Leader</Badge>}
-            {org.type && <Badge variant="outline" className="text-[10px]">{TYPE_LABELS[org.type] ?? org.type}</Badge>}
+            {amLeader && <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-xs"><Shield className="h-2.5 w-2.5 mr-0.5" />Leader</Badge>}
+            {org.type && <Badge variant="outline" className="text-xs">{TYPE_LABELS[org.type] ?? org.type}</Badge>}
           </div>
           {org.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{org.description}</p>}
         </div>
@@ -623,18 +623,18 @@ export default function OrgDetailPage() {
 
       <Tabs defaultValue={amLeader ? 'today' : 'staff'}>
         <TabsList className="w-full">
-          {amLeader && <TabsTrigger value="today" className="flex-1">Today</TabsTrigger>}
+          {amLeader && <TabsTrigger value="today" className="flex-1 text-xs sm:text-sm px-1.5 sm:px-3">Today</TabsTrigger>}
           {amLeader && (
-            <TabsTrigger value="dogs" className="flex-1">
+            <TabsTrigger value="dogs" className="flex-1 text-xs sm:text-sm px-1.5 sm:px-3">
               Dogs {enrolled.filter(e => e.status === 'active').length > 0 ? `(${enrolled.filter(e => e.status === 'active').length})` : ''}
             </TabsTrigger>
           )}
           {amLeader && (
-            <TabsTrigger value="tasks" className="flex-1">
+            <TabsTrigger value="tasks" className="flex-1 text-xs sm:text-sm px-1.5 sm:px-3">
               Tasks {activeTasks.length > 0 ? `(${activeTasks.length})` : ''}
             </TabsTrigger>
           )}
-          <TabsTrigger value="staff" className="flex-1">
+          <TabsTrigger value="staff" className="flex-1 text-xs sm:text-sm px-1.5 sm:px-3">
             Staff {pending.length > 0 && amLeader ? `(${pending.length}!)` : `(${members.length})`}
           </TabsTrigger>
         </TabsList>
@@ -665,7 +665,7 @@ export default function OrgDetailPage() {
                     <span className="text-muted-foreground"> · {t.title}</span>
                     {t.dueAt && <span className="text-red-600"> · {fmtDueAt(t.dueAt)}</span>}
                   </p>
-                  <span className="text-[10px] text-muted-foreground shrink-0">{t.assignedToName}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">{t.assignedToName}</span>
                 </div>
               ))}
               {specialCareAlerts.slice(0, 3).map(d => (
@@ -897,7 +897,7 @@ export default function OrgDetailPage() {
                         <div className="space-y-2">
                           <div className="flex gap-2">
                             <Select value={inviteRole} onValueChange={v => setInviteRole(v as 'staff' | 'leader')}>
-                              <SelectTrigger className="w-28 h-8 text-xs"><SelectValue /></SelectTrigger>
+                              <SelectTrigger className="w-full sm:w-28 h-8 text-xs"><SelectValue /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="staff">Staff</SelectItem>
                                 <SelectItem value="leader">Leader</SelectItem>
