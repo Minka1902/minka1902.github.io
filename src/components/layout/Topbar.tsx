@@ -42,7 +42,7 @@ export default function Topbar({ onMenuClick }: Props) {
       <div className="flex items-center gap-2">
         <button
           onClick={onMenuClick}
-          className="hidden md:flex lg:hidden items-center justify-center h-8 w-8 -ml-1 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+          className="flex lg:hidden items-center justify-center h-8 w-8 -ml-1 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
           aria-label="Open menu"
         >
           <Menu className="h-4.5 w-4.5" />
