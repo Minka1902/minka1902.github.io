@@ -6,7 +6,7 @@ import OrgCard from '@/components/org/OrgCard';
 import { cn } from '@/lib/utils';
 
 export default function OrgListPage() {
-  const { orgs, isOrgAdmin } = useOrg();
+  const { orgs, isOrgLeader } = useOrg();
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 lg:flex-1 lg:overflow-y-auto lg:p-4">
@@ -53,7 +53,7 @@ export default function OrgListPage() {
       ) : (
         <div className="space-y-3">
           {orgs.map(org => (
-            <OrgCard key={org.id} org={org} isAdmin={isOrgAdmin(org.id)} />
+            <OrgCard key={org.id} org={org} isAdmin={isOrgLeader(org.id)} />
           ))}
         </div>
       )}
