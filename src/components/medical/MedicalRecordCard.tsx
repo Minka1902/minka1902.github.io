@@ -1,4 +1,4 @@
-import { Trash2, Pencil } from 'lucide-react';
+import { Trash2, Pencil, CheckCircle2 } from 'lucide-react';
 import { fmtDate } from '@/lib/utils';
 import type { MedicalRecord, Vaccination, Medication, Allergy, Diagnosis, Surgery, FleaTick } from '@/types';
 
@@ -6,6 +6,7 @@ interface Props {
   record: MedicalRecord;
   onDelete?: (id: string) => void;
   onEdit?: (record: MedicalRecord) => void;
+  onConfirm?: (id: string) => void;
   categoryColor?: string;
 }
 
@@ -27,7 +28,7 @@ const URGENCY_STYLES = {
   none:    { badge: '',                                                              label: ''           },
 };
 
-export default function MedicalRecordCard({ record, onDelete, onEdit, categoryColor }: Props) {
+export default function MedicalRecordCard({ record, onDelete, onEdit, onConfirm, categoryColor }: Props) {
   const urgency = getUrgency(record);
   const style = URGENCY_STYLES[urgency];
 
@@ -115,6 +116,27 @@ export default function MedicalRecordCard({ record, onDelete, onEdit, categoryCo
         {/* Row 4: notes */}
         {record.notes && (
           <p className="text-xs text-muted-foreground/70 line-clamp-1 mt-0.5">{record.notes}</p>
+        )}
+
+        {/* Confirm / Administered status */}
+        {record.confirmedAt ? (
+          <div className="flex items-center gap-1.5 mt-1">
+            <span className="text-[10px] font-bold uppercase bg-green-500/10 text-green-600 dark:text-green-400 px-2 py-0.5 rounded-full border border-green-500/20">
+              ✓ Administered
+            </span>
+            <span className="text-xs text-muted-foreground">
+              by {record.confirmedByName} · {fmtDate(record.confirmedAt)}
+            </span>
+          </div>
+        ) : onConfirm && (
+          <button
+            type="button"
+            onClick={() => onConfirm(record.id)}
+            className="mt-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-dashed border-border/60 hover:border-border rounded-lg px-2.5 py-1 transition-colors"
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            Mark as administered
+          </button>
         )}
 
         {/* Row 4: action buttons */}

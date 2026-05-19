@@ -151,7 +151,7 @@ function CategoryRail({
 // ---------------------------------------------------------------------------
 
 function CategorySection({ dogId, category }: { dogId: string; category: MedicalCategory }) {
-  const { records, loading, deleteRecord } = useMedical(dogId, category);
+  const { records, loading, deleteRecord, confirmRecord } = useMedical(dogId, category);
   const [addOpen, setAddOpen] = useState(false);
   const [editRecord, setEditRecord] = useState<MedicalRecord | null>(null);
 
@@ -202,6 +202,7 @@ function CategorySection({ dogId, category }: { dogId: string; category: Medical
               categoryColor={color}
               onDelete={deleteRecord}
               onEdit={setEditRecord}
+              onConfirm={confirmRecord}
             />
           ))}
         </div>
