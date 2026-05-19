@@ -36,7 +36,7 @@ export default function DeviceCard({ device, onUnlink }: Props) {
         {device.serialNumber && (
           <p className="text-muted-foreground">S/N: {device.serialNumber}</p>
         )}
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
           {device.batteryPercent !== undefined && (
             <span className={lowBattery ? 'text-destructive' : ''}>
               <Battery className="inline h-3 w-3 mr-1" />
