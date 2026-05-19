@@ -232,7 +232,7 @@ export default function TrackingSessionPage() {
 
         {/* Row 2: stats */}
         {sess.status !== 'idle' && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-0 divide-x" style={{ borderColor: 'oklch(1 0 0 / 0.1)' }}>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-px sm:gap-0 sm:divide-x" style={{ borderColor: 'oklch(1 0 0 / 0.1)', backgroundColor: 'oklch(1 0 0 / 0.1)' }}>
             <StatPill label="Time" value={fmtDuration(sess.elapsedMs)} />
             <StatPill label="Handler" value={fmtDistance(sess.handlerDistanceM)} />
             <StatPill label="Dog GPS" value={sess.dogTrack.length > 0 ? fmtDistance(sess.dogDistanceM) : '—'} />
