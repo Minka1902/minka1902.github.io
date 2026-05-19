@@ -232,7 +232,7 @@ export default function TrackingSessionPage() {
 
         {/* Row 2: stats */}
         {sess.status !== 'idle' && (
-          <div className="grid grid-cols-4 gap-0 divide-x" style={{ borderColor: 'oklch(1 0 0 / 0.1)' }}>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-0 divide-x" style={{ borderColor: 'oklch(1 0 0 / 0.1)' }}>
             <StatPill label="Time" value={fmtDuration(sess.elapsedMs)} />
             <StatPill label="Handler" value={fmtDistance(sess.handlerDistanceM)} />
             <StatPill label="Dog GPS" value={sess.dogTrack.length > 0 ? fmtDistance(sess.dogDistanceM) : '—'} />
@@ -394,7 +394,7 @@ export default function TrackingSessionPage() {
 
           {/* Tab content */}
           {panelOpen && (
-            <div className="px-4 pt-2 pb-safe pb-6 max-h-[42vh] overflow-y-auto">
+            <div className="px-4 pt-2 pb-[88px] max-h-[42vh] overflow-y-auto">
 
               {/* ── Live tab ── */}
               {tab === 'live' && (
@@ -475,7 +475,7 @@ export default function TrackingSessionPage() {
               {tab === 'report' && (
                 <div className="space-y-4">
                   {/* Duration + distance summary */}
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {[
                       { label: 'Duration',       value: fmtDuration(sess.elapsedMs) },
                       { label: 'Handler dist.',  value: fmtDistance(sess.handlerDistanceM) },
