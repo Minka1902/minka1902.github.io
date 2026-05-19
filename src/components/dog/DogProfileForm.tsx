@@ -61,6 +61,8 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
     return { address: '' };
   });
   const [submitting, setSubmitting] = useState(false);
+  const [showPhotoUrl, setShowPhotoUrl] = useState(false);
+  const [photoUrlInput, setPhotoUrlInput] = useState('');
 
   const defaultQrVisibility = {
     showAddress: false, showPhone: false, showRescueOrg: false, showMedicalAlerts: false,
@@ -134,6 +136,35 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
           </button>
           <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoFile} />
         </div>
+      </div>
+      <div className="flex flex-col items-center gap-1.5 mt-2">
+        <button
+          type="button"
+          onClick={() => setShowPhotoUrl(v => !v)}
+          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {showPhotoUrl ? 'Hide URL input' : 'Or enter URL'}
+        </button>
+        {showPhotoUrl && (
+          <div className="flex w-full max-w-xs gap-2">
+            <Input
+              type="url"
+              placeholder="https://example.com/photo.jpg"
+              value={photoUrlInput}
+              onChange={e => setPhotoUrlInput(e.target.value)}
+              onBlur={() => { if (photoUrlInput.trim()) setPhotoURL(photoUrlInput.trim()); }}
+              className="text-xs"
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => { if (photoUrlInput.trim()) { setPhotoURL(photoUrlInput.trim()); setShowPhotoUrl(false); } }}
+            >
+              Use
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Basic info */}

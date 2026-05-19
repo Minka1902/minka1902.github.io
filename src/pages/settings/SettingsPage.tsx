@@ -48,6 +48,9 @@ export default function SettingsPage() {
   const [savingPhone, setSavingPhone] = useState(false);
   const [phoneSaved, setPhoneSaved] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [showPhotoUrl, setShowPhotoUrl] = useState(false);
+  const [photoUrlInput, setPhotoUrlInput] = useState('');
+  const [photoUrlSaving, setPhotoUrlSaving] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [apiKeySaved, setApiKeySaved] = useState(false);
   const savedApiKey = typeof window !== 'undefined' ? localStorage.getItem('packops_gemini_api_key') : null;
@@ -85,6 +88,20 @@ export default function SettingsPage() {
     }
   };
 
+  const handleApplyPhotoUrl = async () => {
+    const url = photoUrlInput.trim();
+    if (!url || !user) return;
+    setPhotoUrlSaving(true);
+    try {
+      if (auth.currentUser) await updateProfile(auth.currentUser, { photoURL: url });
+      await updateDoc(doc(db, 'users', user.uid), { photoURL: url, updatedAt: Date.now() });
+      setPhotoUrlInput('');
+      setShowPhotoUrl(false);
+    } finally {
+      setPhotoUrlSaving(false);
+    }
+  };
+
   const handleSavePhone = async () => {
     if (!user) return;
     setSavingPhone(true);
@@ -107,7 +124,7 @@ export default function SettingsPage() {
 
       {/* Account */}
       <Section title="Account" description="Your profile information">
-        <div className="flex items-center gap-4 mb-5">
+        <div className="flex items-center gap-4 mb-3">
           <div className="relative shrink-0">
             <Avatar className="h-14 w-14">
               {user?.photoURL ? <AvatarImage src={user.photoURL} alt={user.displayName ?? ''} /> : null}
@@ -134,6 +151,38 @@ export default function SettingsPage() {
             <p className="text-sm text-muted-foreground">{user?.email}</p>
             {!user?.photoURL && <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">No profile photo yet</p>}
           </div>
+        </div>
+        <div className="flex flex-col gap-1.5 mb-5">
+          <button
+            type="button"
+            onClick={() => setShowPhotoUrl(v => !v)}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors self-start"
+          >
+            {showPhotoUrl ? 'Hide URL input' : 'Or enter URL'}
+          </button>
+          {showPhotoUrl && (
+            <div className="flex gap-2">
+              <Input
+                type="url"
+                placeholder="https://example.com/photo.jpg"
+                value={photoUrlInput}
+                onChange={e => setPhotoUrlInput(e.target.value)}
+                onBlur={() => { if (photoUrlInput.trim()) handleApplyPhotoUrl(); }}
+                className="flex-1 text-xs"
+                disabled={photoUrlSaving}
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleApplyPhotoUrl}
+                disabled={!photoUrlInput.trim() || photoUrlSaving}
+                className="shrink-0"
+              >
+                {photoUrlSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Use'}
+              </Button>
+            </div>
+          )}
         </div>
 
         <Separator className="mb-4" />
