@@ -1,9 +1,23 @@
 import { MEDICAL_CATEGORY_META } from '@/lib/constants';
 import type { MedicalCalendarEvent } from '@/hooks/useMedical';
+import type { MedicalRecord, Vaccination, Medication, Allergy, Diagnosis, Surgery, FleaTick } from '@/types';
 
 interface Props {
   events: MedicalCalendarEvent[];
   onEventClick?: (event: MedicalCalendarEvent) => void;
+}
+
+function getRecordDetail(record: MedicalRecord): string | null {
+  switch (record.category) {
+    case 'vaccination': return (record as Vaccination).vaccineName || null;
+    case 'medication':  return (record as Medication).medicationName || null;
+    case 'allergy':     return (record as Allergy).allergen || null;
+    case 'diagnosis':   return (record as Diagnosis).condition || null;
+    case 'surgery':     return (record as Surgery).procedure || null;
+    case 'flea_tick':
+    case 'deworming':   return (record as FleaTick).productName || null;
+    default:            return null;
+  }
 }
 
 export default function AllDayStrip({ events, onEventClick }: Props) {
@@ -13,6 +27,7 @@ export default function AllDayStrip({ events, onEventClick }: Props) {
       {events.map((evt, i) => {
         const meta = MEDICAL_CATEGORY_META[evt.record.category] ?? { icon: '🏥', color: '#6366F1' };
         const isDue = evt.eventType === 'due';
+        const detail = getRecordDetail(evt.record);
         return (
           <button
             key={`${evt.record.id}-${evt.eventType}-${i}`}
@@ -24,7 +39,11 @@ export default function AllDayStrip({ events, onEventClick }: Props) {
               border: `1px ${isDue ? 'dashed' : 'solid'} ${meta.color}${isDue ? '60' : '30'}`,
             }}
           >
-            <span aria-hidden="true">{meta.icon}</span> {evt.record.title}
+            <span aria-hidden="true">{meta.icon}</span>
+            <span>{detail ?? evt.record.title}</span>
+            {detail && detail !== evt.record.title && (
+              <span className="opacity-60">· {evt.record.title}</span>
+            )}
             {isDue && <span className="ml-0.5 opacity-70">· due</span>}
           </button>
         );
