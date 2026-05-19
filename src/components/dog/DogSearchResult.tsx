@@ -24,7 +24,7 @@ export default function DogSearchResult({ dog, onJoin, joined = false }: Props) 
 
   return (
     <Card>
-      <CardContent className="flex items-center gap-4 p-4">
+      <CardContent className="flex flex-wrap items-center gap-4 gap-y-2 p-4">
         <div className="flex-1">
           <p className="font-semibold capitalize">{dog.name}</p>
           {dog.rescueOrg && <p className="text-sm text-muted-foreground">{dog.rescueOrg}</p>}
