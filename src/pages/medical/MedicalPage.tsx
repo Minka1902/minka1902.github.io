@@ -51,22 +51,22 @@ function DueSoonStrip({ dogId }: { dogId: string }) {
           const isToday = !isOverdue && r.nextDueDate! < now + dayMs;
           const catIcon = CATEGORY_ICONS[r.category] ?? '•';
           return (
-            <div key={r.id} className="flex items-center gap-3 px-4 py-2.5">
+            <div key={r.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5">
               <span className="text-base">{catIcon}</span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium leading-tight truncate">{r.title}</p>
                 <p className="text-xs text-muted-foreground">Due {fmtDate(r.nextDueDate!)}</p>
               </div>
               {isOverdue ? (
-                <span className="flex items-center gap-1 text-[10px] font-bold uppercase text-red-500 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20">
+                <span className="flex items-center gap-1 text-xs font-bold uppercase text-red-500 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20">
                   <AlertTriangle className="h-2.5 w-2.5" /> Overdue
                 </span>
               ) : isToday ? (
-                <span className="text-[10px] font-bold uppercase text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                <span className="text-xs font-bold uppercase text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
                   Today
                 </span>
               ) : (
-                <span className="text-[10px] font-semibold text-muted-foreground tabular-nums">
+                <span className="text-xs font-semibold text-muted-foreground tabular-nums">
                   {Math.ceil((r.nextDueDate! - now) / dayMs)}d
                 </span>
               )}
@@ -173,7 +173,7 @@ export default function MedicalPage() {
       <DueSoonStrip dogId={activeDog.id} />
 
       {/* Category pills */}
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
         {MEDICAL_CATEGORIES.map(c => {
           const isActive = activeCategory === c.category;
           return (
