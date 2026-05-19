@@ -168,7 +168,7 @@ export default function SettingsPage() {
         <div className="space-y-4">
           <div>
             <p className="text-xs font-medium text-muted-foreground mb-3">Color palette</p>
-            <div className="flex flex-wrap justify-center gap-3">
+            <div className="flex flex-wrap gap-3">
               {COLOR_THEMES.map((ct) => {
                 const meta = COLOR_THEME_META[ct];
                 const isActive = colorTheme === ct;

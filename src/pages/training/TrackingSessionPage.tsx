@@ -19,7 +19,7 @@ const TrackingMap = lazy(() => import('@/components/training/TrackingMap'));
 function StatPill({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="flex flex-col items-center">
-      <span className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: 'oklch(1 0 0 / 0.35)' }}>
+      <span className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: 'oklch(1 0 0 / 0.35)' }}>
         {label}
       </span>
       <span className="text-xl font-bold tabular-nums leading-none mt-0.5" style={{ color: 'oklch(0.94 0.012 72)', fontFamily: 'var(--font-heading)' }}>

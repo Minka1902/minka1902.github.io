@@ -20,7 +20,7 @@ export default function QRPage() {
   return (
     <div className="max-w-md mx-auto px-4 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">QR Code</h1>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">QR Code</h1>
         <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-1.5">
           <Printer className="h-4 w-4" /> Print
         </Button>

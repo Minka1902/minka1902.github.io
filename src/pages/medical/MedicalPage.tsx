@@ -163,7 +163,7 @@ export default function MedicalPage() {
     <div className="max-w-2xl mx-auto space-y-5 lg:flex-1 lg:overflow-y-auto lg:p-4">
       {/* Header */}
       <div className="px-1 pt-1">
-        <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
           Medical
         </h1>
         <p className="text-sm text-muted-foreground mt-0.5 capitalize">{activeDog.name}</p>
