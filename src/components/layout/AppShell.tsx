@@ -9,7 +9,7 @@ export default function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-dvh overflow-hidden">
       <Sidebar />
       {/* Tablet slide-in drawer (md → lg only) */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
