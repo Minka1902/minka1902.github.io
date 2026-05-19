@@ -125,7 +125,7 @@ export default function HumansPage() {
             {searchResult && searchResult !== 'not-found' && (() => {
               const alreadyMember = humans.some(h => h.userId === searchResult.uid);
               return (
-                <div className="flex flex-wrap flex-col sm:flex-row items-center gap-3 p-3 rounded-lg border bg-muted/30">
+                <div className="flex flex-col sm:flex-row items-center gap-3 p-3 rounded-lg border bg-muted/30">
                   <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold shrink-0">
                     {searchResult.displayName.slice(0, 2).toUpperCase()}
                   </div>
