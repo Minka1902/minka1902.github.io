@@ -18,7 +18,7 @@ export default function QRPage() {
   const vis = dog.qrVisibility;
 
   return (
-    <div className="max-w-md mx-auto space-y-6">
+    <div className="max-w-md mx-auto px-4 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">QR Code</h1>
         <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-1.5">
@@ -30,7 +30,7 @@ export default function QRPage() {
         <style>{`@media print { .qr-print-card { border: none !important; box-shadow: none !important; } .qr-print-wrapper { transform: scale(1.6); transform-origin: center top; margin-bottom: 2rem; } }`}</style>
         <div className="flex flex-col items-center py-8 px-6 bg-gradient-to-b from-muted/30 to-background">
           <div className="qr-print-wrapper rounded-2xl bg-white p-4 shadow-sm border">
-            <QRCodeDisplay dogId={activeDog.id} size={260} />
+            <QRCodeDisplay dogId={activeDog.id} size={220} />
           </div>
           <p className="mt-4 text-sm font-medium capitalize">{dog.name}</p>
           <p className="text-xs text-muted-foreground mt-0.5">
