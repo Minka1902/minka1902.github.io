@@ -360,3 +360,12 @@
     box-shadow: 0 0 0 1px oklch(0.72 0.158 50 / 0.3), 0 0 12px oklch(0.72 0.158 50 / 0.12);
   }
 }
+
+/* Prevent iOS Safari input zoom — 16px font-size floor on mobile */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1em) !important;
+  }
+}
