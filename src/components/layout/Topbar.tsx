@@ -50,8 +50,8 @@ export default function Topbar({ onMenuClick }: Props) {
 
         {dogs.length > 1 && (
           <DropdownMenu>
-            <DropdownMenuTrigger className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors outline-none group">
-              <span className="capitalize">{activeDog?.name ?? 'Select dog'}</span>
+            <DropdownMenuTrigger className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors outline-none group min-w-0">
+              <span className="capitalize max-w-[130px] sm:max-w-none truncate">{activeDog?.name ?? 'Select dog'}</span>
               <ChevronDown className="h-3.5 w-3.5 transition-transform group-data-[state=open]:rotate-180" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="min-w-[160px]">

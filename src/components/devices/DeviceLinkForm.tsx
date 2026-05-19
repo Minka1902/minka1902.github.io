@@ -55,7 +55,7 @@ export default function DeviceLinkForm({ dogId, onSaved }: Props) {
         <Label htmlFor="serial">Serial Number (optional)</Label>
         <Input id="serial" value={serialNumber} onChange={e => setSerial(e.target.value)} />
       </div>
-      <Button type="submit" disabled={submitting}>{submitting ? 'Linking…' : 'Link Device'}</Button>
+      <Button type="submit" className="w-full sm:w-auto" disabled={submitting}>{submitting ? 'Linking…' : 'Link Device'}</Button>
     </form>
   );
 }

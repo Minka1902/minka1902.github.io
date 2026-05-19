@@ -6,12 +6,12 @@ import OrgCard from '@/components/org/OrgCard';
 import { cn } from '@/lib/utils';
 
 export default function OrgListPage() {
-  const { orgs, isOrgAdmin } = useOrg();
+  const { orgs, isOrgLeader } = useOrg();
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 lg:flex-1 lg:overflow-y-auto lg:p-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Organizations</h1>
+      <div className="flex flex-wrap items-center justify-between gap-y-2">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Organizations</h1>
         <div className="flex items-center gap-2">
           <Link
             to="/orgs/join"
@@ -53,7 +53,7 @@ export default function OrgListPage() {
       ) : (
         <div className="space-y-3">
           {orgs.map(org => (
-            <OrgCard key={org.id} org={org} isAdmin={isOrgAdmin(org.id)} />
+            <OrgCard key={org.id} org={org} isAdmin={isOrgLeader(org.id)} />
           ))}
         </div>
       )}

@@ -44,16 +44,16 @@ export default function DogOverviewCard({ dog, showQuickLog }: DogOverviewCardPr
       />
 
       {/* Main row — flex-1 so it grows */}
-      <div className="flex-1 px-5 pt-4 pb-4 flex items-start gap-4">
+      <div className="flex-1 px-4 py-3 md:px-5 md:pt-4 md:pb-4 flex flex-row items-center gap-3 md:items-start md:gap-4">
         {/* Avatar */}
         <div
-          className="shrink-0 w-[68px] h-[68px] rounded-2xl overflow-hidden flex items-end justify-center"
+          className="shrink-0 w-14 h-14 md:w-[68px] md:h-[68px] rounded-xl md:rounded-2xl overflow-hidden flex items-end justify-center"
           style={{ background: 'oklch(0.95 0.06 65)' }}
         >
           {dog.photoURL ? (
             <img src={dog.photoURL} alt={dog.name} className="w-full h-full object-cover" />
           ) : (
-            <LabDog size={66} />
+            <LabDog size={56} />
           )}
         </div>
 
@@ -62,7 +62,7 @@ export default function DogOverviewCard({ dog, showQuickLog }: DogOverviewCardPr
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <h1
-                className="text-2xl font-bold leading-tight truncate"
+                className="text-lg md:text-2xl font-bold leading-tight truncate"
                 style={{
                   fontFamily: 'var(--font-heading)',
                   letterSpacing: '-0.025em',
@@ -72,7 +72,7 @@ export default function DogOverviewCard({ dog, showQuickLog }: DogOverviewCardPr
                 {dog.name}
               </h1>
               {dog.breed && (
-                <p className="text-sm text-muted-foreground mt-0.5 truncate">
+                <p className="text-xs text-muted-foreground mt-0.5 truncate">
                   {dog.breed}{dog.isMix ? ' mix' : ''}
                 </p>
               )}
@@ -90,7 +90,7 @@ export default function DogOverviewCard({ dog, showQuickLog }: DogOverviewCardPr
           </div>
 
           {/* Activity pill */}
-          <div className="mt-2 flex items-center gap-1.5">
+          <div className="mt-1.5 md:mt-2 flex items-center gap-1.5">
             <span
               className="w-1.5 h-1.5 rounded-full shrink-0"
               style={{ background: totalToday > 0 ? 'var(--primary)' : 'var(--muted-foreground)' }}

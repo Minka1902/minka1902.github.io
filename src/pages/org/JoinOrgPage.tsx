@@ -171,8 +171,8 @@ export default function JoinOrgPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold tracking-tight">Find Organization</h1>
+    <div className="max-w-2xl mx-auto space-y-6 lg:flex-1 lg:overflow-y-auto lg:p-4">
+      <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Find Organization</h1>
 
       <Card>
         <CardContent className="pt-4">

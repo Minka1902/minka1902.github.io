@@ -31,12 +31,6 @@ const db: Firestore = getFirestore();
 
 // ─── Batch helpers ────────────────────────────────────────────────────────────
 
-/** Flush a batch and return a new one. */
-async function flushBatch(batch: WriteBatch): Promise<WriteBatch> {
-  await batch.commit();
-  return db.batch();
-}
-
 /**
  * Accumulates writes, auto-flushing every 490 ops (under 500 Firestore limit).
  */
@@ -64,8 +58,10 @@ class AutoBatch {
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
 function dateTs(year: number, month: number, day: number): number {
-  return new Date(year, month - 1, day).getTime();
+  return Date.UTC(year, month - 1, day);
 }
+
+const BISCUIT_DAYS = 14;
 
 /** 2026-05-02 + dayOffset, returns epoch ms */
 function biscuitDay(offset: number): number {
@@ -469,7 +465,7 @@ async function seedBiscuit(): Promise<void> {
   // ── Routine logs (14 days × 16 logs/day = 224) ───────────────────────────────
   // Days: 2026-05-02 (offset 0) → 2026-05-15 (offset 13)
 
-  for (let d = 0; d < 14; d++) {
+  for (let d = 0; d < BISCUIT_DAYS; d++) {
     const dayTs = biscuitDay(d);
 
     const logs: Array<{

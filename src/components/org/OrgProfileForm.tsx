@@ -220,7 +220,7 @@ export default function OrgProfileForm({ initial, loading, submitLabel = 'Save',
           <Label htmlFor="org-street">Street</Label>
           <Input id="org-street" value={fields.street} onChange={set('street')} placeholder="123 Main St" />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="org-city">City</Label>
             <Input id="org-city" value={fields.city} onChange={set('city')} placeholder="Springfield" />
@@ -230,7 +230,7 @@ export default function OrgProfileForm({ initial, loading, submitLabel = 'Save',
             <Input id="org-state" value={fields.state} onChange={set('state')} placeholder="IL" />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="org-zip">ZIP / Postal Code</Label>
             <Input id="org-zip" value={fields.zip} onChange={set('zip')} placeholder="62701" />

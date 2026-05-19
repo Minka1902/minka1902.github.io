@@ -84,8 +84,8 @@ export default function OrgSettingsPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold tracking-tight">Settings — {org.name}</h1>
+    <div className="max-w-2xl mx-auto space-y-6 lg:flex-1 lg:overflow-y-auto lg:p-4">
+      <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Settings — {org.name}</h1>
 
       <Card>
         <CardHeader><CardTitle>Organization Profile</CardTitle></CardHeader>

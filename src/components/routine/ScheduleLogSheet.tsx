@@ -20,9 +20,10 @@ interface Props {
   dogId: string;
   onSave: (params: SaveParams) => Promise<void>;
   onClose: () => void;
+  initialDate?: Date | null;
 }
 
-export default function ScheduleLogSheet({ dogId, onSave, onClose }: Props) {
+export default function ScheduleLogSheet({ dogId, onSave, onClose, initialDate }: Props) {
   const { user } = useAuth();
   const { humans } = useHumans(dogId);
 
@@ -31,9 +32,14 @@ export default function ScheduleLogSheet({ dogId, onSave, onClose }: Props) {
   const tomorrowStr = tomorrow.toISOString().split('T')[0];
   const todayStr = new Date().toISOString().split('T')[0];
 
+  const defaultDateStr = initialDate ? initialDate.toISOString().split('T')[0] : tomorrowStr;
+  const defaultTimeStr = initialDate
+    ? `${String(initialDate.getHours()).padStart(2, '0')}:${String(initialDate.getMinutes()).padStart(2, '0')}`
+    : '08:00';
+
   const [type, setType] = useState<RoutineType>('eat');
-  const [date, setDate] = useState(tomorrowStr);
-  const [time, setTime] = useState('08:00');
+  const [date, setDate] = useState(defaultDateStr);
+  const [time, setTime] = useState(defaultTimeStr);
   const [assignedTo, setAssignedTo] = useState(user?.uid ?? '');
   const [assignedToName, setAssignedToName] = useState(user?.displayName ?? 'Me');
   const [reason, setReason] = useState('');
@@ -117,7 +123,7 @@ export default function ScheduleLogSheet({ dogId, onSave, onClose }: Props) {
             <input
               type="date"
               value={date}
-              min={todayStr}
+              min={initialDate && initialDate < new Date(todayStr) ? undefined : todayStr}
               onChange={e => { setDate(e.target.value); setDateError(''); }}
               className="flex-1 px-3 py-2.5 rounded-xl border border-border/60 bg-background text-sm outline-none focus:border-primary transition-colors"
             />

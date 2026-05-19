@@ -29,9 +29,18 @@ export default function DogSelectForWalkDialog({ onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-sm bg-card rounded-t-2xl sm:rounded-2xl shadow-2xl mx-auto">
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+      onTouchStart={e => e.stopPropagation()}
+      style={{ touchAction: 'none' }}
+    >
+      <div
+        className="absolute inset-0 bg-black/40"
+        onClick={onClose}
+        onTouchStart={e => e.stopPropagation()}
+        style={{ touchAction: 'none' }}
+      />
+      <div className="relative w-full max-w-sm bg-card rounded-t-2xl sm:rounded-2xl shadow-2xl mx-auto max-h-[calc(100dvh-68px)] sm:max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <h2 className="font-semibold text-base">Who's coming on the walk?</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
@@ -39,7 +48,7 @@ export default function DogSelectForWalkDialog({ onClose }: Props) {
           </button>
         </div>
 
-        <div className="px-5 pb-5 space-y-2">
+        <div className="px-5 pb-[72px] sm:pb-5 space-y-2">
           {dogs.map(dog => {
             const selected = selectedIds.has(dog.id);
             return (

@@ -41,7 +41,7 @@ export default function CreateOrgPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-2xl mx-auto lg:flex-1 lg:overflow-y-auto lg:p-4">
       <Card>
         <CardHeader>
           <CardTitle>Create Organization</CardTitle>

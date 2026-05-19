@@ -33,7 +33,7 @@ interface StatProps { icon: React.ReactNode; label: string; value: string; sub?:
 function Stat({ icon, label, value, sub }: StatProps) {
   return (
     <div
-      className="flex flex-col items-center gap-2 p-5 rounded-2xl"
+      className="flex flex-col items-center justify-center gap-2 p-5 rounded-2xl min-h-[72px]"
       style={{ backgroundColor: 'oklch(0.18 0.014 55)', border: '1px solid oklch(1 0 0 / 6%)' }}
     >
       <div className="text-amber-400 opacity-70">{icon}</div>
@@ -110,7 +110,7 @@ export default function WalkSummaryPage() {
       className="fixed inset-0 z-[100] flex flex-col overflow-y-auto"
       style={{ backgroundColor: 'oklch(0.14 0.014 55)' }}
     >
-      <div className="flex-1 flex flex-col max-w-md mx-auto w-full px-5 pt-12 pb-8">
+      <div className="flex-1 flex flex-col max-w-md mx-auto w-full px-5 pt-12 pb-[88px]">
 
         {/* Header */}
         <div className="flex flex-col items-center mb-10">
@@ -153,7 +153,7 @@ export default function WalkSummaryPage() {
 
           <button
             onClick={() => setPeed(p => !p)}
-            className="w-full flex items-center justify-between py-2.5 px-3 rounded-xl transition-all"
+            className="w-full flex items-center justify-between py-2.5 px-3 rounded-xl transition-all min-h-[48px]"
             style={{
               backgroundColor: peed ? '#84CC1618' : 'transparent',
               border: `1.5px solid ${peed ? '#84CC1660' : 'oklch(1 0 0 / 8%)'}`,
@@ -173,7 +173,7 @@ export default function WalkSummaryPage() {
 
           <button
             onClick={() => setPooped(p => !p)}
-            className="w-full flex items-center justify-between py-2.5 px-3 rounded-xl transition-all"
+            className="w-full flex items-center justify-between py-2.5 px-3 rounded-xl transition-all min-h-[48px]"
             style={{
               backgroundColor: pooped ? '#A78BFA18' : 'transparent',
               border: `1.5px solid ${pooped ? '#A78BFA60' : 'oklch(1 0 0 / 8%)'}`,
@@ -192,24 +192,26 @@ export default function WalkSummaryPage() {
           </button>
         </div>
 
-        {/* Save */}
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="w-full h-14 rounded-2xl text-sm font-bold tracking-wide transition-opacity disabled:opacity-60 active:scale-[0.98]"
-          style={{ backgroundColor: '#F59E0B', color: 'oklch(0.14 0.014 55)' }}
-        >
-          {saving ? 'Saving…' : 'Save Walk'}
-        </button>
+        {/* Save / Discard */}
+        <div className="flex flex-col gap-3 w-full">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full h-14 rounded-2xl text-sm font-bold tracking-wide transition-opacity disabled:opacity-60 active:scale-[0.98]"
+            style={{ backgroundColor: '#F59E0B', color: 'oklch(0.14 0.014 55)' }}
+          >
+            {saving ? 'Saving…' : 'Save Walk'}
+          </button>
 
-        <button
-          onClick={() => navigate('/', { replace: true })}
-          className="mt-3 w-full h-10 text-sm transition-opacity"
-          style={{ color: 'oklch(0.42 0.01 55)' }}
-          disabled={saving}
-        >
-          Discard walk
-        </button>
+          <button
+            onClick={() => navigate('/', { replace: true })}
+            className="w-full h-10 text-sm transition-opacity"
+            style={{ color: 'oklch(0.42 0.01 55)' }}
+            disabled={saving}
+          >
+            Discard walk
+          </button>
+        </div>
       </div>
     </div>
   );

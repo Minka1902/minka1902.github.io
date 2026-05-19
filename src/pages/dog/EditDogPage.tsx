@@ -11,7 +11,7 @@ export default function EditDogPage() {
   if (!dog) return <Navigate to="/" replace />;
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-2xl mx-auto pb-[88px] sm:pb-4 lg:flex-1 lg:overflow-y-auto lg:p-4">
       <Card>
         <CardHeader>
           <CardTitle>Edit <span className="capitalize">{dog.name}</span></CardTitle>

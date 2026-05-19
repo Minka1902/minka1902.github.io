@@ -10,6 +10,8 @@ import { test, expect, type Page } from '@playwright/test';
 // ---------------------------------------------------------------------------
 async function loginIfCredentials(page: Page): Promise<boolean> {
   if (!process.env.TEST_EMAIL || !process.env.TEST_PASSWORD) return false;
+  // Already authenticated — skip the login flow.
+  if (!page.url().includes('/login') && page.url() !== 'about:blank') return true;
   await page.goto('/login');
   await page.fill('input[type="email"]', process.env.TEST_EMAIL);
   await page.fill('input[type="password"]', process.env.TEST_PASSWORD);

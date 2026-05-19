@@ -147,7 +147,7 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
           <Label htmlFor="breed">Breed</Label>
           <BreedAutocomplete id="breed" value={breed} onChange={setBreed} />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <Label>Sex</Label>
             <Select value={sex} onValueChange={v => setSex(v as Dog['sex'])}>
@@ -197,12 +197,12 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
           <div className="space-y-2">
             <Label>Feeding Schedule</Label>
             {feedings.map((f, i) => (
-              <div key={i} className="flex items-center gap-2">
+              <div key={i} className="flex flex-wrap items-center gap-2">
                 <Input
                   type="time"
                   value={f.time}
                   onChange={e => updateFeeding(i, 'time', e.target.value)}
-                  className="w-32 shrink-0"
+                  className="w-full sm:w-32 shrink-0"
                   aria-label={`Feeding ${i + 1} time`}
                 />
                 <Input

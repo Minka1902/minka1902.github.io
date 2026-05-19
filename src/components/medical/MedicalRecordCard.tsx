@@ -55,7 +55,7 @@ export default function MedicalRecordCard({ record, onDelete, onEdit }: Props) {
         </div>
 
         {urgency !== 'none' && (
-          <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${style.badge}`}>
+          <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full border ${style.badge}`}>
             {style.label}
           </span>
         )}

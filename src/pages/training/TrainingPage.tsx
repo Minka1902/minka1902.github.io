@@ -68,7 +68,7 @@ export default function TrainingPage() {
           <div className="flex items-center gap-2 mb-3">
             <Crosshair className="h-3 w-3 shrink-0" style={{ color: 'oklch(0.64 0.168 48)' }} />
             <span
-              className="text-[9px] font-bold uppercase tracking-[0.22em]"
+              className="text-[10px] font-bold uppercase tracking-[0.22em]"
               style={{ color: 'oklch(0.64 0.168 48 / 0.8)' }}
             >
               K-9 Training Log
@@ -103,16 +103,16 @@ export default function TrainingPage() {
             ].map(({ label, value, sub }, i) => (
               <div
                 key={label}
-                className="px-4 py-3"
+                className="px-4 py-3 min-h-[56px] flex flex-col justify-center"
                 style={i < 2 ? { borderRight: '1px solid oklch(1 0 0 / 0.08)' } : undefined}
               >
-                <p className="text-[9px] font-bold uppercase tracking-[0.14em] mb-0.5" style={{ color: 'oklch(1 0 0 / 0.22)' }}>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-0.5" style={{ color: 'oklch(1 0 0 / 0.22)' }}>
                   {label}
                 </p>
                 <p className="text-xl font-bold leading-none tabular-nums" style={{ fontFamily: 'var(--font-heading)', color: 'oklch(0.94 0.012 72)' }}>
                   {value}
                 </p>
-                <p className="text-[9px] mt-0.5" style={{ color: 'oklch(1 0 0 / 0.22)' }}>{sub}</p>
+                <p className="text-[10px] mt-0.5" style={{ color: 'oklch(1 0 0 / 0.22)' }}>{sub}</p>
               </div>
             ))}
           </div>

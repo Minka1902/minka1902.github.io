@@ -2,7 +2,7 @@ import { useMemo, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { PawPrint, PlusCircle, Search } from 'lucide-react';
 import { useDog } from '@/contexts/DogContext';
-import { useRoutine, useRoutineWindow } from '@/hooks/useRoutine';
+import { useRoutineWindow } from '@/hooks/useRoutine';
 import { useTraining } from '@/hooks/useTraining';
 import DogOverviewCard from '@/components/dog/DogOverviewCard';
 import RoutineTimeline from '@/components/routine/RoutineTimeline';
@@ -14,31 +14,29 @@ import { cn } from '@/lib/utils';
 
 export default function DashboardPage() {
   const { activeDog, dogs } = useDog();
-  const { todayLogs } = useRoutine(activeDog?.id ?? '');
   const { sessions: trainingSessions } = useTraining(activeDog?.id ?? '');
 
   const monitorStart = useMemo(() => Date.now() - 30 * 24 * 60 * 60 * 1000, []);
   const monitorEnd   = useMemo(() => Date.now() + 86_400_000, []);
   const monitorLogs  = useRoutineWindow(activeDog?.id ?? '', monitorStart, monitorEnd);
 
-  // Derived values kept for potential future use / avoid hook call order issues
-  const _lastWalk  = useMemo(() => todayLogs.filter(l => l.type === 'walk').sort((a, b) => b.timestamp - a.timestamp)[0], [todayLogs]);
-  const _lastEat   = useMemo(() => todayLogs.filter(l => l.type === 'eat').sort((a, b) => b.timestamp - a.timestamp)[0], [todayLogs]);
-  const _lastDrink = useMemo(() => todayLogs.filter(l => l.type === 'drink').sort((a, b) => b.timestamp - a.timestamp)[0], [todayLogs]);
-  void _lastWalk; void _lastEat; void _lastDrink;
-
   // Mobile swipe state
   const [mobilePage, setMobilePage] = useState(0);
   const touchStartX = useRef<number>(0);
+  const touchStartY = useRef<number>(0);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
     const dx = e.changedTouches[0].clientX - touchStartX.current;
-    if (dx < -50 && mobilePage < 2) setMobilePage(p => p + 1);
-    if (dx > 50 && mobilePage > 0) setMobilePage(p => p - 1);
+    const dy = e.changedTouches[0].clientY - touchStartY.current;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+      if (dx < 0) setMobilePage(p => Math.min(p + 1, 2));
+      else setMobilePage(p => Math.max(p - 1, 0));
+    }
   };
 
   // ── Empty states ───────────────────────────────────────────────────────────
@@ -49,7 +47,7 @@ export default function DashboardPage() {
           className="flex h-20 w-20 items-center justify-center rounded-3xl"
           style={{ backgroundColor: 'oklch(0.64 0.168 48 / 0.12)' }}
         >
-          <PawPrint className="h-10 w-10" style={{ color: 'oklch(0.64 0.168 48)' }} />
+          <PawPrint className="h-10 w-10" style={{ color: 'var(--primary)' }} />
         </div>
         <div>
           <p className="text-xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
@@ -82,26 +80,26 @@ export default function DashboardPage() {
   return (
     <>
       {/* ── Desktop layout (lg+) — Command Center ─────────────────────────── */}
-      <div className="hidden lg:flex h-[calc(100vh-56px)] gap-3 p-4 overflow-hidden">
+      <div className="hidden lg:flex h-[calc(100dvh-56px)] gap-3 p-4 overflow-hidden">
         {/* Left column — dog overview card */}
         <div className="w-[35%] flex-shrink-0 min-h-0">
           <DogOverviewCard dog={activeDog} showQuickLog />
         </div>
         {/* Right column */}
         <div className="flex-1 flex flex-col gap-3 min-h-0">
-          {/* Timeline panel — scrolls internally */}
-          <div className="flex-1 overflow-y-auto rounded-2xl border bg-card p-4 min-h-0">
-            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground mb-3">Today's Activity</p>
-            <RoutineTimeline dogId={activeDog.id} dogName={activeDog.name} canDelete />
-          </div>
-          {/* Analytics strip — fixed height */}
-          <div className="h-48 flex-shrink-0 rounded-2xl border bg-card p-4">
+          {/* Analytics panel — 60% height */}
+          <div className="flex-[3] overflow-hidden min-h-0 rounded-2xl border bg-card p-4">
             <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground mb-2">Analytics · Last 30 Days</p>
             <div className="flex gap-3 h-32">
               <div className="flex-1 min-w-0"><WalkStatsChart logs={monitorLogs} /></div>
               <div className="flex-1 min-w-0"><FeedingLogChart logs={monitorLogs} /></div>
               <div className="flex-1 min-w-0"><TrainingProgressChart sessions={trainingSessions} /></div>
             </div>
+          </div>
+          {/* Timeline panel — 40% height, scrolls internally */}
+          <div className="flex-[2] overflow-y-auto rounded-2xl border bg-card p-4 min-h-0">
+            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground mb-3">Today's Activity</p>
+            <RoutineTimeline dogId={activeDog.id} dogName={activeDog.name} canDelete />
           </div>
         </div>
       </div>
@@ -124,7 +122,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Mobile layout (<md) — Swipeable full-screen pages ─────────────── */}
-      <div className="md:hidden flex flex-col" style={{ height: 'calc(100vh - 56px - 68px)' }}>
+      <div className="md:hidden flex flex-col" style={{ height: 'calc(100dvh - 56px - 68px)' }}>
         {/* Swipe container */}
         <div
           className="flex-1 flex overflow-hidden"
@@ -149,11 +147,11 @@ export default function DashboardPage() {
             {/* Page 3: Analytics */}
             <div className="w-1/3 h-full flex-shrink-0 overflow-y-auto p-3">
               <div className="rounded-2xl border bg-card p-4">
-                <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground mb-2">Analytics · Last 30 Days</p>
-                <div className="space-y-3">
-                  <WalkStatsChart logs={monitorLogs} />
-                  <FeedingLogChart logs={monitorLogs} />
-                  <TrainingProgressChart sessions={trainingSessions} />
+                <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground mb-3">Analytics · Last 30 Days</p>
+                <div className="flex flex-col gap-4">
+                  <div className="min-h-[200px]"><WalkStatsChart logs={monitorLogs} /></div>
+                  <div className="min-h-[200px]"><FeedingLogChart logs={monitorLogs} /></div>
+                  <div className="min-h-[200px]"><TrainingProgressChart sessions={trainingSessions} /></div>
                 </div>
               </div>
             </div>
@@ -170,6 +168,7 @@ export default function DashboardPage() {
                 i === mobilePage ? 'w-5 h-2 bg-primary' : 'w-2 h-2 bg-muted-foreground/30'
               )}
               aria-label={`Page ${i + 1}`}
+              aria-current={i === mobilePage ? 'page' : undefined}
             />
           ))}
         </div>

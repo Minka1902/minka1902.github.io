@@ -74,7 +74,7 @@ export default function TrainingSessionCard({ session }: Props) {
         {/* Type badge */}
         <div className="shrink-0 py-3 pl-1 pr-0">
           <span
-            className="text-[9px] font-bold uppercase tracking-[0.12em] px-1.5 py-0.5 rounded-sm"
+            className="text-[10px] font-bold uppercase tracking-[0.12em] px-1.5 py-0.5 rounded-sm"
             style={{ backgroundColor: typeColor + '22', color: typeColor }}
           >
             {typeLabel}
@@ -101,7 +101,7 @@ export default function TrainingSessionCard({ session }: Props) {
               <>
                 <span style={{ color: 'oklch(0.35 0 0)' }}>·</span>
                 <span
-                  className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full tabular-nums"
+                  className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full tabular-nums"
                   style={{ backgroundColor: 'oklch(0.22 0.01 50)', color: 'oklch(0.60 0.04 60)' }}
                 >
                   {session.durationActualMin}m
