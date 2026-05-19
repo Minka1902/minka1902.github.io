@@ -243,8 +243,7 @@ export default function DayTimeline({
     setShowSettings(false);
   };
 
-  // Double-click on empty area → open QuickAddPopover
-  const handleDoubleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+  const handleTimelineClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement).closest('[data-block]')) return;
     const rect = scrollRef.current!.getBoundingClientRect();
     const yInScroll = e.clientY - rect.top + (scrollRef.current?.scrollTop ?? 0);
@@ -365,7 +364,7 @@ export default function DayTimeline({
         <div
           ref={scrollRef}
           className="h-full overflow-y-auto"
-          onDoubleClick={handleDoubleClick}
+          onClick={handleTimelineClick}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
