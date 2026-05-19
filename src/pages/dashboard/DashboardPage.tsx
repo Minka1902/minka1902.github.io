@@ -129,7 +129,7 @@ export default function DashboardPage() {
       {/* ── Desktop/tablet grid layout (md+) — Drag & resize grid ─────────── */}
       <div className="hidden md:flex flex-col h-[calc(100dvh-56px)] overflow-hidden">
         {/* Grid toolbar */}
-        <div className="flex items-center justify-end px-4 pt-3 pb-1 gap-2 flex-shrink-0">
+        <div className="flex items-center justify-end px-4 py-1 gap-2 flex-shrink-0">
           <button
             type="button"
             onClick={() => setEditDashboard(!editDashboard)}
@@ -147,7 +147,7 @@ export default function DashboardPage() {
             className="layout"
             layout={dashLayout}
             cols={12}
-            rowHeight={80}
+            rowHeight={70}
             width={gridWidth}
             isDraggable={editDashboard}
             isResizable={editDashboard}
@@ -156,7 +156,7 @@ export default function DashboardPage() {
               localStorage.setItem(DASH_GRID_KEY, JSON.stringify(newLayout));
             }}
             draggableHandle=".drag-handle"
-            margin={[12, 12]}
+            margin={[5, 5]}
           >
             {/* Dog overview widget */}
             <div
@@ -237,7 +237,7 @@ export default function DashboardPage() {
         >
           <div
             className="flex h-full transition-transform duration-300 ease-out"
-            style={{ transform: `translateX(-${mobilePage * 100}%)`, width: '300%' }}
+            style={{ transform: `translateX(-${(mobilePage * 100) / 3}%)`, width: '300%' }}
           >
             {/* Page 1: Dog Overview */}
             <div className="w-1/3 h-full flex-shrink-0 overflow-y-auto p-3">
