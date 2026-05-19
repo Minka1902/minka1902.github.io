@@ -5,6 +5,7 @@ import { useDog } from '@/contexts/DogContext';
 import { useRoutineWindow } from '@/hooks/useRoutine';
 import { useTraining } from '@/hooks/useTraining';
 import DogOverviewCard from '@/components/dog/DogOverviewCard';
+import MedicalSummaryCard from '@/components/medical/MedicalSummaryCard';
 import RoutineTimeline from '@/components/routine/RoutineTimeline';
 import WalkStatsChart from '@/components/routine/monitoring/WalkStatsChart';
 import FeedingLogChart from '@/components/routine/monitoring/FeedingLogChart';
@@ -81,9 +82,10 @@ export default function DashboardPage() {
     <>
       {/* ── Desktop layout (lg+) — Command Center ─────────────────────────── */}
       <div className="hidden lg:flex h-[calc(100dvh-56px)] gap-3 p-4 overflow-hidden">
-        {/* Left column — dog overview card */}
-        <div className="w-[35%] flex-shrink-0 min-h-0">
+        {/* Left column — dog overview card + medical summary */}
+        <div className="w-[35%] flex-shrink-0 min-h-0 flex flex-col gap-3">
           <DogOverviewCard dog={activeDog} showQuickLog />
+          <MedicalSummaryCard dogId={activeDog.id} />
         </div>
         {/* Right column */}
         <div className="flex-1 flex flex-col gap-3 min-h-0">
@@ -107,6 +109,7 @@ export default function DashboardPage() {
       {/* ── Tablet layout (md–lg) — Stacked panels, scrollable ────────────── */}
       <div className="hidden md:flex lg:hidden flex-col gap-3 p-3 max-w-2xl mx-auto w-full">
         <DogOverviewCard dog={activeDog} showQuickLog />
+        <MedicalSummaryCard dogId={activeDog.id} />
         <div className="rounded-2xl border bg-card p-4">
           <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground mb-3">Today's Activity</p>
           <RoutineTimeline dogId={activeDog.id} dogName={activeDog.name} canDelete />
@@ -145,7 +148,8 @@ export default function DashboardPage() {
               </div>
             </div>
             {/* Page 3: Analytics */}
-            <div className="w-1/3 h-full flex-shrink-0 overflow-y-auto p-3">
+            <div className="w-1/3 h-full flex-shrink-0 overflow-y-auto p-3 flex flex-col gap-3">
+              <MedicalSummaryCard dogId={activeDog.id} />
               <div className="rounded-2xl border bg-card p-4">
                 <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground mb-3">Analytics · Last 30 Days</p>
                 <div className="flex flex-col gap-4">
