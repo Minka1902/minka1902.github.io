@@ -86,8 +86,8 @@ export default function HumansPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 lg:flex-1 lg:overflow-y-auto lg:p-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Team</h1>
+      <div className="flex flex-wrap items-center justify-between gap-y-2">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Team</h1>
         <Link to="/dogs/join" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'gap-1.5')}>
           <UserPlus className="h-3.5 w-3.5" /> Join Another Dog
         </Link>
@@ -125,7 +125,7 @@ export default function HumansPage() {
             {searchResult && searchResult !== 'not-found' && (() => {
               const alreadyMember = humans.some(h => h.userId === searchResult.uid);
               return (
-                <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
+                <div className="flex flex-wrap flex-col sm:flex-row items-center gap-3 p-3 rounded-lg border bg-muted/30">
                   <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold shrink-0">
                     {searchResult.displayName.slice(0, 2).toUpperCase()}
                   </div>
@@ -138,7 +138,7 @@ export default function HumansPage() {
                   ) : (
                     <div className="flex items-center gap-2">
                       <Select value={addRole} onValueChange={v => setAddRole(v as HumanRole)}>
-                        <SelectTrigger className="w-28 h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="w-full sm:w-28 h-8 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {HUMAN_ROLES.map(r => (
                             <SelectItem key={r.role} value={r.role}>{r.label}</SelectItem>

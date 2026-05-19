@@ -10,8 +10,8 @@ export default function OrgListPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 lg:flex-1 lg:overflow-y-auto lg:p-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Organizations</h1>
+      <div className="flex flex-wrap items-center justify-between gap-y-2">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Organizations</h1>
         <div className="flex items-center gap-2">
           <Link
             to="/orgs/join"

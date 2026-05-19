@@ -21,15 +21,15 @@ export default function DevicesPage() {
 
   return (
     <div className="space-y-5 max-w-3xl mx-auto lg:flex-1 lg:overflow-y-auto lg:p-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Devices</h1>
+      <div className="flex flex-wrap items-center justify-between gap-y-2">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Devices</h1>
         <Button size="sm" onClick={() => setShowForm(true)} className="gap-1.5">
           <PlusCircle className="h-4 w-4" /> Link Device
         </Button>
       </div>
 
       {devices.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-4 rounded-xl border border-dashed bg-background">
+        <div className="flex flex-col items-center justify-center py-12 sm:py-20 gap-4 rounded-xl border border-dashed bg-background">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
             <Cpu className="h-7 w-7 text-muted-foreground" />
           </div>

@@ -96,9 +96,9 @@ export default function JoinDogPage() {
   };
 
   return (
-    <div className="max-w-lg mx-auto space-y-6">
+    <div className="max-w-lg mx-auto space-y-6 lg:flex-1 lg:overflow-y-auto lg:p-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Find a Dog</h1>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Find a Dog</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Search by the main handler's email address or phone number.
         </p>
