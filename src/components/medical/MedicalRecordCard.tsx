@@ -1,6 +1,6 @@
 import { Trash2, Pencil } from 'lucide-react';
 import { fmtDate } from '@/lib/utils';
-import type { MedicalRecord } from '@/types';
+import type { MedicalRecord, Vaccination, Medication, Allergy, Diagnosis, Surgery, FleaTick } from '@/types';
 
 interface Props {
   record: MedicalRecord;
@@ -66,7 +66,53 @@ export default function MedicalRecordCard({ record, onDelete, onEdit, categoryCo
           )}
         </div>
 
-        {/* Row 3: notes */}
+        {/* Row 3: category-specific detail */}
+        {record.category === 'vaccination' && (record as Vaccination).vaccineName && (
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium">{(record as Vaccination).vaccineName}</span>
+            {(record as Vaccination).batchNumber && <span> · Batch {(record as Vaccination).batchNumber}</span>}
+          </p>
+        )}
+        {record.category === 'medication' && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {(record as Medication).medicationName && (
+              <span className="text-xs text-muted-foreground font-medium">{(record as Medication).medicationName}</span>
+            )}
+            {(record as Medication).dosage && (
+              <span className="text-xs text-muted-foreground">· {(record as Medication).dosage}</span>
+            )}
+            {(record as Medication).isActive && (
+              <span className="text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-full">Active</span>
+            )}
+          </div>
+        )}
+        {record.category === 'allergy' && (record as Allergy).allergen && (
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium">{(record as Allergy).allergen}</span>
+            {(record as Allergy).severity && <span className="capitalize"> · {(record as Allergy).severity}</span>}
+          </p>
+        )}
+        {record.category === 'diagnosis' && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {(record as Diagnosis).condition && (
+              <span className="text-xs text-muted-foreground font-medium">{(record as Diagnosis).condition}</span>
+            )}
+            {(record as Diagnosis).isActive && (
+              <span className="text-[10px] font-bold uppercase bg-blue-500/10 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-full">Active</span>
+            )}
+          </div>
+        )}
+        {record.category === 'surgery' && (record as Surgery).procedure && (
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium">{(record as Surgery).procedure}</span>
+            {(record as Surgery).veterinarian && <span> · {(record as Surgery).veterinarian}</span>}
+          </p>
+        )}
+        {(record.category === 'flea_tick' || record.category === 'deworming') && (record as FleaTick).productName && (
+          <p className="text-xs text-muted-foreground">Product: <span className="font-medium">{(record as FleaTick).productName}</span></p>
+        )}
+
+        {/* Row 4: notes */}
         {record.notes && (
           <p className="text-xs text-muted-foreground/70 line-clamp-1 mt-0.5">{record.notes}</p>
         )}
