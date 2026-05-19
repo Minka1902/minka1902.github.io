@@ -120,7 +120,7 @@ export default function TrainingSessionForm({ dogId, template, onTrainingTypeCha
             className="text-sm"
           />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <FieldLabel htmlFor="durationMin">Duration (min)</FieldLabel>
             <Input

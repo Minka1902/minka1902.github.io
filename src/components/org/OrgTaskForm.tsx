@@ -121,7 +121,7 @@ export default function OrgTaskForm({ enrolledDogs, members, onSubmit, onCancel,
         </Select>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label htmlFor="due-date">Due Date</Label>
           <Input id="due-date" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
