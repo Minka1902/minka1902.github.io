@@ -1,4 +1,4 @@
-import { Trash2, Pencil, CalendarClock, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Trash2, Pencil } from 'lucide-react';
 import { fmtDate } from '@/lib/utils';
 import type { MedicalRecord } from '@/types';
 
@@ -6,81 +6,99 @@ interface Props {
   record: MedicalRecord;
   onDelete?: (id: string) => void;
   onEdit?: (record: MedicalRecord) => void;
+  categoryColor?: string;
 }
 
 function getUrgency(record: MedicalRecord): 'overdue' | 'today' | 'soon' | 'ok' | 'none' {
   if (!record.nextDueDate) return 'none';
   const now = Date.now();
   const dayMs = 24 * 60 * 60 * 1000;
-  if (record.nextDueDate < now - dayMs) return 'overdue';
+  if (record.nextDueDate < now)         return 'overdue';
   if (record.nextDueDate < now + dayMs) return 'today';
   if (record.nextDueDate < now + 7 * dayMs) return 'soon';
   return 'ok';
 }
 
 const URGENCY_STYLES = {
-  overdue: { bar: '#EF4444', badge: 'bg-red-500/10 text-red-500 border-red-500/20', label: 'Overdue',  icon: AlertTriangle },
-  today:   { bar: '#F59E0B', badge: 'bg-amber-500/10 text-amber-500 border-amber-500/20', label: 'Due today', icon: CalendarClock },
-  soon:    { bar: '#F59E0B', badge: 'bg-amber-500/10 text-amber-500 border-amber-500/20', label: 'Due soon',  icon: CalendarClock },
-  ok:      { bar: '#22C55E', badge: 'bg-green-500/10 text-green-600 border-green-500/20', label: 'Upcoming',  icon: CheckCircle },
-  none:    { bar: 'transparent', badge: '', label: '', icon: null },
+  overdue: { badge: 'bg-red-500 text-white',                                       label: 'Overdue'    },
+  today:   { badge: 'bg-amber-500 text-white',                                     label: 'Due today'  },
+  soon:    { badge: 'bg-amber-400/20 text-amber-600 dark:text-amber-400',          label: 'Due soon'   },
+  ok:      { badge: 'bg-green-500/10 text-green-600 dark:text-green-400',          label: 'Upcoming'   },
+  none:    { badge: '',                                                              label: ''           },
 };
 
-export default function MedicalRecordCard({ record, onDelete, onEdit }: Props) {
+export default function MedicalRecordCard({ record, onDelete, onEdit, categoryColor }: Props) {
   const urgency = getUrgency(record);
   const style = URGENCY_STYLES[urgency];
 
   return (
-    <div className="group relative flex rounded-xl border bg-card overflow-hidden hover:bg-muted/20 transition-colors">
-      {/* Left urgency bar */}
-      <div className="w-1 shrink-0" style={{ backgroundColor: style.bar }} />
+    <div className="group relative flex rounded-2xl border bg-card overflow-hidden transition-all hover:shadow-sm">
+      {/* Left accent bar — 3px, category color */}
+      <div className="w-[3px] shrink-0" style={{ backgroundColor: categoryColor ?? 'hsl(var(--border))' }} />
 
-      <div className="flex flex-1 items-start gap-3 px-4 py-3 min-w-0">
-        <div className="flex-1 min-w-0 space-y-1">
-          <p className="font-semibold text-sm leading-tight">{record.title}</p>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-            <span>{fmtDate(record.date)}</span>
-            {record.nextDueDate && (
-              <>
-                <span>·</span>
-                <span className="flex items-center gap-0.5">
-                  <CalendarClock className="h-3 w-3" />
-                  {fmtDate(record.nextDueDate)}
-                </span>
-              </>
-            )}
-            {record.provider && <><span>·</span><span>{record.provider}</span></>}
-          </div>
-          {record.notes && <p className="text-xs text-muted-foreground/70 truncate">{record.notes}</p>}
+      {/* Content */}
+      <div className="flex flex-col gap-1 px-3.5 py-3 flex-1 min-w-0">
+        {/* Row 1: title + urgency badge */}
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-sm font-semibold leading-snug flex-1 min-w-0">{record.title}</p>
+          {urgency !== 'none' && (
+            <span className={`shrink-0 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${style.badge}`}>
+              {style.label}
+            </span>
+          )}
         </div>
 
-        {urgency !== 'none' && (
-          <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full border ${style.badge}`}>
-            {style.label}
-          </span>
+        {/* Row 2: dates + provider (monospace) */}
+        <div className="flex items-center gap-x-3 gap-y-0.5 flex-wrap">
+          <time dateTime={new Date(record.date).toISOString()} className="font-mono text-xs text-muted-foreground">
+            {fmtDate(record.date)}
+          </time>
+          {record.nextDueDate && (
+            <span className="flex items-center gap-1 font-mono text-xs text-muted-foreground">
+              <span>{'→'}</span>
+              <time dateTime={new Date(record.nextDueDate).toISOString()}>
+                {fmtDate(record.nextDueDate)}
+              </time>
+            </span>
+          )}
+          {record.provider && (
+            <span className="text-xs text-muted-foreground">· {record.provider}</span>
+          )}
+        </div>
+
+        {/* Row 3: notes */}
+        {record.notes && (
+          <p className="text-xs text-muted-foreground/70 line-clamp-1 mt-0.5">{record.notes}</p>
         )}
 
-        {/* Action buttons — visible on hover */}
-        <div className="shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          {onEdit && (
-            <button
-              onClick={() => onEdit(record)}
-              className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              aria-label="Edit"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </button>
-          )}
-          {onDelete && (
-            <button
-              onClick={() => onDelete(record.id)}
-              className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-              aria-label="Delete"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
+        {/* Row 4: action buttons */}
+        {(onEdit || onDelete) && (
+          <div className="flex items-center justify-end gap-0.5 mt-1">
+            {/* On mobile: always visible. On desktop: only on hover. */}
+            <div className="flex items-center gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={() => onEdit(record)}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  aria-label="Edit record"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={() => onDelete(record.id)}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  aria-label="Delete record"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
