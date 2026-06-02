@@ -5,6 +5,53 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { MedicalCategory, MedicalRecord, Vaccination, Medication, Allergy, Diagnosis, Surgery } from '@/types';
 
+type RepeatInterval = 'none' | '91' | '182' | '365' | '730' | '1095' | 'custom';
+type CustomRepeatUnit = 'weeks' | 'months' | 'years';
+
+const REPEAT_OPTIONS: { value: RepeatInterval; label: string }[] = [
+  { value: 'none',  label: 'None (no repeat)' },
+  { value: '91',    label: 'Every 3 months' },
+  { value: '182',   label: 'Every 6 months' },
+  { value: '365',   label: 'Every year' },
+  { value: '730',   label: 'Every 2 years' },
+  { value: '1095',  label: 'Every 3 years' },
+  { value: 'custom', label: 'Custom interval' },
+];
+
+const PRESET_DAYS = [91, 182, 365, 730, 1095] as const;
+
+/** Detect which repeat preset (if any) matches a day diff. Tolerance ±3 days. */
+function detectRepeatInterval(datMs: number, nextMs: number): { interval: RepeatInterval; customValue: number; customUnit: CustomRepeatUnit } {
+  const diffDays = Math.round((nextMs - datMs) / 86_400_000);
+  for (const preset of PRESET_DAYS) {
+    if (Math.abs(diffDays - preset) <= 3) {
+      return { interval: String(preset) as RepeatInterval, customValue: 1, customUnit: 'weeks' };
+    }
+  }
+  // No preset match — fall back to custom in weeks
+  return { interval: 'custom', customValue: Math.round(diffDays / 7), customUnit: 'weeks' };
+}
+
+/** Compute nextDueDate timestamp from date string + repeat state. Returns undefined when interval is 'none'. */
+function computeNextDueDate(
+  dateStr: string,
+  repeatInterval: RepeatInterval,
+  customRepeatValue: number,
+  customRepeatUnit: CustomRepeatUnit,
+): number | undefined {
+  if (repeatInterval === 'none' || !dateStr) return undefined;
+  const dateMs = new Date(dateStr).getTime();
+  if (repeatInterval === 'custom') {
+    const multipliers: Record<CustomRepeatUnit, number> = {
+      weeks:  7 * 86_400_000,
+      months: 30.44 * 86_400_000,
+      years:  365.25 * 86_400_000,
+    };
+    return Math.round(dateMs + customRepeatValue * multipliers[customRepeatUnit]);
+  }
+  return dateMs + parseInt(repeatInterval, 10) * 86_400_000;
+}
+
 function tsToDateInput(ts: number | undefined): string {
   if (!ts) return '';
   return new Date(ts).toISOString().split('T')[0];
@@ -38,6 +85,26 @@ export default function MedicalRecordForm({ dogId, category, onSaved, record }: 
   const [isActive,        setIsActive]        = useState((record as Medication)?.isActive ?? true);
   const [administrationTimes, setAdministrationTimes] = useState<string[]>((record as Medication)?.administrationTimes ?? []);
 
+  // Vaccination-only repeat interval state (not sent directly to Firestore)
+  const [repeatInterval, setRepeatInterval] = useState<RepeatInterval>(() => {
+    if (category !== 'vaccination') return 'none';
+    const vac = record as Vaccination | undefined;
+    if (!vac?.nextDueDate || !vac?.date) return 'none';
+    return detectRepeatInterval(vac.date, vac.nextDueDate).interval;
+  });
+  const [customRepeatValue, setCustomRepeatValue] = useState<number>(() => {
+    if (category !== 'vaccination') return 1;
+    const vac = record as Vaccination | undefined;
+    if (!vac?.nextDueDate || !vac?.date) return 1;
+    return detectRepeatInterval(vac.date, vac.nextDueDate).customValue;
+  });
+  const [customRepeatUnit, setCustomRepeatUnit] = useState<CustomRepeatUnit>(() => {
+    if (category !== 'vaccination') return 'weeks';
+    const vac = record as Vaccination | undefined;
+    if (!vac?.nextDueDate || !vac?.date) return 'weeks';
+    return detectRepeatInterval(vac.date, vac.nextDueDate).customUnit;
+  });
+
   const [submitting, setSubmitting] = useState(false);
   const [dateError, setDateError] = useState('');
 
@@ -54,10 +121,14 @@ export default function MedicalRecordForm({ dogId, category, onSaved, record }: 
 
     setSubmitting(true);
 
+    const computedNextDueDate = category === 'vaccination'
+      ? computeNextDueDate(date, repeatInterval, customRepeatValue, customRepeatUnit)
+      : (nextDueDate ? new Date(nextDueDate).getTime() : undefined);
+
     const base = {
       title,
       date: new Date(date).getTime(),
-      nextDueDate: nextDueDate ? new Date(nextDueDate).getTime() : undefined,
+      nextDueDate: computedNextDueDate,
       provider: provider || undefined,
       notes: notes || undefined,
     };
@@ -180,7 +251,7 @@ export default function MedicalRecordForm({ dogId, category, onSaved, record }: 
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className={`grid grid-cols-1 gap-4 ${category === 'vaccination' ? '' : 'sm:grid-cols-2'}`}>
         <div className="space-y-1">
           <Label htmlFor="date">Date</Label>
           <Input
@@ -196,10 +267,57 @@ export default function MedicalRecordForm({ dogId, category, onSaved, record }: 
             <p className="text-xs text-destructive mt-1">{dateError}</p>
           )}
         </div>
-        <div className="space-y-1">
-          <Label htmlFor="nextDueDate">Next Due</Label>
-          <Input id="nextDueDate" type="date" value={nextDueDate} onChange={e => setNextDueDate(e.target.value)} />
-        </div>
+
+        {category === 'vaccination' ? (
+          <div className="space-y-2">
+            <div className="space-y-1">
+              <Label htmlFor="repeatInterval">Repeat</Label>
+              <select
+                id="repeatInterval"
+                value={repeatInterval}
+                onChange={e => setRepeatInterval(e.target.value as RepeatInterval)}
+                className="w-full text-sm border border-input rounded-lg px-3 py-1.5 bg-background outline-none focus:border-primary/50 h-9"
+              >
+                {REPEAT_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            {repeatInterval === 'custom' && (
+              <div className="flex gap-2 items-end">
+                <div className="space-y-1 flex-1">
+                  <Label htmlFor="customRepeatValue">Every</Label>
+                  <Input
+                    id="customRepeatValue"
+                    type="number"
+                    min={1}
+                    value={customRepeatValue}
+                    onChange={e => setCustomRepeatValue(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1 flex-1">
+                  <Label htmlFor="customRepeatUnit">Unit</Label>
+                  <select
+                    id="customRepeatUnit"
+                    value={customRepeatUnit}
+                    onChange={e => setCustomRepeatUnit(e.target.value as CustomRepeatUnit)}
+                    className="w-full text-sm border border-input rounded-lg px-3 py-1.5 bg-background outline-none focus:border-primary/50 h-9"
+                  >
+                    <option value="weeks">Weeks</option>
+                    <option value="months">Months</option>
+                    <option value="years">Years</option>
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-1">
+            <Label htmlFor="nextDueDate">Next Due</Label>
+            <Input id="nextDueDate" type="date" value={nextDueDate} onChange={e => setNextDueDate(e.target.value)} />
+          </div>
+        )}
       </div>
 
       <div className="space-y-1">

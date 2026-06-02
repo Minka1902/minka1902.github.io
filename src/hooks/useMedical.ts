@@ -41,7 +41,19 @@ export function useMedical(dogId: string, category: MedicalCategory) {
     await deleteDoc(doc(db, 'dogs', dogId, collectionName, recordId));
   };
 
-  return { records, loading, addRecord, updateRecord, deleteRecord };
+  const confirmRecord = async (id: string) => {
+    if (!user) return;
+    const collectionName = MEDICAL_CATEGORIES.find(c => c.category === category)!.collectionName;
+    const ref = doc(db, 'dogs', dogId, collectionName, id);
+    await updateDoc(ref, {
+      confirmedAt: Date.now(),
+      confirmedBy: user.uid,
+      confirmedByName: user.displayName ?? user.email ?? 'Unknown',
+      updatedAt: Date.now(),
+    });
+  };
+
+  return { records, loading, addRecord, updateRecord, deleteRecord, confirmRecord };
 }
 
 export interface MedicalCalendarEvent {

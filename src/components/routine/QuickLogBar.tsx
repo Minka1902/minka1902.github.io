@@ -87,7 +87,7 @@ export default function QuickLogBar() {
   }
 
   return (
-    <div className="flex flex-wrap justify-center gap-2">
+    <div className="flex flex-row flex-wrap justify-center gap-2">
       {ROUTINE_TYPES.map(({ type, label, icon }) => (
         <button
           key={type}

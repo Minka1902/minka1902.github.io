@@ -1,29 +1,69 @@
-import { useMemo, useState, useRef } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { PawPrint, PlusCircle, Search } from 'lucide-react';
+import { PawPrint, PlusCircle, Search, LayoutGrid, GripHorizontal } from 'lucide-react';
 import { useDog } from '@/contexts/DogContext';
 import { useRoutineWindow } from '@/hooks/useRoutine';
 import { useTraining } from '@/hooks/useTraining';
 import DogOverviewCard from '@/components/dog/DogOverviewCard';
+import MedicalSummaryCard from '@/components/medical/MedicalSummaryCard';
 import RoutineTimeline from '@/components/routine/RoutineTimeline';
 import WalkStatsChart from '@/components/routine/monitoring/WalkStatsChart';
 import FeedingLogChart from '@/components/routine/monitoring/FeedingLogChart';
 import TrainingProgressChart from '@/components/routine/monitoring/TrainingProgressChart';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import GridLayout from 'react-grid-layout';
+import 'react-grid-layout/css/styles.css';
+import 'react-resizable/css/styles.css';
+
+// ── Grid layout persistence ────────────────────────────────────────────────
+const DASH_GRID_KEY = 'packops_dashboard_grid_layout';
+
+const DEFAULT_DASH_LAYOUT: GridLayout.Layout[] = [
+  { i: 'dog', x: 0, y: 0, w: 4, h: 4, minW: 2, minH: 2 },
+  { i: 'medical', x: 0, y: 4, w: 4, h: 2, minW: 2, minH: 1 },
+  { i: 'timeline', x: 4, y: 0, w: 5, h: 6, minW: 3, minH: 3 },
+  { i: 'analytics', x: 9, y: 0, w: 3, h: 6, minW: 2, minH: 3 },
+];
+
+function loadLayout(): GridLayout.Layout[] {
+  try {
+    const saved = localStorage.getItem(DASH_GRID_KEY);
+    return saved ? JSON.parse(saved) : DEFAULT_DASH_LAYOUT;
+  } catch {
+    return DEFAULT_DASH_LAYOUT;
+  }
+}
 
 export default function DashboardPage() {
   const { activeDog, dogs } = useDog();
   const { sessions: trainingSessions } = useTraining(activeDog?.id ?? '');
 
   const monitorStart = useMemo(() => Date.now() - 30 * 24 * 60 * 60 * 1000, []);
-  const monitorEnd   = useMemo(() => Date.now() + 86_400_000, []);
-  const monitorLogs  = useRoutineWindow(activeDog?.id ?? '', monitorStart, monitorEnd);
+  const monitorEnd = useMemo(() => Date.now() + 86_400_000, []);
+  const monitorLogs = useRoutineWindow(activeDog?.id ?? '', monitorStart, monitorEnd);
 
   // Mobile swipe state
   const [mobilePage, setMobilePage] = useState(0);
   const touchStartX = useRef<number>(0);
   const touchStartY = useRef<number>(0);
+
+  // Grid editor state
+  const [editDashboard, setEditDashboard] = useState(false);
+  const [dashLayout, setDashLayout] = useState<GridLayout.Layout[]>(loadLayout);
+
+  // Container width measurement for GridLayout
+  const gridContainerRef = useRef<HTMLDivElement>(null);
+  const [gridWidth, setGridWidth] = useState(1200);
+  useEffect(() => {
+    const el = gridContainerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(entries => {
+      setGridWidth(entries[0].contentRect.width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -77,47 +117,110 @@ export default function DashboardPage() {
     );
   }
 
+  // Shared drag handle overlay for edit mode
+  const DragHandle = () => (
+    <div className="drag-handle absolute top-0 left-0 right-0 h-6 cursor-grab flex items-center justify-center z-10 rounded-t-xl bg-border/30 hover:bg-border/50 transition-colors">
+      <GripHorizontal className="h-3 w-3 text-muted-foreground/60" />
+    </div>
+  );
+
   return (
     <>
-      {/* ── Desktop layout (lg+) — Command Center ─────────────────────────── */}
-      <div className="hidden lg:flex h-[calc(100dvh-56px)] gap-3 p-4 overflow-hidden">
-        {/* Left column — dog overview card */}
-        <div className="w-[35%] flex-shrink-0 min-h-0">
-          <DogOverviewCard dog={activeDog} showQuickLog />
+      {/* ── Desktop/tablet grid layout (md+) — Drag & resize grid ─────────── */}
+      <div className="hidden md:flex flex-col h-[calc(100dvh-56px)] overflow-hidden">
+        {/* Grid toolbar */}
+        <div className="flex items-center justify-end px-4 py-1 gap-2 flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => setEditDashboard(!editDashboard)}
+            className="hidden md:flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-lg border transition-colors"
+            style={editDashboard ? { backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)', borderColor: 'var(--primary)' } : {}}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+            {editDashboard ? 'Done' : 'Edit layout'}
+          </button>
         </div>
-        {/* Right column */}
-        <div className="flex-1 flex flex-col gap-3 min-h-0">
-          {/* Analytics panel — 60% height */}
-          <div className="flex-[3] overflow-hidden min-h-0 rounded-2xl border bg-card p-4">
-            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground mb-2">Analytics · Last 30 Days</p>
-            <div className="flex gap-3 h-32">
-              <div className="flex-1 min-w-0"><WalkStatsChart logs={monitorLogs} /></div>
-              <div className="flex-1 min-w-0"><FeedingLogChart logs={monitorLogs} /></div>
-              <div className="flex-1 min-w-0"><TrainingProgressChart sessions={trainingSessions} /></div>
-            </div>
-          </div>
-          {/* Timeline panel — 40% height, scrolls internally */}
-          <div className="flex-[2] overflow-y-auto rounded-2xl border bg-card p-4 min-h-0">
-            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground mb-3">Today's Activity</p>
-            <RoutineTimeline dogId={activeDog.id} dogName={activeDog.name} canDelete />
-          </div>
-        </div>
-      </div>
 
-      {/* ── Tablet layout (md–lg) — Stacked panels, scrollable ────────────── */}
-      <div className="hidden md:flex lg:hidden flex-col gap-3 p-3 max-w-2xl mx-auto w-full">
-        <DogOverviewCard dog={activeDog} showQuickLog />
-        <div className="rounded-2xl border bg-card p-4">
-          <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground mb-3">Today's Activity</p>
-          <RoutineTimeline dogId={activeDog.id} dogName={activeDog.name} canDelete />
-        </div>
-        <div className="rounded-2xl border bg-card p-4">
-          <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground mb-2">Analytics · Last 30 Days</p>
-          <div className="space-y-3">
-            <WalkStatsChart logs={monitorLogs} />
-            <FeedingLogChart logs={monitorLogs} />
-            <TrainingProgressChart sessions={trainingSessions} />
-          </div>
+        {/* Grid container */}
+        <div ref={gridContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden px-4 pb-4">
+          <GridLayout
+            className="layout"
+            layout={dashLayout}
+            cols={12}
+            rowHeight={70}
+            width={gridWidth}
+            isDraggable={editDashboard}
+            isResizable={editDashboard}
+            onLayoutChange={(newLayout) => {
+              setDashLayout(newLayout);
+              localStorage.setItem(DASH_GRID_KEY, JSON.stringify(newLayout));
+            }}
+            draggableHandle=".drag-handle"
+            margin={[5, 5]}
+          >
+            {/* Dog overview widget */}
+            <div key="dog" className={cn(
+              'relative overflow-hidden rounded-2xl',
+              editDashboard && 'ring-2 ring-dashed ring-border'
+            )}>
+              {editDashboard && <DragHandle />}
+              <div className={cn('h-full', editDashboard && 'pt-6', 'flex-start')}>
+                <DogOverviewCard dog={activeDog} showQuickLog />
+              </div>
+            </div>
+
+            {/* Medical summary widget */}
+            <div
+              key="medical"
+              className={cn(
+                'relative overflow-hidden rounded-2xl',
+                editDashboard && 'ring-2 ring-dashed ring-border'
+              )}
+            >
+              {editDashboard && <DragHandle />}
+              <div className={cn('h-full', editDashboard && 'pt-6')}>
+                <MedicalSummaryCard dogId={activeDog.id} />
+              </div>
+            </div>
+
+            {/* Timeline widget */}
+            <div
+              key="timeline"
+              className={cn(
+                'relative overflow-hidden rounded-2xl border bg-card',
+                editDashboard && 'ring-2 ring-dashed ring-border'
+              )}
+            >
+              {editDashboard && <DragHandle />}
+              <div className={cn('max-h-[calc(100%-32px)] overflow-y-auto p-4', editDashboard && 'pt-8')}>
+                <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground mb-3">
+                  Today's Activity
+                </p>
+                <RoutineTimeline dogId={activeDog.id} dogName={activeDog.name} canDelete />
+              </div>
+            </div>
+
+            {/* Analytics widget */}
+            <div
+              key="analytics"
+              className={cn(
+                'relative overflow-hidden rounded-2xl border bg-card',
+                editDashboard && 'ring-2 ring-dashed ring-border'
+              )}
+            >
+              {editDashboard && <DragHandle />}
+              <div className={cn('h-full overflow-y-auto p-4', editDashboard && 'pt-8')}>
+                <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground mb-2">
+                  Analytics · Last 30 Days
+                </p>
+                <div className="space-y-3">
+                  <WalkStatsChart logs={monitorLogs} />
+                  <FeedingLogChart logs={monitorLogs} />
+                  <TrainingProgressChart sessions={trainingSessions} />
+                </div>
+              </div>
+            </div>
+          </GridLayout>
         </div>
       </div>
 
@@ -131,21 +234,22 @@ export default function DashboardPage() {
         >
           <div
             className="flex h-full transition-transform duration-300 ease-out"
-            style={{ transform: `translateX(-${mobilePage * 100}%)`, width: '300%' }}
+            style={{ transform: `translateX(-${(mobilePage * 100) / 3 * 2}%)`, width: '300%' }}
           >
             {/* Page 1: Dog Overview */}
-            <div className="w-1/3 h-full flex-shrink-0 overflow-y-auto p-3">
+            <div className="w-2/3 h-full flex-shrink-0 overflow-y-auto p-3">
               <DogOverviewCard dog={activeDog} showQuickLog />
             </div>
             {/* Page 2: Timeline */}
-            <div className="w-1/3 h-full flex-shrink-0 overflow-y-auto p-3">
+            <div className="w-2/3 h-full flex-shrink-0 overflow-y-auto p-3">
               <div className="rounded-2xl border bg-card p-4">
                 <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground mb-3">Today's Activity</p>
                 <RoutineTimeline dogId={activeDog.id} dogName={activeDog.name} canDelete />
               </div>
             </div>
             {/* Page 3: Analytics */}
-            <div className="w-1/3 h-full flex-shrink-0 overflow-y-auto p-3">
+            <div className="w-2/3 h-full flex-shrink-0 overflow-y-auto p-3 flex flex-col gap-3">
+              <MedicalSummaryCard dogId={activeDog.id} />
               <div className="rounded-2xl border bg-card p-4">
                 <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground mb-3">Analytics · Last 30 Days</p>
                 <div className="flex flex-col gap-4">

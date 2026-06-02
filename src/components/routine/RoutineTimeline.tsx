@@ -19,7 +19,7 @@ export default function RoutineTimeline({ dogId, dogName, canDelete }: Props) {
   }
 
   return (
-    <div className="divide-y divide-border/40">
+    <div className="h-[100%] divide-y divide-border/40">
       {todayLogs.map(log => (
         <RoutineLogItem
           key={log.id}

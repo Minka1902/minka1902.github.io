@@ -15,6 +15,9 @@ interface MedicalBase {
   createdByName: string;
   createdAt: number;
   updatedAt: number;
+  confirmedAt?: number;
+  confirmedBy?: string;
+  confirmedByName?: string;
 }
 
 export interface Vaccination extends MedicalBase {
