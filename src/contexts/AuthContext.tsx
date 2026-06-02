@@ -2,11 +2,12 @@ import { createContext, useContext, useEffect, useState, useMemo, useCallback, t
 import {
   onAuthStateChanged, signInWithEmailAndPassword,
   createUserWithEmailAndPassword, signOut, updateProfile,
-  signInWithPopup, GoogleAuthProvider,
-  type User as FirebaseUser,
+  signInWithPopup, GoogleAuthProvider, OAuthProvider,
+  type User as FirebaseUser, type UserCredential,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
+import { clearSessionMode } from '@/contexts/SessionModeContext';
 import type { UserProfile } from '@/types';
 
 interface AuthContextValue {
@@ -16,6 +17,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, displayName: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
+  loginWithMicrosoft: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -61,9 +63,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(profile);
   }, []);
 
-  const loginWithGoogle = useCallback(async () => {
-    const provider = new GoogleAuthProvider();
-    const { user: fbUser } = await signInWithPopup(auth, provider);
+  // Shared handler for OAuth popup providers (Google, Microsoft). Creates the
+  // user profile on first sign-in, mirroring email/password registration.
+  const handleOAuthResult = useCallback(async ({ user: fbUser }: UserCredential) => {
     setFirebaseUser(fbUser);
     const snap = await getDoc(doc(db, 'users', fbUser.uid));
     if (snap.exists()) {
@@ -83,15 +85,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const loginWithGoogle = useCallback(async () => {
+    await handleOAuthResult(await signInWithPopup(auth, new GoogleAuthProvider()));
+  }, [handleOAuthResult]);
+
+  const loginWithMicrosoft = useCallback(async () => {
+    await handleOAuthResult(await signInWithPopup(auth, new OAuthProvider('microsoft.com')));
+  }, [handleOAuthResult]);
+
   const logout = useCallback(async () => {
     await signOut(auth);
+    // Reset to personal mode so the next login re-picks identity (full sign-out).
+    clearSessionMode();
     setUser(null);
     setFirebaseUser(null);
   }, []);
 
   const value = useMemo(
-    () => ({ user, firebaseUser, loading, login, register, loginWithGoogle, logout }),
-    [user, firebaseUser, loading, login, register, loginWithGoogle, logout],
+    () => ({ user, firebaseUser, loading, login, register, loginWithGoogle, loginWithMicrosoft, logout }),
+    [user, firebaseUser, loading, login, register, loginWithGoogle, loginWithMicrosoft, logout],
   );
 
   return (

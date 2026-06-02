@@ -28,6 +28,7 @@ admin.initializeApp({
 });
 
 const db: Firestore = getFirestore();
+db.settings({ ignoreUndefinedProperties: true });
 
 // ─── Batch helpers ────────────────────────────────────────────────────────────
 
@@ -72,330 +73,217 @@ function timeOnDay(dayTs: number, hh: number, mm: number): number {
   return dayTs + hh * 3600_000 + mm * 60_000;
 }
 
-// ─── Seed: Organizations ──────────────────────────────────────────────────────
+// ─── Capability catalog (mirror of src/types/business.ts) ──────────────────────
 
-async function seedOrgs(): Promise<void> {
+const ALL_CAPS = [
+  'manage_staff', 'manage_roles', 'manage_business', 'view_business',
+  'view_customers', 'manage_customers',
+  'view_appointments', 'manage_appointments', 'manage_own_appointments',
+  'view_invoices', 'manage_invoices', 'record_payments',
+  'view_inventory', 'manage_inventory', 'view_shipments', 'manage_shipments',
+];
+
+const slug = (s: string) => s.toLowerCase().replace(/[.\s]+/g, '.');
+
+// ─── Seed: Businesses (CRM) ────────────────────────────────────────────────────
+
+interface SeedBusiness {
+  id: string;
+  name: string;
+  type: string;
+  description: string;
+  email: string;
+  domain: string;
+  staff: { name: string; roleName: string }[];
+  roles: { id: string; name: string; capabilities: string[] }[];
+}
+
+async function seedBusinesses(): Promise<void> {
   const now = Date.now();
   const ab = new AutoBatch();
 
-  // ── The Home (shelter) ──────────────────────────────────────────────────────
+  const managerCaps = ALL_CAPS.filter(c => c !== 'manage_business' && c !== 'manage_roles');
+  const frontDeskCaps = ['view_business', 'view_customers', 'manage_customers', 'view_appointments', 'manage_appointments', 'view_invoices'];
+  const workerCaps = ['view_business', 'view_customers', 'view_appointments', 'manage_own_appointments'];
 
-  const homeId = 'the-home';
-  const homeStaffIds = Array.from({ length: 10 }, (_, i) => `staff-home-${i + 1}`);
-  const homeStaffNames = [
-    'Maya Cohen', 'Lior Ben-David', 'Noa Shapiro', 'Eyal Mizrahi', 'Tamar Levy',
-    'Avi Katz', 'Shira Goldberg', 'Ron Peretz', 'Dana Friedman', 'Yoav Haim',
+  const businesses: SeedBusiness[] = [
+    {
+      id: 'pawsh-grooming', name: 'Pawsh Grooming', type: 'grooming_salon',
+      description: 'Full-service dog grooming salon', email: 'hello@pawsh.example', domain: 'pawsh.example',
+      roles: [
+        { id: 'role-manager', name: 'Manager', capabilities: managerCaps },
+        { id: 'role-front', name: 'Front desk', capabilities: frontDeskCaps },
+        { id: 'role-groomer', name: 'Groomer', capabilities: workerCaps },
+      ],
+      staff: [
+        { name: 'Maya Cohen', roleName: 'role-manager' },
+        { name: 'Lior Ben-David', roleName: 'role-front' },
+        { name: 'Noa Shapiro', roleName: 'role-groomer' },
+        { name: 'Eyal Mizrahi', roleName: 'role-groomer' },
+        { name: 'Tamar Levy', roleName: 'role-groomer' },
+      ],
+    },
+    {
+      id: 'the-vet-clinic', name: 'The Vet Clinic', type: 'vet',
+      description: 'Professional veterinary care', email: 'info@thevet.example', domain: 'thevet.example',
+      roles: [
+        { id: 'role-manager', name: 'Practice Manager', capabilities: managerCaps },
+        { id: 'role-vet', name: 'Veterinarian', capabilities: [...workerCaps, 'manage_appointments', 'manage_customers'] },
+        { id: 'role-recep', name: 'Receptionist', capabilities: frontDeskCaps },
+      ],
+      staff: [
+        { name: 'Dr. Oren Levi', roleName: 'role-vet' },
+        { name: 'Dr. Tal Rosen', roleName: 'role-vet' },
+        { name: 'Michal Dayan', roleName: 'role-manager' },
+        { name: 'Ronit Bar', roleName: 'role-recep' },
+        { name: 'Limor Gal', roleName: 'role-recep' },
+      ],
+    },
+    {
+      id: 'the-food-store', name: 'The Food Store', type: 'pet_shop',
+      description: 'Premium pet food and supplies', email: 'orders@foodstore.example', domain: 'foodstore.example',
+      roles: [
+        { id: 'role-manager', name: 'Store Manager', capabilities: managerCaps },
+        { id: 'role-clerk', name: 'Clerk', capabilities: ['view_business', 'view_customers', 'manage_customers', 'view_inventory', 'manage_inventory'] },
+        { id: 'role-driver', name: 'Driver', capabilities: ['view_business', 'view_shipments', 'manage_shipments'] },
+      ],
+      staff: [
+        { name: 'Yuval Cohen', roleName: 'role-manager' },
+        { name: 'Merav Katz', roleName: 'role-clerk' },
+        { name: 'Ido Shmueli', roleName: 'role-clerk' },
+        { name: 'Nir Friedman', roleName: 'role-driver' },
+        { name: 'Orit Levi', roleName: 'role-driver' },
+      ],
+    },
   ];
 
-  // Org doc
-  await ab.set(db.collection('organizations').doc(homeId), {
-    id: homeId,
-    name: 'The Home',
-    type: 'shelter',
-    description: 'A warm shelter for dogs in need',
-    email: 'info@thehome.org',
-    address: { street: '14 Shelter Lane', city: 'Tel Aviv', country: 'Israel' },
-    leaderUserIds: [MINKA_UID],
-    staffUserIds: homeStaffIds,
-    totalCapacity: 50,
-    createdBy: MINKA_UID,
-    createdAt: now,
-    updatedAt: now,
-  });
-
-  // Leader member
-  await ab.set(db.collection('organizations').doc(homeId).collection('members').doc(MINKA_UID), {
-    userId: MINKA_UID,
-    displayName: MINKA_NAME,
-    email: MINKA_EMAIL,
-    role: 'leader',
-    joinedAt: now,
-  });
-
-  // Staff members
-  for (let i = 0; i < 10; i++) {
-    const uid = homeStaffIds[i];
-    const name = homeStaffNames[i];
-    await ab.set(db.collection('organizations').doc(homeId).collection('members').doc(uid), {
-      userId: uid,
-      displayName: name,
-      email: `${name.toLowerCase().replace(/\s+/g, '.')}@thehome.org`,
-      role: 'staff',
-      staffRole: 'daycare_staff',
-      joinedAt: now,
-      invitedBy: MINKA_UID,
-    });
-  }
-
-  // Shelter dog names
-  const shelterDogNames = [
-    'Boaz', 'Gili', 'Roni', 'Nevo', 'Shaked',
-    'Lavi', 'Dani', 'Ofri', 'Tal', 'Yam',
-    'Kfir', 'Dvir', 'Erez', 'Rotem', 'Nir',
-    'Alon', 'Bar',
+  const customerNames = ['Jordan Lee', 'Sam Cohen', 'Maya Roth', 'Daniel Stern', 'Tal Avraham', 'Yael Gross', 'Ron Peretz', 'Dana Friedman'];
+  const petNames = ['Max', 'Bella', 'Charlie', 'Lucy', 'Cooper', 'Molly', 'Buddy', 'Daisy'];
+  const services = ['Full groom', 'Bath & brush', 'Nail trim', 'Check-up', 'Vaccination', 'Consultation'];
+  const productCatalog = [
+    { name: 'Premium Kibble 12kg', price: 220, stock: 40, low: 10 },
+    { name: 'Grain-Free Puppy 5kg', price: 140, stock: 8, low: 10 },
+    { name: 'Dental Chews (30pk)', price: 55, stock: 60, low: 15 },
+    { name: 'Leather Leash', price: 90, stock: 5, low: 8 },
+    { name: 'Orthopedic Bed L', price: 320, stock: 12, low: 5 },
   ];
-
-  // Enrolled dogs (17)
-  for (let i = 1; i <= 17; i++) {
-    const dogId = `shelter-dog-${i}`;
-    const dogName = shelterDogNames[i - 1] ?? `Dog ${i}`;
-    await ab.set(
-      db.collection('organizations').doc(homeId).collection('enrolledDogs').doc(dogId),
-      {
-        dogId,
-        dogName,
-        mainHumanId: MINKA_UID,
-        mainHumanName: MINKA_NAME,
-        mainHumanEmail: MINKA_EMAIL,
-        enrolledAt: now,
-        enrolledBy: MINKA_UID,
-        status: 'active',
-        checkedIn: true,
-        checkedInAt: now,
-        assignedStaff: [],
-        serviceTypes: ['boarding'],
-        internalTags: [],
-      }
-    );
-  }
-
-  // Daily reports: 5 days × 5 dogs = 25
-  const reportDates = ['2026-05-12', '2026-05-13', '2026-05-14', '2026-05-15', '2026-05-16'];
-  const moods = ['great', 'good', 'okay'];
-  const reportDogs = shelterDogNames.slice(0, 5);
-
-  for (let d = 0; d < reportDates.length; d++) {
-    for (let k = 0; k < 5; k++) {
-      const dogId = `shelter-dog-${k + 1}`;
-      const dogName = reportDogs[k];
-      const reportId = `report-home-${d}-${k}`;
-      await ab.set(
-        db.collection('organizations').doc(homeId).collection('dailyReports').doc(reportId),
-        {
-          id: reportId,
-          dogId,
-          dogName,
-          date: reportDates[d],
-          summary: 'Good day overall. Ate well and played.',
-          mood: moods[(d + k) % 3],
-          activities: ['walk', 'feeding', 'playtime'],
-          staffId: homeStaffIds[k % 10],
-          staffName: homeStaffNames[k % 10],
-          createdAt: dateTs(2026, 5, d + 12) + 18 * 3600_000,
-        }
-      );
-    }
-  }
-
-  // ── The Vet (veterinary) ────────────────────────────────────────────────────
-
-  const vetId = 'the-vet';
-  const vetIds = ['vet-1', 'vet-2', 'vet-3', 'vet-4'];
-  const vetNames = ['Dr. Oren Levi', 'Dr. Tal Rosen', 'Dr. Michal Dayan', 'Dr. Amir Zur'];
-  const nurseIds = Array.from({ length: 10 }, (_, i) => `nurse-${i + 1}`);
-  const nurseNames = [
-    'Ronit Bar', 'Limor Gal', 'Shai Nave', 'Inbal Yam', 'Keren Sela',
-    'Hila Baratz', 'Ofer Picard', 'Tali Gross', 'Maayan Avraham', 'Benny Ariel',
-  ];
-
-  await ab.set(db.collection('organizations').doc(vetId), {
-    id: vetId,
-    name: 'The Vet',
-    type: 'veterinary',
-    description: 'Professional veterinary care for all dogs',
-    email: 'info@thevet.org',
-    address: { street: '5 Medical Drive', city: 'Tel Aviv', country: 'Israel' },
-    leaderUserIds: [MINKA_UID],
-    staffUserIds: [...vetIds, ...nurseIds],
-    createdBy: MINKA_UID,
-    createdAt: now,
-    updatedAt: now,
-  });
-
-  await ab.set(db.collection('organizations').doc(vetId).collection('members').doc(MINKA_UID), {
-    userId: MINKA_UID,
-    displayName: MINKA_NAME,
-    email: MINKA_EMAIL,
-    role: 'leader',
-    joinedAt: now,
-  });
-
-  for (let i = 0; i < 4; i++) {
-    await ab.set(db.collection('organizations').doc(vetId).collection('members').doc(vetIds[i]), {
-      userId: vetIds[i],
-      displayName: vetNames[i],
-      email: `${vetNames[i].toLowerCase().replace(/[.\s]+/g, '.')}@thevet.org`,
-      role: 'staff',
-      staffRole: 'vet_tech',
-      joinedAt: now,
-      invitedBy: MINKA_UID,
-    });
-  }
-
-  for (let i = 0; i < 10; i++) {
-    await ab.set(db.collection('organizations').doc(vetId).collection('members').doc(nurseIds[i]), {
-      userId: nurseIds[i],
-      displayName: nurseNames[i],
-      email: `${nurseNames[i].toLowerCase().replace(/\s+/g, '.')}@thevet.org`,
-      role: 'staff',
-      staffRole: 'receptionist',
-      joinedAt: now,
-      invitedBy: MINKA_UID,
-    });
-  }
-
-  const vetDogNames = [
-    'Max', 'Bella', 'Charlie', 'Lucy', 'Cooper',
-    'Molly', 'Buddy', 'Daisy', 'Rocky', 'Maggie',
-    'Duke', 'Sadie', 'Jack', 'Bailey', 'Toby',
-    'Cleo', 'Zeus',
-  ];
-
-  for (let i = 1; i <= 17; i++) {
-    const dogId = `vet-dog-${i}`;
-    const dogName = vetDogNames[i - 1] ?? `Patient ${i}`;
-    await ab.set(
-      db.collection('organizations').doc(vetId).collection('enrolledDogs').doc(dogId),
-      {
-        dogId,
-        dogName,
-        mainHumanId: MINKA_UID,
-        mainHumanName: MINKA_NAME,
-        mainHumanEmail: MINKA_EMAIL,
-        enrolledAt: now,
-        enrolledBy: MINKA_UID,
-        status: 'active',
-        checkedIn: true,
-        checkedInAt: now,
-        assignedStaff: [],
-        serviceTypes: ['vet_care'],
-        internalTags: [],
-      }
-    );
-  }
-
-  // Daily reports: 5 days × 5 dogs = 25
-  for (let d = 0; d < reportDates.length; d++) {
-    for (let k = 0; k < 5; k++) {
-      const dogId = `vet-dog-${k + 1}`;
-      const dogName = vetDogNames[k];
-      const reportId = `report-vet-${d}-${k}`;
-      await ab.set(
-        db.collection('organizations').doc(vetId).collection('dailyReports').doc(reportId),
-        {
-          id: reportId,
-          dogId,
-          dogName,
-          date: reportDates[d],
-          summary: 'Examination completed. Vitals normal.',
-          mood: moods[(d + k) % 3],
-          activities: ['check-up', 'vitals', 'weight'],
-          staffId: vetIds[k % 4],
-          staffName: vetNames[k % 4],
-          createdAt: dateTs(2026, 5, d + 12) + 17 * 3600_000,
-        }
-      );
-    }
-  }
-
-  // ── The Food Store (shop) ───────────────────────────────────────────────────
-
-  const storeId = 'the-food-store';
-  const workerIds = Array.from({ length: 5 }, (_, i) => `worker-${i + 1}`);
-  const workerNames = ['Yuval Cohen', 'Merav Katz', 'Ido Shmueli', 'Tamar Ben-Ami', 'Gal Peretz'];
-  const driverIds = Array.from({ length: 5 }, (_, i) => `driver-${i + 1}`);
-  const driverNames = ['Nir Friedman', 'Orit Levi', 'Liron Shapiro', 'Dor Mizrahi', 'Yael Stern'];
-
-  await ab.set(db.collection('organizations').doc(storeId), {
-    id: storeId,
-    name: 'The Food Store',
-    type: 'shop',
-    description: 'Premium pet food and supplies delivered to your door',
-    email: 'orders@thefoodstore.co.il',
-    address: { street: '22 Market Street', city: 'Tel Aviv', country: 'Israel' },
-    leaderUserIds: [MINKA_UID],
-    staffUserIds: [...workerIds, ...driverIds],
-    createdBy: MINKA_UID,
-    createdAt: now,
-    updatedAt: now,
-  });
-
-  await ab.set(db.collection('organizations').doc(storeId).collection('members').doc(MINKA_UID), {
-    userId: MINKA_UID,
-    displayName: MINKA_NAME,
-    email: MINKA_EMAIL,
-    role: 'leader',
-    joinedAt: now,
-  });
-
-  for (let i = 0; i < 5; i++) {
-    await ab.set(db.collection('organizations').doc(storeId).collection('members').doc(workerIds[i]), {
-      userId: workerIds[i],
-      displayName: workerNames[i],
-      email: `${workerNames[i].toLowerCase().replace(/\s+/g, '.')}@thefoodstore.co.il`,
-      role: 'staff',
-      staffRole: 'other',
-      joinedAt: now,
-      invitedBy: MINKA_UID,
-    });
-  }
-
-  for (let i = 0; i < 5; i++) {
-    await ab.set(db.collection('organizations').doc(storeId).collection('members').doc(driverIds[i]), {
-      userId: driverIds[i],
-      displayName: driverNames[i],
-      email: `${driverNames[i].toLowerCase().replace(/\s+/g, '.')}@thefoodstore.co.il`,
-      role: 'staff',
-      staffRole: 'walker',
-      joinedAt: now,
-      invitedBy: MINKA_UID,
-    });
-  }
-
-  // 15 delivery tasks
   const telAvivAddresses = [
-    '3 Rothschild Blvd', '17 Ibn Gabirol St', '45 Ben Yehuda St',
-    '8 Dizengoff St', '22 King George St', '11 Allenby St',
-    '5 HaYarkon St', '30 Basel St', '14 Frishman St',
-    '2 Nordau Blvd', '9 Trumpeldor St', '27 Weizmann St',
-    '6 Einstein St', '19 Masaryk Sq', '1 Nahalat Binyamin',
+    '3 Rothschild Blvd', '17 Ibn Gabirol St', '45 Ben Yehuda St', '8 Dizengoff St', '22 King George St',
   ];
-  const taskStatuses: Array<'done' | 'in_progress' | 'pending'> = [
-    'done', 'done', 'done', 'done', 'done', 'done', 'done', 'done',
-    'in_progress', 'in_progress', 'in_progress', 'in_progress', 'in_progress',
-    'pending', 'pending',
-  ];
-  const todayTs = dateTs(2026, 5, 16);
+  const dayMs = 24 * 3600_000;
 
-  for (let i = 1; i <= 15; i++) {
-    const taskId = `task-store-${i}`;
-    const driverId = driverIds[(i - 1) % 5];
-    const driverName = driverNames[(i - 1) % 5];
-    const status = taskStatuses[i - 1];
-    await ab.set(
-      db.collection('organizations').doc(storeId).collection('tasks').doc(taskId),
-      {
-        id: taskId,
-        dogId: `delivery-${i}`,
-        dogName: `Order #${String(i).padStart(3, '0')}`,
-        title: `Deliver to ${telAvivAddresses[i - 1]}`,
-        type: 'walk',
-        assignedTo: driverId,
-        assignedToName: driverName,
-        assignedBy: MINKA_UID,
-        assignedByName: MINKA_NAME,
-        dueAt: todayTs + 17 * 3600_000,
-        status,
-        notes: `Package for ${telAvivAddresses[i - 1]}`,
-        createdAt: now,
-        updatedAt: now,
-      }
-    );
+  for (const biz of businesses) {
+    const staffUids = biz.staff.map((_, i) => `${biz.id}-staff-${i + 1}`);
+
+    // Business doc — owner is Minka; staffUserIds includes owner + all staff.
+    await ab.set(db.collection('businesses').doc(biz.id), {
+      name: biz.name, type: biz.type, description: biz.description, email: biz.email,
+      currency: 'ILS', ownerUserId: MINKA_UID, staffUserIds: [MINKA_UID, ...staffUids],
+      requireMfa: false, createdAt: now, updatedAt: now,
+    });
+
+    // Roles — system owner role + custom roles.
+    await ab.set(db.collection('businesses').doc(biz.id).collection('roles').doc('owner'), {
+      name: 'Owner', capabilities: ALL_CAPS, isSystem: true, createdAt: now, updatedAt: now,
+    });
+    for (const role of biz.roles) {
+      await ab.set(db.collection('businesses').doc(biz.id).collection('roles').doc(role.id), {
+        name: role.name, capabilities: role.capabilities, createdAt: now, updatedAt: now,
+      });
+    }
+
+    // Staff — owner record + workers (capabilities denormalized from their role).
+    await ab.set(db.collection('businesses').doc(biz.id).collection('staff').doc(MINKA_UID), {
+      userId: MINKA_UID, displayName: MINKA_NAME, email: MINKA_EMAIL, roleId: 'owner',
+      capabilities: ALL_CAPS, active: true, joinedAt: now, invitedBy: MINKA_UID,
+    });
+    biz.staff.forEach((s, i) => {
+      const role = biz.roles.find(r => r.id === s.roleName)!;
+      void ab.set(db.collection('businesses').doc(biz.id).collection('staff').doc(staffUids[i]), {
+        userId: staffUids[i], displayName: s.name, email: `${slug(s.name)}@${biz.domain}`,
+        roleId: role.id, capabilities: role.capabilities, active: true, joinedAt: now, invitedBy: MINKA_UID,
+      });
+    });
+
+    // Customers + one pet each.
+    const customerIds: { id: string; name: string; petId: string; petName: string }[] = [];
+    for (let i = 0; i < 8; i++) {
+      const custId = `${biz.id}-cust-${i + 1}`;
+      const petId = `${biz.id}-pet-${i + 1}`;
+      customerIds.push({ id: custId, name: customerNames[i], petId, petName: petNames[i] });
+      await ab.set(db.collection('businesses').doc(biz.id).collection('customers').doc(custId), {
+        name: customerNames[i], email: `${slug(customerNames[i])}@example.com`,
+        phone: `+97250${String(1000000 + i).slice(-7)}`, createdBy: MINKA_UID, createdAt: now, updatedAt: now,
+      });
+      await ab.set(db.collection('businesses').doc(biz.id).collection('pets').doc(petId), {
+        customerId: custId, name: petNames[i], species: 'dog', breed: 'Mixed',
+        createdAt: now, updatedAt: now,
+      });
+    }
+
+    // Appointments — 18 across the next two weeks, mixed statuses.
+    const apptStatuses = ['completed', 'completed', 'confirmed', 'scheduled', 'cancelled', 'no_show'];
+    for (let i = 0; i < 18; i++) {
+      const cust = customerIds[i % customerIds.length];
+      const staffIdx = i % biz.staff.length;
+      const start = now + (i - 6) * dayMs + 9 * 3600_000 + (i % 4) * 3600_000;
+      await ab.set(db.collection('businesses').doc(biz.id).collection('appointments').doc(`${biz.id}-appt-${i + 1}`), {
+        customerId: cust.id, customerName: cust.name, petId: cust.petId, petName: cust.petName,
+        serviceLabel: services[i % services.length], startAt: start, endAt: start + 3600_000,
+        assignedStaffId: staffUids[staffIdx], assignedStaffName: biz.staff[staffIdx].name,
+        status: apptStatuses[i % apptStatuses.length], createdBy: MINKA_UID, createdAt: now, updatedAt: now,
+      });
+    }
+
+    // Invoices — 10, mixed payment status.
+    for (let i = 0; i < 10; i++) {
+      const cust = customerIds[i % customerIds.length];
+      const qty = 1 + (i % 3);
+      const unit = 60 + (i % 5) * 25;
+      const subtotal = qty * unit;
+      const total = Math.round(subtotal * 1.17 * 100) / 100;
+      const paidStatus = i % 4 === 0 ? 'paid' : i % 4 === 1 ? 'partial' : i % 4 === 2 ? 'sent' : 'draft';
+      const amountPaid = paidStatus === 'paid' ? total : paidStatus === 'partial' ? Math.round(total / 2 * 100) / 100 : 0;
+      await ab.set(db.collection('businesses').doc(biz.id).collection('invoices').doc(`${biz.id}-inv-${i + 1}`), {
+        number: `INV-2026-${String(i + 1).padStart(4, '0')}`,
+        customerId: cust.id, customerName: cust.name,
+        lineItems: [{ description: services[i % services.length], quantity: qty, unitPrice: unit }],
+        subtotal, taxRate: 17, total, amountPaid, status: paidStatus,
+        payments: amountPaid > 0 ? [{ amount: amountPaid, method: 'card', paidAt: now, recordedBy: MINKA_UID }] : [],
+        issuedAt: now - i * dayMs, createdBy: MINKA_UID, createdAt: now - i * dayMs, updatedAt: now,
+      });
+    }
+
+    // Inventory — product catalog (pet shop gets more stock variety).
+    productCatalog.forEach((p, i) => {
+      void ab.set(db.collection('businesses').doc(biz.id).collection('products').doc(`${biz.id}-prod-${i + 1}`), {
+        name: p.name, sku: `SKU-${biz.id.slice(0, 3).toUpperCase()}-${100 + i}`, category: 'Supplies',
+        unitPrice: p.price, stockQty: p.stock, lowStockThreshold: p.low, active: true,
+        createdAt: now, updatedAt: now,
+      });
+    });
+
+    // Shipments — 10 across statuses.
+    const shipStatuses = ['pending', 'packed', 'shipped', 'out_for_delivery', 'delivered', 'delivered', 'returned'];
+    for (let i = 0; i < 10; i++) {
+      const cust = customerIds[i % customerIds.length];
+      const status = shipStatuses[i % shipStatuses.length];
+      await ab.set(db.collection('businesses').doc(biz.id).collection('shipments').doc(`${biz.id}-ship-${i + 1}`), {
+        customerId: cust.id, customerName: cust.name,
+        items: [{ productId: `${biz.id}-prod-${(i % productCatalog.length) + 1}`, productName: productCatalog[i % productCatalog.length].name, quantity: 1 + (i % 2) }],
+        destinationAddress: { street: telAvivAddresses[i % telAvivAddresses.length], city: 'Tel Aviv', country: 'Israel' },
+        carrier: 'Local Courier', trackingNumber: `TRK${1000 + i}`, status,
+        shippedAt: status === 'pending' || status === 'packed' ? undefined : now - i * dayMs,
+        deliveredAt: status === 'delivered' ? now - (i - 1) * dayMs : undefined,
+        createdBy: MINKA_UID, createdAt: now - i * dayMs, updatedAt: now,
+      });
+    }
   }
 
   await ab.flush();
-  console.log('✅ Orgs seeded');
+  console.log('✅ Businesses seeded');
 }
+
 
 // ─── Seed: Biscuit ────────────────────────────────────────────────────────────
 
@@ -448,7 +336,6 @@ async function seedBiscuit(): Promise<void> {
     { userId: 'friend-2',    displayName: 'Sam Cohen',       email: 'sam.cohen@example.com',        role: 'caregiver' },
     { userId: 'friend-3',    displayName: 'Maya Roth',       email: 'maya.roth@example.com',        role: 'caregiver' },
     { userId: 'brother-1',   displayName: 'Daniel Scharff',  email: 'daniel.scharff@example.com',  role: 'caregiver' },
-    { userId: 'caregiver-org', displayName: 'Minka Mishleni', email: 'minka@mishleni.com',          role: 'caregiver' },
   ];
 
   for (const h of humans) {
@@ -640,7 +527,7 @@ async function seedBiscuit(): Promise<void> {
 
 async function seedAll(): Promise<void> {
   console.log('🌱 Starting seed...');
-  await seedOrgs();
+  await seedBusinesses();
   await seedBiscuit();
   console.log('✅ Seed complete!');
 }

@@ -40,7 +40,6 @@ export interface Dog {
   emergencyContact?: EmergencyContact;
   homeAddress?: HomeLocation;
   mainHumanId: string;
-  orgId?: string;
   qrPublic: boolean;
   qrVisibility: QRVisibilityConfig;
   createdAt: number;

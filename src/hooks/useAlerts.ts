@@ -54,7 +54,7 @@ export function useAlerts(dogId: string): Alert[] {
       alerts.push({
         id: 'no_user_photo', type: 'incomplete_profile', dogId,
         severity: 'info',
-        message: 'Add a profile photo — required for org members',
+        message: 'Add a profile photo — required for team members',
         actionRoute: '/settings', generatedAt: now,
       });
     }

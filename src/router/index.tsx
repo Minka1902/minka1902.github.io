@@ -1,7 +1,9 @@
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import ProtectedRoute from '@/components/layout/ProtectedRoute';
+import RequireMode from '@/components/layout/RequireMode';
 import AppShell from '@/components/layout/AppShell';
+import BusinessAppShell from '@/components/layout/BusinessAppShell';
 
 // Auth + public pages — kept eager (needed before any JS chunk arrives)
 import LoginPage    from '@/pages/auth/LoginPage';
@@ -25,11 +27,18 @@ const HumansPage                = lazy(() => import('@/pages/humans/HumansPage')
 const DevicesPage               = lazy(() => import('@/pages/devices/DevicesPage'));
 const QRPage                    = lazy(() => import('@/pages/qr/QRPage'));
 const SettingsPage              = lazy(() => import('@/pages/settings/SettingsPage'));
-const OrgListPage               = lazy(() => import('@/pages/org/OrgListPage'));
-const CreateOrgPage             = lazy(() => import('@/pages/org/CreateOrgPage'));
-const OrgDetailPage             = lazy(() => import('@/pages/org/OrgDetailPage'));
-const OrgSettingsPage           = lazy(() => import('@/pages/org/OrgSettingsPage'));
-const JoinOrgPage               = lazy(() => import('@/pages/org/JoinOrgPage'));
+
+// Business CRM pages
+const BusinessRegisterPage  = lazy(() => import('@/pages/business/BusinessRegisterPage'));
+const BusinessDashboardPage = lazy(() => import('@/pages/business/BusinessDashboardPage'));
+const CustomersPage         = lazy(() => import('@/pages/business/CustomersPage'));
+const AppointmentsPage      = lazy(() => import('@/pages/business/AppointmentsPage'));
+const InvoicesPage          = lazy(() => import('@/pages/business/InvoicesPage'));
+const InventoryPage         = lazy(() => import('@/pages/business/InventoryPage'));
+const ShipmentsPage         = lazy(() => import('@/pages/business/ShipmentsPage'));
+const StaffPage             = lazy(() => import('@/pages/business/StaffPage'));
+const RolesPage             = lazy(() => import('@/pages/business/RolesPage'));
+const BusinessSettingsPage  = lazy(() => import('@/pages/business/BusinessSettingsPage'));
 
 function PageLoader() {
   return (
@@ -46,36 +55,66 @@ export const router = createBrowserRouter([
   {
     element: <ProtectedRoute />,
     children: [
-      // Full-screen walk/training UI — no AppShell
-      { path: '/walk/active',     element: <Suspense fallback={null}><ActiveWalkPage /></Suspense> },
-      { path: '/walk/summary',    element: <Suspense fallback={null}><WalkSummaryPage /></Suspense> },
-      { path: '/training/active', element: <Suspense fallback={null}><ActiveTrainingPage /></Suspense> },
-      // Main app with sidebar/topbar/bottom-nav
+      // Full-screen walk/training UI — no AppShell (personal mode)
       {
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <AppShell />
-          </Suspense>
-        ),
+        element: <RequireMode mode="personal" />,
         children: [
-          { path: '/',                     element: <DashboardPage /> },
-          { path: '/dogs/new',             element: <CreateDogPage /> },
-          { path: '/dogs/:dogId/edit',     element: <EditDogPage /> },
-          { path: '/dogs/join',            element: <JoinDogPage /> },
-          { path: '/routine',              element: <RoutinePage /> },
-          { path: '/training',             element: <TrainingPage /> },
-          { path: '/training/new',         element: <NewTrainingSessionPage /> },
-          { path: '/training/:sessionId',  element: <TrainingSessionDetailPage /> },
-          { path: '/medical',              element: <MedicalPage /> },
-          { path: '/humans',               element: <HumansPage /> },
-          { path: '/devices',              element: <DevicesPage /> },
-          { path: '/qr',                   element: <QRPage /> },
-          { path: '/settings',             element: <SettingsPage /> },
-          { path: '/orgs',                 element: <OrgListPage /> },
-          { path: '/orgs/new',             element: <CreateOrgPage /> },
-          { path: '/orgs/join',            element: <JoinOrgPage /> },
-          { path: '/orgs/:orgId',          element: <OrgDetailPage /> },
-          { path: '/orgs/:orgId/settings', element: <OrgSettingsPage /> },
+          { path: '/walk/active',     element: <Suspense fallback={null}><ActiveWalkPage /></Suspense> },
+          { path: '/walk/summary',    element: <Suspense fallback={null}><WalkSummaryPage /></Suspense> },
+          { path: '/training/active', element: <Suspense fallback={null}><ActiveTrainingPage /></Suspense> },
+        ],
+      },
+      // Personal (dog-owner) app
+      {
+        element: <RequireMode mode="personal" />,
+        children: [
+          {
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <AppShell />
+              </Suspense>
+            ),
+            children: [
+              { path: '/',                     element: <DashboardPage /> },
+              { path: '/dogs/new',             element: <CreateDogPage /> },
+              { path: '/dogs/:dogId/edit',     element: <EditDogPage /> },
+              { path: '/dogs/join',            element: <JoinDogPage /> },
+              { path: '/routine',              element: <RoutinePage /> },
+              { path: '/training',             element: <TrainingPage /> },
+              { path: '/training/new',         element: <NewTrainingSessionPage /> },
+              { path: '/training/:sessionId',  element: <TrainingSessionDetailPage /> },
+              { path: '/medical',              element: <MedicalPage /> },
+              { path: '/humans',               element: <HumansPage /> },
+              { path: '/devices',              element: <DevicesPage /> },
+              { path: '/qr',                   element: <QRPage /> },
+              { path: '/settings',             element: <SettingsPage /> },
+            ],
+          },
+        ],
+      },
+      // Business CRM app
+      {
+        element: <RequireMode mode="business" />,
+        children: [
+          {
+            element: (
+              <Suspense fallback={<PageLoader />}>
+                <BusinessAppShell />
+              </Suspense>
+            ),
+            children: [
+              { path: '/business',              element: <BusinessDashboardPage /> },
+              { path: '/business/new',          element: <BusinessRegisterPage /> },
+              { path: '/business/customers',    element: <CustomersPage /> },
+              { path: '/business/appointments', element: <AppointmentsPage /> },
+              { path: '/business/invoices',     element: <InvoicesPage /> },
+              { path: '/business/inventory',    element: <InventoryPage /> },
+              { path: '/business/shipments',    element: <ShipmentsPage /> },
+              { path: '/business/staff',        element: <StaffPage /> },
+              { path: '/business/roles',        element: <RolesPage /> },
+              { path: '/business/settings',     element: <BusinessSettingsPage /> },
+            ],
+          },
         ],
       },
     ],
