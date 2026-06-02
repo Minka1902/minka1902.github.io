@@ -1,6 +1,6 @@
 import {
   Home, Activity, Dumbbell, Stethoscope, Users, Cpu, QrCode, Settings,
-  Calendar, Receipt, Package, Truck, UserCog, ShieldCheck,
+  Calendar, Receipt, Package, Truck, UserCog, ShieldCheck, Lock,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Capability } from '@/types';
@@ -43,5 +43,6 @@ export const BUSINESS_NAV_ITEMS: BusinessNavItem[] = [
   { to: '/business/shipments',    label: 'Shipments',    icon: Truck,    cap: 'view_shipments' },
   { to: '/business/staff',        label: 'Staff',        icon: UserCog,  cap: 'manage_staff' },
   { to: '/business/roles',        label: 'Roles',        icon: ShieldCheck, cap: 'manage_roles' },
+  { to: '/business/security',     label: 'Security',     icon: Lock },
   { to: '/business/settings',     label: 'Settings',     icon: Settings },
 ];

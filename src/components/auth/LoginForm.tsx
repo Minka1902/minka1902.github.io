@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import type { MultiFactorError } from 'firebase/auth';
 import { useAuth } from '@/hooks/useAuth';
 import { useSessionMode, type SessionMode } from '@/contexts/SessionModeContext';
+import { isMfaRequired } from '@/hooks/useMfa';
+import MfaChallengeDialog from '@/components/auth/MfaChallengeDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -54,9 +57,12 @@ export default function LoginForm() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [msLoading, setMsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [mfaError, setMfaError] = useState<MultiFactorError | null>(null);
 
   const goHome = () => navigate(homeFor(mode));
   const handleError = (err: unknown) => {
+    // A 2FA-enrolled account raises a second-factor challenge instead of failing.
+    if (isMfaRequired(err)) { setMfaError(err); return; }
     const code = (err as { code?: string }).code ?? '';
     setError(AUTH_ERRORS[code] ?? 'Something went wrong. Please try again.');
   };
@@ -196,6 +202,12 @@ export default function LoginForm() {
           </p>
         </form>
       </CardContent>
+
+      <MfaChallengeDialog
+        error={mfaError}
+        onResolved={() => { setMfaError(null); goHome(); }}
+        onCancel={() => setMfaError(null)}
+      />
     </Card>
   );
 }

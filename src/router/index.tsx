@@ -38,6 +38,7 @@ const InventoryPage         = lazy(() => import('@/pages/business/InventoryPage'
 const ShipmentsPage         = lazy(() => import('@/pages/business/ShipmentsPage'));
 const StaffPage             = lazy(() => import('@/pages/business/StaffPage'));
 const RolesPage             = lazy(() => import('@/pages/business/RolesPage'));
+const SecurityPage          = lazy(() => import('@/pages/business/SecurityPage'));
 const BusinessSettingsPage  = lazy(() => import('@/pages/business/BusinessSettingsPage'));
 
 function PageLoader() {
@@ -112,6 +113,7 @@ export const router = createBrowserRouter([
               { path: '/business/shipments',    element: <ShipmentsPage /> },
               { path: '/business/staff',        element: <StaffPage /> },
               { path: '/business/roles',        element: <RolesPage /> },
+              { path: '/business/security',     element: <SecurityPage /> },
               { path: '/business/settings',     element: <BusinessSettingsPage /> },
             ],
           },
