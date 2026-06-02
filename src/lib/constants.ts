@@ -11,7 +11,7 @@ export const QUICK_LOG_TYPES = ROUTINE_TYPES;
 
 // Colors for pee/poop — logged only from walk summary, not in ROUTINE_TYPES
 export const PEE_COLOR  = '#84CC16';
-export const POOP_COLOR = '#A78BFA';
+export const POOP_COLOR = '#473c48';
 
 export const TRAINING_TYPES: { type: TrainingType; label: string }[] = [
   { type: 'obedience',             label: 'Obedience' },

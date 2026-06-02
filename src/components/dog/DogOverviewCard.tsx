@@ -58,7 +58,7 @@ export default function DogOverviewCard({ dog, showQuickLog }: DogOverviewCardPr
         </div>
 
         {/* Info */}
-        <div className="flex-1 min-w-0 pt-0.5">
+        <div className="flex-1 pt-0.5">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <h1

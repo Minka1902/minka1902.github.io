@@ -20,10 +20,10 @@ import 'react-resizable/css/styles.css';
 const DASH_GRID_KEY = 'packops_dashboard_grid_layout';
 
 const DEFAULT_DASH_LAYOUT: GridLayout.Layout[] = [
-  { i: 'dog',      x: 0, y: 0, w: 4, h: 4, minW: 2, minH: 2 },
-  { i: 'medical',  x: 0, y: 4, w: 4, h: 2, minW: 2, minH: 1 },
+  { i: 'dog', x: 0, y: 0, w: 4, h: 4, minW: 2, minH: 2 },
+  { i: 'medical', x: 0, y: 4, w: 4, h: 2, minW: 2, minH: 1 },
   { i: 'timeline', x: 4, y: 0, w: 5, h: 6, minW: 3, minH: 3 },
-  { i: 'analytics',x: 9, y: 0, w: 3, h: 6, minW: 2, minH: 3 },
+  { i: 'analytics', x: 9, y: 0, w: 3, h: 6, minW: 2, minH: 3 },
 ];
 
 function loadLayout(): GridLayout.Layout[] {
@@ -40,8 +40,8 @@ export default function DashboardPage() {
   const { sessions: trainingSessions } = useTraining(activeDog?.id ?? '');
 
   const monitorStart = useMemo(() => Date.now() - 30 * 24 * 60 * 60 * 1000, []);
-  const monitorEnd   = useMemo(() => Date.now() + 86_400_000, []);
-  const monitorLogs  = useRoutineWindow(activeDog?.id ?? '', monitorStart, monitorEnd);
+  const monitorEnd = useMemo(() => Date.now() + 86_400_000, []);
+  const monitorLogs = useRoutineWindow(activeDog?.id ?? '', monitorStart, monitorEnd);
 
   // Mobile swipe state
   const [mobilePage, setMobilePage] = useState(0);
@@ -159,15 +159,12 @@ export default function DashboardPage() {
             margin={[5, 5]}
           >
             {/* Dog overview widget */}
-            <div
-              key="dog"
-              className={cn(
-                'relative overflow-hidden rounded-2xl',
-                editDashboard && 'ring-2 ring-dashed ring-border'
-              )}
-            >
+            <div key="dog" className={cn(
+              'relative overflow-hidden rounded-2xl',
+              editDashboard && 'ring-2 ring-dashed ring-border'
+            )}>
               {editDashboard && <DragHandle />}
-              <div className={cn('h-full', editDashboard && 'pt-6')}>
+              <div className={cn('h-full', editDashboard && 'pt-6', 'flex-start')}>
                 <DogOverviewCard dog={activeDog} showQuickLog />
               </div>
             </div>
@@ -195,7 +192,7 @@ export default function DashboardPage() {
               )}
             >
               {editDashboard && <DragHandle />}
-              <div className={cn('h-full overflow-y-auto p-4', editDashboard && 'pt-8')}>
+              <div className={cn('max-h-[calc(100%-32px)] overflow-y-auto p-4', editDashboard && 'pt-8')}>
                 <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground mb-3">
                   Today's Activity
                 </p>
@@ -237,21 +234,21 @@ export default function DashboardPage() {
         >
           <div
             className="flex h-full transition-transform duration-300 ease-out"
-            style={{ transform: `translateX(-${(mobilePage * 100) / 3}%)`, width: '300%' }}
+            style={{ transform: `translateX(-${(mobilePage * 100) / 3 * 2}%)`, width: '300%' }}
           >
             {/* Page 1: Dog Overview */}
-            <div className="w-1/3 h-full flex-shrink-0 overflow-y-auto p-3">
+            <div className="w-2/3 h-full flex-shrink-0 overflow-y-auto p-3">
               <DogOverviewCard dog={activeDog} showQuickLog />
             </div>
             {/* Page 2: Timeline */}
-            <div className="w-1/3 h-full flex-shrink-0 overflow-y-auto p-3">
+            <div className="w-2/3 h-full flex-shrink-0 overflow-y-auto p-3">
               <div className="rounded-2xl border bg-card p-4">
                 <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground mb-3">Today's Activity</p>
                 <RoutineTimeline dogId={activeDog.id} dogName={activeDog.name} canDelete />
               </div>
             </div>
             {/* Page 3: Analytics */}
-            <div className="w-1/3 h-full flex-shrink-0 overflow-y-auto p-3 flex flex-col gap-3">
+            <div className="w-2/3 h-full flex-shrink-0 overflow-y-auto p-3 flex flex-col gap-3">
               <MedicalSummaryCard dogId={activeDog.id} />
               <div className="rounded-2xl border bg-card p-4">
                 <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground mb-3">Analytics · Last 30 Days</p>
