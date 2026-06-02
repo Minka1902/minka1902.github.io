@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   AlertTriangle, Building2, CalendarDays, Package, Receipt, Truck,
@@ -26,8 +27,10 @@ export default function BusinessDashboardPage() {
   const { can } = usePermissions();
   const bid = activeBusiness?.id ?? '';
 
-  const now = Date.now();
-  const todayRange = { from: dayStart(now), to: dayEnd(now) };
+  const todayRange = useMemo(() => {
+    const now = Date.now();
+    return { from: dayStart(now), to: dayEnd(now) };
+  }, []);
   const { appointments } = useAppointments(bid, bid ? todayRange : undefined);
   const { invoices } = useInvoices(bid);
   const { products } = useProducts(bid);

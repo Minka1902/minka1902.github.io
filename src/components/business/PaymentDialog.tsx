@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,12 +31,13 @@ export default function PaymentDialog({ invoice, open, onOpenChange, currency, o
   const [method, setMethod] = useState<Method>('cash');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (open) {
+  const handleOpenChange = (next: boolean) => {
+    if (next) {
       setAmount(due.toString());
       setMethod('cash');
     }
-  }, [open, due]);
+    onOpenChange(next);
+  };
 
   const handleRecord = async () => {
     const value = Number(amount);
@@ -51,7 +52,7 @@ export default function PaymentDialog({ invoice, open, onOpenChange, currency, o
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Record payment</DialogTitle>

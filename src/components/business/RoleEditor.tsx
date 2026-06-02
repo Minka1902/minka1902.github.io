@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,57 +15,64 @@ interface Props {
   onSave: (name: string, capabilities: Capability[]) => Promise<void>;
 }
 
-export default function RoleEditor({ role, open, onOpenChange, onSave }: Props) {
+// Form body — fresh instance each open so state initializes from `role`.
+function RoleForm({ role, onSave, onDone }: {
+  role?: BusinessRole;
+  onSave: Props['onSave'];
+  onDone: () => void;
+}) {
   const readOnly = !!role?.isSystem;
   const [name, setName] = useState(role?.name ?? '');
   const [caps, setCaps] = useState<Capability[]>(role?.capabilities ?? []);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      setName(role?.name ?? '');
-      setCaps(role?.capabilities ?? []);
-    }
-  }, [open, role]);
 
   const handleSave = async () => {
     if (!name.trim() || readOnly) return;
     setSaving(true);
     try {
       await onSave(name.trim(), caps);
-      onOpenChange(false);
+      onDone();
     } finally {
       setSaving(false);
     }
   };
 
   return (
+    <>
+      <div className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="role-name">Name</Label>
+          <Input
+            id="role-name"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="e.g. Front desk"
+            disabled={readOnly}
+          />
+        </div>
+        <CapabilityMatrix value={caps} onChange={setCaps} disabled={readOnly} />
+      </div>
+      {!readOnly && (
+        <DialogFooter>
+          <Button variant="outline" onClick={onDone}>Cancel</Button>
+          <Button onClick={handleSave} disabled={saving || !name.trim()}>
+            {saving ? 'Saving…' : 'Save'}
+          </Button>
+        </DialogFooter>
+      )}
+    </>
+  );
+}
+
+export default function RoleEditor({ role, open, onOpenChange, onSave }: Props) {
+  const readOnly = !!role?.isSystem;
+  return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{role ? (readOnly ? 'View role' : 'Edit role') : 'New role'}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="role-name">Name</Label>
-            <Input
-              id="role-name"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="e.g. Front desk"
-              disabled={readOnly}
-            />
-          </div>
-          <CapabilityMatrix value={caps} onChange={setCaps} disabled={readOnly} />
-        </div>
-        {!readOnly && (
-          <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving || !name.trim()}>
-              {saving ? 'Saving…' : 'Save'}
-            </Button>
-          </DialogFooter>
-        )}
+        {open && <RoleForm role={role} onSave={onSave} onDone={() => onOpenChange(false)} />}
       </DialogContent>
     </Dialog>
   );
