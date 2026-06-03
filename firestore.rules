@@ -15,33 +15,8 @@ service cloud.firestore {
     function isApproved(dogId) {
       return exists(/databases/$(database)/documents/dogs/$(dogId)/humans/$(request.auth.uid));
     }
-
-    // ─── Org access helpers ───────────────────────────────────────────────────
-
-    function orgData(orgId) {
-      return get(/databases/$(database)/documents/organizations/$(orgId)).data;
-    }
-    function isOrgLeader(orgId) {
-      return orgData(orgId).leaderUserIds.hasAny([request.auth.uid]);
-    }
-    function isOrgStaff(orgId) {
-      return orgData(orgId).staffUserIds.hasAny([request.auth.uid]);
-    }
-    function isOrgMember(orgId) {
-      return exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid));
-    }
-    function isEnrolledDogOwner(orgId, dogId) {
-      return get(/databases/$(database)/documents/organizations/$(orgId)/enrolledDogs/$(dogId)).data.mainHumanId == request.auth.uid;
-    }
-
-    // ─── Dog-level access (includes org enrollment) ───────────────────────────
-
-    function isOrgDog(dogId) {
-      let orgId = get(/databases/$(database)/documents/dogs/$(dogId)).data.orgId;
-      return orgId != null && isOrgMember(orgId);
-    }
     function hasAccess(dogId) {
-      return isMainHuman(dogId) || isApproved(dogId) || isOrgDog(dogId);
+      return isMainHuman(dogId) || isApproved(dogId);
     }
 
     match /dogs/{dogId} {
@@ -71,48 +46,79 @@ service cloud.firestore {
       match /devices/{id} { allow read, write: if hasAccess(dogId); }
     }
 
-    // ─── Organizations ────────────────────────────────────────────────────────
+    // ─── Business CRM access helpers ──────────────────────────────────────────
 
-    match /organizations/{orgId} {
-      // Public read for discovery/search; only leaders can modify the org doc
-      allow read:   if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if isOrgLeader(orgId);
-      allow delete: if isOrgLeader(orgId);
+    function bizStaff(bid) {
+      return get(/databases/$(database)/documents/businesses/$(bid)/staff/$(request.auth.uid)).data;
+    }
+    function isBizMember(bid) {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/businesses/$(bid)/staff/$(request.auth.uid));
+    }
+    function isBizOwner(bid) {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/businesses/$(bid)).data.ownerUserId == request.auth.uid;
+    }
+    // Owner always passes; otherwise the active staff member must hold the cap
+    // (capabilities are denormalized onto the staff doc for single-read checks).
+    function hasCap(bid, cap) {
+      return isBizOwner(bid) ||
+        (isBizMember(bid) && bizStaff(bid).active == true && bizStaff(bid).capabilities.hasAny([cap]));
+    }
 
-      // Members subcollection — only leaders write, any member reads
-      match /members/{userId} {
-        allow read:  if isOrgLeader(orgId) || isOrgMember(orgId) || request.auth.uid == userId;
-        allow write: if isOrgLeader(orgId);
+    match /businesses/{bid} {
+      allow read:   if isBizMember(bid);
+      allow create: if request.auth != null && request.resource.data.ownerUserId == request.auth.uid;
+      allow update: if hasCap(bid, 'manage_business');
+      allow delete: if isBizOwner(bid);
+
+      match /staff/{userId} {
+        allow read:  if isBizMember(bid);
+        // A user editing their OWN staff record must not change their capabilities
+        // or role (prevents self-escalation); only the owner may edit the owner.
+        allow create, delete: if hasCap(bid, 'manage_staff');
+        allow update: if hasCap(bid, 'manage_staff') &&
+          (request.auth.uid != userId ||
+            (request.resource.data.capabilities == resource.data.capabilities &&
+             request.resource.data.roleId == resource.data.roleId));
       }
 
-      // Pending join requests
-      match /pendingMembers/{userId} {
-        allow read:   if isOrgLeader(orgId) || request.auth.uid == userId;
-        allow create: if request.auth.uid == userId;
-        allow delete: if isOrgLeader(orgId) || request.auth.uid == userId;
+      match /roles/{roleId} {
+        allow read:  if isBizMember(bid);
+        allow write: if hasCap(bid, 'manage_roles');
       }
 
-      // Enrolled dogs — leaders full access; staff read; dog owner reads their own
-      match /enrolledDogs/{dogId} {
-        allow read:   if isOrgLeader(orgId) || isOrgStaff(orgId) || isEnrolledDogOwner(orgId, dogId);
-        allow create: if isOrgLeader(orgId);
-        allow update: if isOrgLeader(orgId) || isOrgStaff(orgId);
-        allow delete: if isOrgLeader(orgId);
+      match /customers/{id} {
+        allow read:  if hasCap(bid, 'view_customers') || hasCap(bid, 'manage_customers');
+        allow write: if hasCap(bid, 'manage_customers');
       }
 
-      // Tasks — leaders full access; assigned staff can update status; dog owner reads their dog's tasks
-      match /tasks/{taskId} {
-        allow read:   if isOrgLeader(orgId) || isOrgStaff(orgId);
-        allow create: if isOrgLeader(orgId);
-        allow update: if isOrgLeader(orgId) || (isOrgStaff(orgId) && resource.data.assignedTo == request.auth.uid);
-        allow delete: if isOrgLeader(orgId);
+      match /pets/{id} {
+        allow read:  if hasCap(bid, 'view_customers') || hasCap(bid, 'manage_customers');
+        allow write: if hasCap(bid, 'manage_customers');
       }
 
-      // Daily report cards — any member writes; dog owner reads their dog's reports
-      match /dailyReports/{reportId} {
-        allow read:  if isOrgLeader(orgId) || isOrgStaff(orgId);
-        allow write: if isOrgLeader(orgId) || isOrgStaff(orgId);
+      match /appointments/{id} {
+        allow read:           if hasCap(bid, 'view_appointments') || hasCap(bid, 'manage_appointments');
+        allow create, delete: if hasCap(bid, 'manage_appointments');
+        allow update:         if hasCap(bid, 'manage_appointments') ||
+          (hasCap(bid, 'manage_own_appointments') && resource.data.assignedStaffId == request.auth.uid);
+      }
+
+      match /invoices/{id} {
+        allow read:           if hasCap(bid, 'view_invoices') || hasCap(bid, 'manage_invoices');
+        allow create, delete: if hasCap(bid, 'manage_invoices');
+        allow update:         if hasCap(bid, 'manage_invoices') || hasCap(bid, 'record_payments');
+      }
+
+      match /products/{id} {
+        allow read:  if hasCap(bid, 'view_inventory') || hasCap(bid, 'manage_inventory');
+        allow write: if hasCap(bid, 'manage_inventory');
+      }
+
+      match /shipments/{id} {
+        allow read:  if hasCap(bid, 'view_shipments') || hasCap(bid, 'manage_shipments');
+        allow write: if hasCap(bid, 'manage_shipments');
       }
     }
 

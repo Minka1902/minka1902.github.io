@@ -6,11 +6,9 @@ import { Users, UserPlus, Clock, Search } from 'lucide-react';
 import { useDog } from '@/contexts/DogContext';
 import { useHumans, usePendingHumans } from '@/hooks/useHumans';
 import { useAuth } from '@/hooks/useAuth';
-import { useOrg } from '@/contexts/OrgContext';
 import HumanCard from '@/components/humans/HumanCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import PendingRequestCard from '@/components/humans/PendingRequestCard';
-import OrgTeamCard from '@/components/dog/OrgTeamCard';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -22,9 +20,7 @@ import type { HumanRole, UserProfile } from '@/types';
 export default function HumansPage() {
   const { activeDog, isMainHuman } = useDog();
   const { user } = useAuth();
-  const { orgs } = useOrg();
   const dogId = activeDog?.id ?? '';
-  const linkedOrg = activeDog?.orgId ? orgs.find(o => o.id === activeDog.orgId) : undefined;
   const { humans, loading: humansLoading, revokeHuman } = useHumans(dogId);
   const { pending, approveHuman, rejectHuman, addHumanDirectly } = usePendingHumans(dogId);
   const isMain = isMainHuman(dogId);
@@ -176,16 +172,6 @@ export default function HumansPage() {
               onReject={rejectHuman}
             />
           ))}
-        </div>
-      )}
-
-      {/* Linked organization */}
-      {linkedOrg && (
-        <div className="space-y-2">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-            Organization
-          </h2>
-          <OrgTeamCard org={linkedOrg} />
         </div>
       )}
 

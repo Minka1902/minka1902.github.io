@@ -1,11 +1,16 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import type { MultiFactorError } from 'firebase/auth';
 import { useAuth } from '@/hooks/useAuth';
+import { useSessionMode, type SessionMode } from '@/contexts/SessionModeContext';
+import { isMfaRequired } from '@/hooks/useMfa';
+import MfaChallengeDialog from '@/components/auth/MfaChallengeDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Eye, EyeOff } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Eye, EyeOff, PawPrint, Briefcase } from 'lucide-react';
 
 const AUTH_ERRORS: Record<string, string> = {
   'auth/wrong-password':     'Incorrect password.',
@@ -28,15 +33,39 @@ function GoogleIcon() {
   );
 }
 
+function MicrosoftIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 21 21" aria-hidden="true">
+      <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+      <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+      <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+      <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+    </svg>
+  );
+}
+
+const homeFor = (mode: SessionMode) => (mode === 'business' ? '/business' : '/');
+
 export default function LoginForm() {
-  const { login, loginWithGoogle } = useAuth();
+  const { login, loginWithGoogle, loginWithMicrosoft } = useAuth();
+  const { mode, setMode } = useSessionMode();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [msLoading, setMsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [mfaError, setMfaError] = useState<MultiFactorError | null>(null);
+
+  const goHome = () => navigate(homeFor(mode));
+  const handleError = (err: unknown) => {
+    // A 2FA-enrolled account raises a second-factor challenge instead of failing.
+    if (isMfaRequired(err)) { setMfaError(err); return; }
+    const code = (err as { code?: string }).code ?? '';
+    setError(AUTH_ERRORS[code] ?? 'Something went wrong. Please try again.');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,10 +73,9 @@ export default function LoginForm() {
     setSubmitting(true);
     try {
       await login(email, password);
-      navigate('/');
+      goHome();
     } catch (err: unknown) {
-      const code = (err as { code?: string }).code ?? '';
-      setError(AUTH_ERRORS[code] ?? 'Something went wrong. Please try again.');
+      handleError(err);
     } finally {
       setSubmitting(false);
     }
@@ -58,31 +86,70 @@ export default function LoginForm() {
     setGoogleLoading(true);
     try {
       await loginWithGoogle();
-      navigate('/');
+      goHome();
     } catch (err: unknown) {
-      const code = (err as { code?: string }).code ?? '';
-      setError(AUTH_ERRORS[code] ?? 'Something went wrong. Please try again.');
+      handleError(err);
     } finally {
       setGoogleLoading(false);
     }
   };
 
+  const handleMicrosoft = async () => {
+    setError('');
+    setMsLoading(true);
+    try {
+      await loginWithMicrosoft();
+      goHome();
+    } catch (err: unknown) {
+      handleError(err);
+    } finally {
+      setMsLoading(false);
+    }
+  };
+
+  const busy = submitting || googleLoading || msLoading;
+
   return (
     <Card className="w-full max-w-sm">
       <CardHeader>
         <CardTitle>Sign in</CardTitle>
-        <CardDescription>Welcome back to PackOps</CardDescription>
+        <CardDescription>
+          {mode === 'business' ? 'Manage your business' : 'Welcome back to PackOps'}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Personal vs Business identity */}
+        <Tabs value={mode} onValueChange={v => setMode(v as SessionMode)}>
+          <TabsList className="w-full">
+            <TabsTrigger value="personal" className="flex-1 gap-1.5">
+              <PawPrint className="h-3.5 w-3.5" /> Personal
+            </TabsTrigger>
+            <TabsTrigger value="business" className="flex-1 gap-1.5">
+              <Briefcase className="h-3.5 w-3.5" /> Business
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
         {/* Google */}
         <button
           type="button"
           onClick={handleGoogle}
-          disabled={googleLoading || submitting}
+          disabled={busy}
           className="w-full flex items-center justify-center gap-3 h-10 rounded-lg border border-border bg-background text-sm font-medium transition-all hover:bg-muted active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <GoogleIcon />
           {googleLoading ? 'Signing in…' : 'Continue with Google'}
+        </button>
+
+        {/* Microsoft — primarily for business accounts */}
+        <button
+          type="button"
+          onClick={handleMicrosoft}
+          disabled={busy}
+          className="w-full flex items-center justify-center gap-3 h-10 rounded-lg border border-border bg-background text-sm font-medium transition-all hover:bg-muted active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <MicrosoftIcon />
+          {msLoading ? 'Signing in…' : 'Continue with Microsoft'}
         </button>
 
         <div className="flex items-center gap-3">
@@ -126,7 +193,7 @@ export default function LoginForm() {
             </div>
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" className="w-full" disabled={submitting || googleLoading}>
+          <Button type="submit" className="w-full" disabled={busy}>
             {submitting ? 'Signing in…' : 'Sign in'}
           </Button>
           <p className="text-sm text-center text-muted-foreground">
@@ -135,6 +202,12 @@ export default function LoginForm() {
           </p>
         </form>
       </CardContent>
+
+      <MfaChallengeDialog
+        error={mfaError}
+        onResolved={() => { setMfaError(null); goHome(); }}
+        onCancel={() => setMfaError(null)}
+      />
     </Card>
   );
 }

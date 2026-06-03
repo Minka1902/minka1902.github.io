@@ -1,6 +1,6 @@
 export * from './user';
 export * from './dog';
-export * from './organization';
+export * from './business';
 export * from './routine';
 export * from './training';
 export * from './tracking';

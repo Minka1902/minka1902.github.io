@@ -22,9 +22,13 @@ export const medicalCol = (dogId: string, category: MedicalCategory) => {
   return collection(db, 'dogs', dogId, entry.collectionName);
 };
 
-export const orgsCol           = () => collection(db, 'organizations');
-export const orgMembersCol     = (orgId: string) => collection(db, 'organizations', orgId, 'members');
-export const orgPendingCol     = (orgId: string) => collection(db, 'organizations', orgId, 'pendingMembers');
-export const orgEnrolledCol    = (orgId: string) => collection(db, 'organizations', orgId, 'enrolledDogs');
-export const orgTasksCol       = (orgId: string) => collection(db, 'organizations', orgId, 'tasks');
-export const orgReportsCol     = (orgId: string) => collection(db, 'organizations', orgId, 'dailyReports');
+// ─── Business CRM collections ────────────────────────────────────────────────
+export const businessesCol      = () => collection(db, 'businesses');
+export const bizStaffCol        = (bid: string) => collection(db, 'businesses', bid, 'staff');
+export const bizRolesCol        = (bid: string) => collection(db, 'businesses', bid, 'roles');
+export const bizCustomersCol    = (bid: string) => collection(db, 'businesses', bid, 'customers');
+export const bizPetsCol         = (bid: string) => collection(db, 'businesses', bid, 'pets');
+export const bizAppointmentsCol = (bid: string) => collection(db, 'businesses', bid, 'appointments');
+export const bizInvoicesCol     = (bid: string) => collection(db, 'businesses', bid, 'invoices');
+export const bizProductsCol     = (bid: string) => collection(db, 'businesses', bid, 'products');
+export const bizShipmentsCol    = (bid: string) => collection(db, 'businesses', bid, 'shipments');

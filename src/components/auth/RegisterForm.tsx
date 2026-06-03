@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useSessionMode, type SessionMode } from '@/contexts/SessionModeContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Eye, EyeOff } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Eye, EyeOff, PawPrint, Briefcase } from 'lucide-react';
 
 const AUTH_ERRORS: Record<string, string> = {
   'auth/email-already-in-use':    'An account with that email already exists.',
@@ -27,8 +29,11 @@ function GoogleIcon() {
   );
 }
 
+const homeFor = (mode: SessionMode) => (mode === 'business' ? '/business' : '/');
+
 export default function RegisterForm() {
   const { register, loginWithGoogle } = useAuth();
+  const { mode, setMode } = useSessionMode();
   const navigate = useNavigate();
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -38,6 +43,9 @@ export default function RegisterForm() {
   const [submitting, setSubmitting] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // New business accounts land on the registration flow to create their business.
+  const goHome = () => navigate(mode === 'business' ? '/business/new' : homeFor(mode));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,7 +59,7 @@ export default function RegisterForm() {
     setSubmitting(true);
     try {
       await register(email, password, displayName);
-      navigate('/');
+      goHome();
     } catch (err: unknown) {
       const code = (err as { code?: string }).code ?? '';
       setError(AUTH_ERRORS[code] ?? 'Something went wrong. Please try again.');
@@ -65,7 +73,7 @@ export default function RegisterForm() {
     setGoogleLoading(true);
     try {
       await loginWithGoogle();
-      navigate('/');
+      goHome();
     } catch (err: unknown) {
       const code = (err as { code?: string }).code ?? '';
       setError(AUTH_ERRORS[code] ?? 'Something went wrong. Please try again.');
@@ -78,9 +86,23 @@ export default function RegisterForm() {
     <Card className="w-full max-w-sm">
       <CardHeader>
         <CardTitle>Create account</CardTitle>
-        <CardDescription>Join PackOps today</CardDescription>
+        <CardDescription>
+          {mode === 'business' ? 'Register your business on PackOps' : 'Join PackOps today'}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Personal vs Business identity */}
+        <Tabs value={mode} onValueChange={v => setMode(v as SessionMode)}>
+          <TabsList className="w-full">
+            <TabsTrigger value="personal" className="flex-1 gap-1.5">
+              <PawPrint className="h-3.5 w-3.5" /> Personal
+            </TabsTrigger>
+            <TabsTrigger value="business" className="flex-1 gap-1.5">
+              <Briefcase className="h-3.5 w-3.5" /> Business
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
         {/* Google */}
         <button
           type="button"
