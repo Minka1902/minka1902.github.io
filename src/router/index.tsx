@@ -24,6 +24,8 @@ const NewTrainingSessionPage    = lazy(() => import('@/pages/training/NewTrainin
 const TrainingSessionDetailPage = lazy(() => import('@/pages/training/TrainingSessionDetailPage'));
 const MedicalPage               = lazy(() => import('@/pages/medical/MedicalPage'));
 const HumansPage                = lazy(() => import('@/pages/humans/HumansPage'));
+const DiscoverPage              = lazy(() => import('@/pages/discover/DiscoverPage'));
+const BusinessBookingPage       = lazy(() => import('@/pages/discover/BusinessBookingPage'));
 const DevicesPage               = lazy(() => import('@/pages/devices/DevicesPage'));
 const QRPage                    = lazy(() => import('@/pages/qr/QRPage'));
 const SettingsPage              = lazy(() => import('@/pages/settings/SettingsPage'));
@@ -86,6 +88,8 @@ export const router = createBrowserRouter([
               { path: '/training/:sessionId',  element: <TrainingSessionDetailPage /> },
               { path: '/medical',              element: <MedicalPage /> },
               { path: '/humans',               element: <HumansPage /> },
+              { path: '/discover',             element: <DiscoverPage /> },
+              { path: '/discover/:bid',        element: <BusinessBookingPage /> },
               { path: '/devices',              element: <DevicesPage /> },
               { path: '/qr',                   element: <QRPage /> },
               { path: '/settings',             element: <SettingsPage /> },

@@ -2,14 +2,15 @@ export { useBusiness } from '@/contexts/BusinessContext';
 
 import { useEffect, useState } from 'react';
 import {
-  addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDocs,
-  onSnapshot, orderBy, query, updateDoc, where, writeBatch, type QueryConstraint,
+  addDoc, arrayRemove, arrayUnion, deleteDoc, doc, getDoc, getDocs,
+  onSnapshot, orderBy, query, setDoc, updateDoc, where, writeBatch, type QueryConstraint,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { stripUndefined } from '@/lib/utils';
+import { lookupUserByEmail } from '@/lib/userLookup';
 import {
-  businessesCol, bizStaffCol, bizRolesCol, bizCustomersCol, bizPetsCol,
+  businessesCol, businessDirectoryCol, bizStaffCol, bizRolesCol, bizCustomersCol, bizPetsCol,
   bizAppointmentsCol, bizInvoicesCol, bizProductsCol, bizShipmentsCol,
 } from '@/lib/firestore';
 import {
@@ -17,6 +18,36 @@ import {
   type Business, type BusinessRole, type BusinessStaff, type BusinessCustomer,
   type BusinessPet, type Appointment, type Invoice, type Product, type Shipment,
 } from '@/types';
+
+// Build the public directory projection of a business and publish it (or remove
+// it from the directory when the owner unlists the business).
+function buildDirectoryEntry(b: Business) {
+  return stripUndefined({
+    name: b.name,
+    type: b.type,
+    description: b.description,
+    logoURL: b.logoURL,
+    phone: b.phone,
+    email: b.email,
+    website: b.website,
+    city: b.address?.city,
+    location: b.location,
+    bookable: b.bookable ?? false,
+    services: b.services,
+    updatedAt: Date.now(),
+  });
+}
+
+async function syncDirectory(bid: string) {
+  const snap = await getDoc(doc(businessesCol(), bid));
+  if (!snap.exists()) return;
+  const b = { id: bid, ...snap.data() } as Business;
+  if (b.listed === false) {
+    await deleteDoc(doc(businessDirectoryCol(), bid)).catch(() => undefined);
+    return;
+  }
+  await setDoc(doc(businessDirectoryCol(), bid), buildDirectoryEntry(b));
+}
 
 // Generic realtime subscription helper.
 function useCollection<T>(
@@ -83,6 +114,8 @@ export function useCreateBusiness() {
       invitedBy: user!.uid,
     } as BusinessStaff));
     await batch.commit();
+    // Publish the public directory listing (best-effort).
+    await syncDirectory(ref.id).catch(() => undefined);
     return ref.id;
   };
 
@@ -94,6 +127,7 @@ export function useCreateBusiness() {
 export function useBusinessActions(bid: string) {
   const updateBusiness = async (data: Partial<Business>) => {
     await updateDoc(doc(businessesCol(), bid), stripUndefined({ ...data, updatedAt: Date.now() }));
+    await syncDirectory(bid).catch(() => undefined);
   };
   const deleteBusiness = async () => {
     // Best-effort cascade delete of subcollections, then the business doc.
@@ -105,6 +139,7 @@ export function useBusinessActions(bid: string) {
       snap.docs.forEach(d => batch.delete(d.ref));
       if (snap.size) await batch.commit();
     }
+    await deleteDoc(doc(businessDirectoryCol(), bid)).catch(() => undefined);
     await deleteDoc(doc(businessesCol(), bid));
   };
   return { updateBusiness, deleteBusiness };
@@ -155,11 +190,10 @@ export function useBusinessStaff(bid: string) {
   );
 
   // Invite by looking up a registered user (by email) and assigning a role.
+  // Staff must be real app users — reject addresses with no PackOps account.
   const inviteStaff = async (email: string, roleId: string): Promise<{ ok: boolean; reason?: string }> => {
-    const normalized = email.trim().toLowerCase();
-    const userSnap = await getDocs(query(collectionUsers(), where('email', '==', normalized)));
-    if (userSnap.empty) return { ok: false, reason: 'No PackOps user with that email.' };
-    const u = { uid: userSnap.docs[0].id, ...userSnap.docs[0].data() } as { uid: string; displayName: string; email: string; photoURL?: string };
+    const u = await lookupUserByEmail(email);
+    if (!u) return { ok: false, reason: 'No PackOps user with that email.' };
     const roleSnap = await getDocs(query(bizRolesCol(bid), where('__name__', '==', roleId)));
     const caps = roleSnap.empty ? [] : (roleSnap.docs[0].data() as BusinessRole).capabilities;
     const now = Date.now();
@@ -321,6 +355,5 @@ export function useShipments(bid: string) {
 }
 
 // ─── small local helpers ──────────────────────────────────────────────────────
-function collectionUsers() { return collection(db, 'users'); }
 function arrayUnionCompat(v: string) { return arrayUnion(v); }
 function arrayRemoveCompat(v: string) { return arrayRemove(v); }

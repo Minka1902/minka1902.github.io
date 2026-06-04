@@ -1,11 +1,13 @@
 import { useState } from 'react';
+import { MapPin, LocateFixed } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import BusinessTypeSelector from './BusinessTypeSelector';
-import type { Business, BusinessType } from '@/types';
+import { getCurrentPosition } from '@/lib/geo';
+import type { Business, BusinessType, GeoPoint } from '@/types';
 
 export interface BusinessProfileFormData {
   name: string;
@@ -16,6 +18,10 @@ export interface BusinessProfileFormData {
   description?: string;
   currency: string;
   requireMfa?: boolean;
+  listed?: boolean;
+  bookable?: boolean;
+  services?: string[];
+  location?: GeoPoint;
 }
 
 interface Props {
@@ -32,8 +38,28 @@ export default function BusinessProfileForm({ initial, onSubmit }: Props) {
   const [description, setDescription] = useState(initial.description ?? '');
   const [currency, setCurrency] = useState(initial.currency);
   const [requireMfa, setRequireMfa] = useState(initial.requireMfa ?? false);
+  const [listed, setListed] = useState(initial.listed ?? true);
+  const [bookable, setBookable] = useState(initial.bookable ?? false);
+  const [services, setServices] = useState((initial.services ?? []).join(', '));
+  const [location, setLocation] = useState<GeoPoint | undefined>(initial.location);
+  const [locLabel, setLocLabel] = useState(initial.location?.label ?? '');
+  const [locating, setLocating] = useState(false);
+  const [locError, setLocError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  const useMyLocation = async () => {
+    setLocating(true);
+    setLocError(null);
+    try {
+      const pos = await getCurrentPosition();
+      setLocation({ ...pos, label: locLabel.trim() || undefined });
+    } catch {
+      setLocError('Could not get your location. Check browser permissions.');
+    } finally {
+      setLocating(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,6 +67,7 @@ export default function BusinessProfileForm({ initial, onSubmit }: Props) {
     setSaving(true);
     setSaved(false);
     try {
+      const serviceList = services.split(',').map(s => s.trim()).filter(Boolean);
       await onSubmit({
         name: name.trim(),
         type,
@@ -50,6 +77,10 @@ export default function BusinessProfileForm({ initial, onSubmit }: Props) {
         description: description.trim() || undefined,
         currency: currency.trim() || 'USD',
         requireMfa,
+        listed,
+        bookable,
+        services: serviceList.length ? serviceList : undefined,
+        location: location ? { ...location, label: locLabel.trim() || undefined } : undefined,
       });
       setSaved(true);
     } finally {
@@ -98,6 +129,62 @@ export default function BusinessProfileForm({ initial, onSubmit }: Props) {
         </div>
         <Switch checked={requireMfa} onCheckedChange={setRequireMfa} />
       </div>
+
+      {/* ── Public listing & location ── */}
+      <div className="space-y-4 rounded-lg border border-dashed p-4">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <MapPin className="h-4 w-4 text-muted-foreground" /> Public listing
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="pr-4">
+            <p className="text-sm font-medium">List in directory</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Let pet owners discover you in "Businesses near me"</p>
+          </div>
+          <Switch checked={listed} onCheckedChange={setListed} />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="pr-4">
+            <p className="text-sm font-medium">Accept online bookings</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Customers can request appointments from your listing</p>
+          </div>
+          <Switch checked={bookable} onCheckedChange={setBookable} disabled={!listed} />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="biz-services">Services offered</Label>
+          <Input
+            id="biz-services"
+            value={services}
+            onChange={e => setServices(e.target.value)}
+            placeholder="Grooming, Nail trim, Bath (comma separated)"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="biz-loc-label">Location</Label>
+          <Input
+            id="biz-loc-label"
+            value={locLabel}
+            onChange={e => setLocLabel(e.target.value)}
+            placeholder="e.g. Austin, TX"
+          />
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={useMyLocation} disabled={locating}>
+              <LocateFixed className="h-3.5 w-3.5" />
+              {locating ? 'Locating…' : 'Use my current location'}
+            </Button>
+            {location && (
+              <span className="text-xs text-muted-foreground">
+                Pinned: {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
+              </span>
+            )}
+          </div>
+          {locError && <p className="text-xs text-destructive">{locError}</p>}
+        </div>
+      </div>
+
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={saving || !name.trim()}>{saving ? 'Saving…' : 'Save changes'}</Button>
         {saved && <span className="text-sm text-green-600 dark:text-green-400">Saved</span>}

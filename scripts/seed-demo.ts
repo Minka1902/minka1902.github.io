@@ -96,6 +96,10 @@ interface SeedBusiness {
   domain: string;
   staff: { name: string; roleName: string }[];
   roles: { id: string; name: string; capabilities: string[] }[];
+  bookable: boolean;
+  modules?: string[];                 // omitted ⇒ all enabled
+  services?: string[];
+  location: { lat: number; lng: number; label: string };
 }
 
 async function seedBusinesses(): Promise<void> {
@@ -110,6 +114,10 @@ async function seedBusinesses(): Promise<void> {
     {
       id: 'pawsh-grooming', name: 'Pawsh Grooming', type: 'grooming_salon',
       description: 'Full-service dog grooming salon', email: 'hello@pawsh.example', domain: 'pawsh.example',
+      bookable: true,
+      modules: ['customers', 'appointments', 'invoices'], // grooming: no inventory/shipping
+      services: ['Full groom', 'Bath & brush', 'Nail trim', 'De-shedding'],
+      location: { lat: 32.0809, lng: 34.7806, label: 'Tel Aviv' },
       roles: [
         { id: 'role-manager', name: 'Manager', capabilities: managerCaps },
         { id: 'role-front', name: 'Front desk', capabilities: frontDeskCaps },
@@ -126,6 +134,10 @@ async function seedBusinesses(): Promise<void> {
     {
       id: 'the-vet-clinic', name: 'The Vet Clinic', type: 'vet',
       description: 'Professional veterinary care', email: 'info@thevet.example', domain: 'thevet.example',
+      bookable: true,
+      modules: ['customers', 'appointments', 'invoices', 'inventory'],
+      services: ['Check-up', 'Vaccination', 'Consultation', 'Dental'],
+      location: { lat: 32.0921, lng: 34.7754, label: 'Tel Aviv' },
       roles: [
         { id: 'role-manager', name: 'Practice Manager', capabilities: managerCaps },
         { id: 'role-vet', name: 'Veterinarian', capabilities: [...workerCaps, 'manage_appointments', 'manage_customers'] },
@@ -142,6 +154,10 @@ async function seedBusinesses(): Promise<void> {
     {
       id: 'the-food-store', name: 'The Food Store', type: 'pet_shop',
       description: 'Premium pet food and supplies', email: 'orders@foodstore.example', domain: 'foodstore.example',
+      bookable: false,
+      modules: ['customers', 'invoices', 'inventory', 'shipments'], // shop: no appointments
+      services: [],
+      location: { lat: 32.0684, lng: 34.7745, label: 'Tel Aviv' },
       roles: [
         { id: 'role-manager', name: 'Store Manager', capabilities: managerCaps },
         { id: 'role-clerk', name: 'Clerk', capabilities: ['view_business', 'view_customers', 'manage_customers', 'view_inventory', 'manage_inventory'] },
@@ -179,7 +195,16 @@ async function seedBusinesses(): Promise<void> {
     await ab.set(db.collection('businesses').doc(biz.id), {
       name: biz.name, type: biz.type, description: biz.description, email: biz.email,
       currency: 'ILS', ownerUserId: MINKA_UID, staffUserIds: [MINKA_UID, ...staffUids],
-      requireMfa: false, createdAt: now, updatedAt: now,
+      requireMfa: false, listed: true, bookable: biz.bookable,
+      modules: biz.modules, services: biz.services, location: biz.location,
+      createdAt: now, updatedAt: now,
+    });
+
+    // Public directory projection — what any user sees in "businesses near me".
+    await ab.set(db.collection('businessDirectory').doc(biz.id), {
+      name: biz.name, type: biz.type, description: biz.description, email: biz.email,
+      city: biz.location.label, location: biz.location, bookable: biz.bookable,
+      services: biz.services, updatedAt: now,
     });
 
     // Roles — system owner role + custom roles.

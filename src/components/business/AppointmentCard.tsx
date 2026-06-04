@@ -29,7 +29,14 @@ export default function AppointmentCard({ appointment, canEdit, onStatusChange, 
             <span className="text-xs font-medium">{fmtTime(appointment.startAt)}</span>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{appointment.serviceLabel}</p>
+            <p className="flex items-center gap-1.5 truncate text-sm font-medium">
+              {appointment.serviceLabel}
+              {appointment.source === 'customer' && (
+                <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                  Online request
+                </span>
+              )}
+            </p>
             <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1"><User className="h-3 w-3" />{appointment.customerName}</span>
               {appointment.petName && <span className="inline-flex items-center gap-1"><PawPrint className="h-3 w-3" />{appointment.petName}</span>}
