@@ -77,6 +77,31 @@ export const CAPABILITY_LABELS: Record<Capability, string> = Object.fromEntries(
 ) as Record<Capability, string>;
 
 // Default roles seeded for a brand-new business (besides the system "owner" role).
+// ─── Modules ──────────────────────────────────────────────────────────────────
+// A business owner enables only the pages relevant to their operation. A trainer
+// who only sells their time can switch off Inventory and Shipments, for example.
+// `undefined` on a Business means "all enabled" (backward-compatible default).
+
+export type BusinessModule = 'customers' | 'appointments' | 'invoices' | 'inventory' | 'shipments';
+
+export const MODULE_CATALOG: { module: BusinessModule; label: string; description: string }[] = [
+  { module: 'customers',    label: 'Customers',    description: 'Client records and their pets' },
+  { module: 'appointments', label: 'Appointments', description: 'Scheduling and online booking' },
+  { module: 'invoices',     label: 'Invoices',     description: 'Billing and payments' },
+  { module: 'inventory',    label: 'Inventory',    description: 'Products and stock levels' },
+  { module: 'shipments',    label: 'Shipments',    description: 'Order fulfilment and delivery' },
+];
+
+export const ALL_MODULES: BusinessModule[] = MODULE_CATALOG.map(m => m.module);
+
+export function isModuleEnabled(
+  business: { modules?: BusinessModule[] } | null | undefined,
+  module: BusinessModule,
+): boolean {
+  if (!business || !business.modules) return true; // undefined ⇒ all enabled
+  return business.modules.includes(module);
+}
+
 export const DEFAULT_ROLE_TEMPLATES: { name: string; capabilities: Capability[] }[] = [
   {
     name: 'Manager',
@@ -104,6 +129,12 @@ export interface BusinessAddress {
   lng?: number;
 }
 
+export interface GeoPoint {
+  lat: number;
+  lng: number;
+  label?: string;            // human-readable location (e.g. "Austin, TX")
+}
+
 export interface Business {
   id: string;
   name: string;
@@ -118,7 +149,31 @@ export interface Business {
   ownerUserId: string;         // founding owner — always full capabilities
   staffUserIds: string[];      // array-contains index for "businesses I belong to"
   requireMfa?: boolean;
+  modules?: BusinessModule[];  // enabled pages — undefined ⇒ all enabled
+  listed?: boolean;            // discoverable in the public directory (default true)
+  bookable?: boolean;          // customers may self-book appointments online
+  services?: string[];         // offered services, shown to customers
+  location?: GeoPoint;         // for "businesses near me" search
   createdAt: number;
+  updatedAt: number;
+}
+
+// Public, read-by-anyone projection of a Business used for discovery. Mirrors the
+// `publicDogCards` pattern: a denormalized doc keeps private business data (staff,
+// customers, billing) out of the publicly readable surface.
+export interface BusinessDirectoryEntry {
+  id: string;                  // == business id
+  name: string;
+  type: BusinessType;
+  description?: string;
+  logoURL?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  city?: string;
+  location?: GeoPoint;
+  bookable: boolean;
+  services?: string[];
   updatedAt: number;
 }
 
@@ -172,8 +227,11 @@ export type AppointmentStatus = 'scheduled' | 'confirmed' | 'completed' | 'cance
 
 export interface Appointment {
   id: string;
-  customerId: string;
+  customerId?: string;         // optional: a customer self-booking may not have a CRM record yet
   customerName: string;
+  customerUserId?: string;     // app-user who the appointment is for (always set for self-bookings)
+  customerEmail?: string;
+  customerPhone?: string;
   petId?: string;
   petName?: string;
   serviceLabel: string;
@@ -182,6 +240,7 @@ export interface Appointment {
   assignedStaffId?: string;
   assignedStaffName?: string;
   status: AppointmentStatus;
+  source?: 'staff' | 'customer'; // 'customer' = self-booked via the public directory
   notes?: string;
   invoiceId?: string;
   createdAt: number;

@@ -65,6 +65,20 @@ service cloud.firestore {
       return isBizOwner(bid) ||
         (isBizMember(bid) && bizStaff(bid).active == true && bizStaff(bid).capabilities.hasAny([cap]));
     }
+    // A business accepts customer self-bookings only when it is listed as bookable
+    // in the public directory.
+    function isBookable(bid) {
+      return exists(/databases/$(database)/documents/businessDirectory/$(bid)) &&
+        get(/databases/$(database)/documents/businessDirectory/$(bid)).data.bookable == true;
+    }
+
+    // Public, read-by-anyone business directory ("businesses near me"). Owners /
+    // managers publish the denormalized projection; private business data stays
+    // behind the /businesses rules below.
+    match /businessDirectory/{bid} {
+      allow read:  if true;
+      allow write: if isBizOwner(bid) || hasCap(bid, 'manage_business');
+    }
 
     match /businesses/{bid} {
       allow read:   if isBizMember(bid);
@@ -99,10 +113,23 @@ service cloud.firestore {
       }
 
       match /appointments/{id} {
-        allow read:           if hasCap(bid, 'view_appointments') || hasCap(bid, 'manage_appointments');
-        allow create, delete: if hasCap(bid, 'manage_appointments');
-        allow update:         if hasCap(bid, 'manage_appointments') ||
-          (hasCap(bid, 'manage_own_appointments') && resource.data.assignedStaffId == request.auth.uid);
+        // Staff with the capability, or the customer the appointment is for.
+        allow read: if hasCap(bid, 'view_appointments') || hasCap(bid, 'manage_appointments') ||
+          (request.auth != null && resource.data.customerUserId == request.auth.uid);
+        // Staff create, or a customer self-booking a constrained "scheduled" request.
+        allow create: if hasCap(bid, 'manage_appointments') ||
+          (request.auth != null
+            && isBookable(bid)
+            && request.resource.data.source == 'customer'
+            && request.resource.data.customerUserId == request.auth.uid
+            && request.resource.data.status == 'scheduled');
+        allow delete: if hasCap(bid, 'manage_appointments');
+        // Staff update; an assigned worker with manage_own_appointments; or the
+        // customer changing only the status of their own booking (e.g. cancel).
+        allow update: if hasCap(bid, 'manage_appointments') ||
+          (hasCap(bid, 'manage_own_appointments') && resource.data.assignedStaffId == request.auth.uid) ||
+          (resource.data.customerUserId == request.auth.uid &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']));
       }
 
       match /invoices/{id} {

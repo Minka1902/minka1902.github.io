@@ -4,9 +4,11 @@ import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import { useBusiness, useBusinessActions } from '@/hooks/useBusiness';
 import { usePermissions } from '@/hooks/usePermissions';
 import BusinessProfileForm, { type BusinessProfileFormData } from '@/components/business/BusinessProfileForm';
+import { ALL_MODULES, MODULE_CATALOG, isModuleEnabled, type BusinessModule } from '@/types';
 
 export default function BusinessSettingsPage() {
   const { activeBusiness } = useBusiness();
@@ -22,6 +24,15 @@ export default function BusinessSettingsPage() {
   if (!can('manage_business') && !isOwner) {
     return <div className="mx-auto max-w-2xl py-14 text-center text-sm text-muted-foreground">You don't have access to business settings.</div>;
   }
+
+  const toggleModule = async (module: BusinessModule, enabled: boolean) => {
+    // Start from the current effective set (undefined ⇒ all enabled).
+    const current = activeBusiness.modules ?? ALL_MODULES;
+    const next = enabled
+      ? ALL_MODULES.filter(m => current.includes(m) || m === module)
+      : current.filter(m => m !== module);
+    await updateBusiness({ modules: next });
+  };
 
   const handleDelete = async () => {
     if (!confirm(`Permanently delete "${activeBusiness.name}"? This cannot be undone.`)) return;
@@ -45,6 +56,32 @@ export default function BusinessSettingsPage() {
             initial={activeBusiness}
             onSubmit={async (data: BusinessProfileFormData) => { await updateBusiness(data); }}
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Pages &amp; modules</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Turn off the features your business doesn't use. Disabled pages disappear from the
+            sidebar — for example a trainer who only sells their time can hide Inventory and Shipments.
+          </p>
+          <div className="divide-y rounded-lg border">
+            {MODULE_CATALOG.map(({ module, label, description }) => (
+              <div key={module} className="flex items-center justify-between px-4 py-3">
+                <div className="pr-4">
+                  <p className="text-sm font-medium">{label}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+                </div>
+                <Switch
+                  checked={isModuleEnabled(activeBusiness, module)}
+                  onCheckedChange={(v) => toggleModule(module, v)}
+                />
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
 

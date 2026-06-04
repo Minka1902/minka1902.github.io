@@ -4,12 +4,16 @@ import { cn } from '@/lib/utils';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { BUSINESS_NAV_ITEMS } from '@/lib/nav';
+import { isModuleEnabled } from '@/types';
 
 export function BusinessSidebarContent({ onClose }: { onClose?: () => void }) {
   const { activeBusiness } = useBusiness();
   const { can } = usePermissions();
 
-  const items = BUSINESS_NAV_ITEMS.filter(item => !item.cap || can(item.cap));
+  const items = BUSINESS_NAV_ITEMS.filter(item =>
+    (!item.cap || can(item.cap)) &&
+    (!item.module || isModuleEnabled(activeBusiness, item.module)),
+  );
 
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--sidebar)', color: 'var(--sidebar-foreground)' }}>

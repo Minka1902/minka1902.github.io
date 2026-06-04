@@ -24,6 +24,7 @@ export const medicalCol = (dogId: string, category: MedicalCategory) => {
 
 // ─── Business CRM collections ────────────────────────────────────────────────
 export const businessesCol      = () => collection(db, 'businesses');
+export const businessDirectoryCol = () => collection(db, 'businessDirectory');
 export const bizStaffCol        = (bid: string) => collection(db, 'businesses', bid, 'staff');
 export const bizRolesCol        = (bid: string) => collection(db, 'businesses', bid, 'roles');
 export const bizCustomersCol    = (bid: string) => collection(db, 'businesses', bid, 'customers');
