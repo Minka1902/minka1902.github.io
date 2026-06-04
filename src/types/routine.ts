@@ -15,6 +15,8 @@ export interface RoutineLog {
   walkDurationMin?: number;
   walkDistanceKm?: number;
   walkAvgSpeedKmh?: number;
+  walkRoute?: { lat: number; lng: number }[]; // recorded GPS path of the walk
+
   sleepDurationMin?: number;
   foodType?: string;
   foodAmountGrams?: number;

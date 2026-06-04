@@ -5,12 +5,13 @@ import { medicalCol } from '@/lib/firestore';
 import { useAuth } from '@/hooks/useAuth';
 import { MEDICAL_CATEGORIES } from '@/lib/constants';
 import { stripUndefined } from '@/lib/utils';
-import type { MedicalRecord, MedicalCategory, Medication } from '@/types';
+import { isMedicationFinished, type MedicalRecord, type MedicalCategory, type Medication } from '@/types';
 
 export function useMedical(dogId: string, category: MedicalCategory) {
   const { user } = useAuth();
   const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const medCollectionName = MEDICAL_CATEGORIES.find(c => c.category === category)!.collectionName;
 
   useEffect(() => {
     setRecords([]);
@@ -18,8 +19,19 @@ export function useMedical(dogId: string, category: MedicalCategory) {
     if (!dogId) { setLoading(false); return; }
     const q = query(medicalCol(dogId, category), orderBy('date', 'desc'));
     return onSnapshot(q, snap => {
-      setRecords(snap.docs.map(d => ({ id: d.id, ...d.data() } as MedicalRecord)));
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as MedicalRecord));
+      setRecords(list);
       setLoading(false);
+      // Auto-finish: a medication whose course end date has passed is no longer
+      // active. Persist the flip so it's reflected everywhere (alerts, timeline).
+      if (category === 'medication') {
+        for (const r of list) {
+          const med = r as Medication;
+          if (med.isActive && isMedicationFinished(med)) {
+            void updateDoc(doc(db, 'dogs', dogId, medCollectionName, med.id), { isActive: false, updatedAt: Date.now() });
+          }
+        }
+      }
     });
   }, [dogId, category]);
 
@@ -113,7 +125,7 @@ export function useActiveMedications(dogId: string) {
       if (cancelled) return;
       const active = snap.docs
         .map(d => ({ id: d.id, ...d.data() } as Medication))
-        .filter(m => m.isActive && m.administrationTimes && m.administrationTimes.length > 0);
+        .filter(m => m.isActive && !isMedicationFinished(m) && m.administrationTimes && m.administrationTimes.length > 0);
       setMedications(active);
     });
 

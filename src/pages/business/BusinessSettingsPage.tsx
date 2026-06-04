@@ -8,7 +8,8 @@ import { Switch } from '@/components/ui/switch';
 import { useBusiness, useBusinessActions } from '@/hooks/useBusiness';
 import { usePermissions } from '@/hooks/usePermissions';
 import BusinessProfileForm, { type BusinessProfileFormData } from '@/components/business/BusinessProfileForm';
-import { ALL_MODULES, MODULE_CATALOG, isModuleEnabled, type BusinessModule } from '@/types';
+import AvailabilityEditor from '@/components/business/AvailabilityEditor';
+import { ALL_MODULES, MODULE_CATALOG, isModuleEnabled, type BusinessModule, type WeeklyAvailability } from '@/types';
 
 export default function BusinessSettingsPage() {
   const { activeBusiness } = useBusiness();
@@ -58,6 +59,27 @@ export default function BusinessSettingsPage() {
           />
         </CardContent>
       </Card>
+
+      {isModuleEnabled(activeBusiness, 'appointments') && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Booking hours</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Set your weekly opening hours and slot length. Customers booking online can only
+              pick free slots within these hours.
+            </p>
+            <AvailabilityEditor
+              initialAvailability={activeBusiness.availability}
+              initialSlotMinutes={activeBusiness.slotMinutes}
+              onSave={async (availability: WeeklyAvailability, slotMinutes: number) => {
+                await updateBusiness({ availability, slotMinutes });
+              }}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

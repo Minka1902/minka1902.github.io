@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Users, UserPlus, Clock, Search } from 'lucide-react';
+import { Users, UserPlus, Clock, Search, Building2 } from 'lucide-react';
 import { useDog } from '@/contexts/DogContext';
 import { useHumans, usePendingHumans } from '@/hooks/useHumans';
+import { useBusinessDirectory } from '@/hooks/useDirectory';
 import { useAuth } from '@/hooks/useAuth';
+import { isTeamEligibleBusiness } from '@/types';
 import HumanCard from '@/components/humans/HumanCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import PendingRequestCard from '@/components/humans/PendingRequestCard';
@@ -21,9 +23,19 @@ export default function HumansPage() {
   const { activeDog, isMainHuman } = useDog();
   const { user } = useAuth();
   const dogId = activeDog?.id ?? '';
-  const { humans, loading: humansLoading, revokeHuman } = useHumans(dogId);
+  const { humans, loading: humansLoading, revokeHuman, addBusinessToTeam } = useHumans(dogId);
   const { pending, approveHuman, rejectHuman, addHumanDirectly } = usePendingHumans(dogId);
   const isMain = isMainHuman(dogId);
+
+  const { results: directory } = useBusinessDirectory(null);
+  const [bizSearch, setBizSearch] = useState('');
+  const bizMatches = bizSearch.trim()
+    ? directory
+        .filter(b => isTeamEligibleBusiness(b.type))
+        .filter(b => b.name.toLowerCase().includes(bizSearch.trim().toLowerCase()))
+        .filter(b => !humans.some(h => h.businessId === b.id))
+        .slice(0, 5)
+    : [];
 
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResult, setSearchResult] = useState<UserProfile | null | 'not-found'>(null);
@@ -149,6 +161,47 @@ export default function HumansPage() {
                 </div>
               );
             })()}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Add a business (dog walker, vet, …) to the team */}
+      {isMain && (
+        <Card>
+          <CardContent className="pt-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+              <p className="text-sm font-medium">Add a business to the team</p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Dog walkers, vets, trainers and other care providers can join {activeDog.name}'s team.
+            </p>
+            <Input
+              placeholder="Search business name…"
+              value={bizSearch}
+              onChange={e => setBizSearch(e.target.value)}
+              autoComplete="off"
+            />
+            {bizSearch.trim() && bizMatches.length === 0 && (
+              <p className="text-sm text-muted-foreground">No eligible business found with that name.</p>
+            )}
+            {bizMatches.map(b => (
+              <div key={b.id} className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 shrink-0">
+                  <Building2 className="h-4 w-4 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{b.name}</p>
+                  {b.location?.label && <p className="text-xs text-muted-foreground truncate">{b.location.label}</p>}
+                </div>
+                <Button
+                  size="sm"
+                  onClick={async () => { await addBusinessToTeam({ id: b.id, name: b.name, type: b.type }); setBizSearch(''); }}
+                >
+                  Add
+                </Button>
+              </div>
+            ))}
           </CardContent>
         </Card>
       )}

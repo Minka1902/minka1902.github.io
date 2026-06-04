@@ -28,7 +28,6 @@ export function useAlerts(dogId: string): Alert[] {
       const dog = dogs.find(d => d.id === dogId);
       if (dog) {
         const missing: string[] = [];
-        if (!dog.photoURL)                  missing.push('photo');
         if (!dog.breed)                     missing.push('breed');
         if (!dog.weightKg)                  missing.push('weight');
         if (!dog.emergencyContact?.name)    missing.push('emergency contact');
@@ -47,16 +46,6 @@ export function useAlerts(dogId: string): Alert[] {
           });
         }
       }
-    }
-
-    // User has no profile photo
-    if (user && !user.photoURL) {
-      alerts.push({
-        id: 'no_user_photo', type: 'incomplete_profile', dogId,
-        severity: 'info',
-        message: 'Add a profile photo — required for team members',
-        actionRoute: '/settings', generatedAt: now,
-      });
     }
 
     // Walk overdue

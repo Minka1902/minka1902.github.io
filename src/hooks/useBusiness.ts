@@ -34,6 +34,8 @@ function buildDirectoryEntry(b: Business) {
     location: b.location,
     bookable: b.bookable ?? false,
     services: b.services,
+    availability: b.availability,
+    slotMinutes: b.slotMinutes,
     updatedAt: Date.now(),
   });
 }
@@ -46,7 +48,22 @@ async function syncDirectory(bid: string) {
     await deleteDoc(doc(businessDirectoryCol(), bid)).catch(() => undefined);
     return;
   }
-  await setDoc(doc(businessDirectoryCol(), bid), buildDirectoryEntry(b));
+  // Merge so the separately-maintained busySlots field survives profile edits.
+  await setDoc(doc(businessDirectoryCol(), bid), buildDirectoryEntry(b), { merge: true });
+}
+
+// Recompute the public "busy" intervals (upcoming, un-cancelled appointments) so
+// customers can't pick an already-taken slot. Best-effort and merge-written.
+async function refreshBusySlots(bid: string) {
+  try {
+    const now = Date.now();
+    const snap = await getDocs(query(bizAppointmentsCol(bid), where('endAt', '>', now)));
+    const busy = snap.docs
+      .map(d => d.data() as Appointment)
+      .filter(a => a.status === 'scheduled' || a.status === 'confirmed')
+      .map(a => ({ start: a.startAt, end: a.endAt }));
+    await setDoc(doc(businessDirectoryCol(), bid), { busySlots: busy, updatedAt: now }, { merge: true });
+  } catch { /* directory may not exist for unlisted businesses — ignore */ }
 }
 
 // Generic realtime subscription helper.
@@ -78,7 +95,7 @@ export function useCreateBusiness() {
 
   const createBusiness = async (
     data: Pick<Business, 'name' | 'type'> &
-      Partial<Pick<Business, 'description' | 'email' | 'phone' | 'website' | 'address' | 'currency' | 'logoURL'>>,
+      Partial<Omit<Business, 'id' | 'name' | 'type' | 'ownerUserId' | 'staffUserIds' | 'createdAt' | 'updatedAt'>>,
   ): Promise<string> => {
     const now = Date.now();
     const ref = await addDoc(businessesCol(), stripUndefined({
@@ -272,12 +289,18 @@ export function useAppointments(bid: string, range?: { from: number; to: number 
   );
   const createAppointment = async (data: Omit<Appointment, 'id' | 'createdAt' | 'updatedAt' | 'createdBy'>) => {
     const now = Date.now();
-    return addDoc(bizAppointmentsCol(bid), stripUndefined({ ...data, createdBy: user!.uid, createdAt: now, updatedAt: now }));
+    const ref = await addDoc(bizAppointmentsCol(bid), stripUndefined({ ...data, createdBy: user!.uid, createdAt: now, updatedAt: now }));
+    void refreshBusySlots(bid);
+    return ref;
   };
   const updateAppointment = async (id: string, data: Partial<Appointment>) => {
     await updateDoc(doc(bizAppointmentsCol(bid), id), stripUndefined({ ...data, updatedAt: Date.now() }));
+    void refreshBusySlots(bid);
   };
-  const deleteAppointment = async (id: string) => { await deleteDoc(doc(bizAppointmentsCol(bid), id)); };
+  const deleteAppointment = async (id: string) => {
+    await deleteDoc(doc(bizAppointmentsCol(bid), id));
+    void refreshBusySlots(bid);
+  };
   return { appointments, loading, createAppointment, updateAppointment, deleteAppointment };
 }
 

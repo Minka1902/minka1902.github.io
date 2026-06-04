@@ -83,6 +83,7 @@ export default function MedicalRecordForm({ dogId, category, onSaved, record }: 
   const [procedure,      setProcedure]      = useState((record as Surgery)?.procedure ?? '');
 
   const [isActive,        setIsActive]        = useState((record as Medication)?.isActive ?? true);
+  const [endDate,         setEndDate]         = useState(tsToDateInput((record as Medication)?.endDate));
   const [administrationTimes, setAdministrationTimes] = useState<string[]>((record as Medication)?.administrationTimes ?? []);
 
   // Vaccination-only repeat interval state (not sent directly to Firestore)
@@ -133,10 +134,14 @@ export default function MedicalRecordForm({ dogId, category, onSaved, record }: 
       notes: notes || undefined,
     };
 
+    // A medication whose end date is already past is saved as finished (inactive).
+    const medEnd = endDate ? new Date(endDate).getTime() : undefined;
+    const medActive = isActive && !(medEnd !== undefined && medEnd < Date.now());
+
     if (isEdit) {
       const extra: Partial<MedicalRecord> = {};
       if (category === 'vaccination') (extra as Partial<Vaccination>).vaccineName = vaccineName;
-      if (category === 'medication')  { (extra as Partial<Medication>).medicationName = medicationName; (extra as Partial<Medication>).dosage = dosage || undefined; (extra as Partial<Medication>).isActive = isActive; (extra as Partial<Medication>).administrationTimes = administrationTimes.length ? administrationTimes : undefined; }
+      if (category === 'medication')  { (extra as Partial<Medication>).medicationName = medicationName; (extra as Partial<Medication>).dosage = dosage || undefined; (extra as Partial<Medication>).isActive = medActive; (extra as Partial<Medication>).endDate = medEnd; (extra as Partial<Medication>).administrationTimes = administrationTimes.length ? administrationTimes : undefined; }
       if (category === 'allergy')     (extra as Partial<Allergy>).allergen = allergen;
       if (category === 'diagnosis')   (extra as Partial<Diagnosis>).condition = condition;
       if (category === 'surgery')     (extra as Partial<Surgery>).procedure = procedure;
@@ -150,7 +155,7 @@ export default function MedicalRecordForm({ dogId, category, onSaved, record }: 
       if (category === 'vaccination') {
         newRecord = { ...fullBase, category: 'vaccination', vaccineName } as Omit<Vaccination, 'id'>;
       } else if (category === 'medication') {
-        newRecord = { ...fullBase, category: 'medication', medicationName, dosage: dosage || undefined, isActive, administrationTimes: administrationTimes.length ? administrationTimes : undefined } as Omit<Medication, 'id'>;
+        newRecord = { ...fullBase, category: 'medication', medicationName, dosage: dosage || undefined, isActive: medActive, endDate: medEnd, administrationTimes: administrationTimes.length ? administrationTimes : undefined } as Omit<Medication, 'id'>;
       } else if (category === 'allergy') {
         newRecord = { ...fullBase, category: 'allergy', allergen } as Omit<Allergy, 'id'>;
       } else if (category === 'diagnosis') {
@@ -219,6 +224,11 @@ export default function MedicalRecordForm({ dogId, category, onSaved, record }: 
             >
               + Add time
             </button>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="endDate">End date (optional)</Label>
+            <Input id="endDate" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+            <p className="text-xs text-muted-foreground">Once this date passes, the medication is automatically marked finished.</p>
           </div>
           <div className="flex items-center gap-2">
             <input

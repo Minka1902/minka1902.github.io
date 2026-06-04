@@ -61,13 +61,9 @@ export default function DogSelectForWalkDialog({ onClose }: Props) {
                   backgroundColor: 'oklch(0.64 0.168 48 / 0.08)',
                 } : undefined}
               >
-                {dog.photoURL ? (
-                  <img src={dog.photoURL} alt={dog.name} className="h-9 w-9 rounded-full object-cover shrink-0" />
-                ) : (
-                  <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary shrink-0">
-                    {dog.name.slice(0, 1).toUpperCase()}
-                  </div>
-                )}
+                <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary shrink-0">
+                  {dog.name.slice(0, 1).toUpperCase()}
+                </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium capitalize truncate">{dog.name}</p>
                   {dog.breed && <p className="text-xs text-muted-foreground capitalize truncate">{dog.breed}</p>}
