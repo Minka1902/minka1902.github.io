@@ -1,9 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { doc, updateDoc } from 'firebase/firestore';
-import { updateProfile } from 'firebase/auth';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { auth, db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { useDog } from '@/contexts/DogContext';
 import { useNavConfig } from '@/hooks/useNavConfig';
@@ -14,8 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { PawPrint, ExternalLink, LogOut, Check, Camera, Loader2 } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { PawPrint, ExternalLink, LogOut, Check } from 'lucide-react';
 
 const COLOR_THEME_META: Record<ColorTheme, { label: string; bg: string; primary: string }> = {
   'warm-cream':     { label: 'Warm Cream',     bg: '#f5e8d0', primary: '#c17d3c' },
@@ -44,15 +42,10 @@ export default function SettingsPage() {
   const { dogs } = useDog();
   const { selected, toggle, max } = useNavConfig();
   const { theme, toggle: toggleTheme, colorTheme, setColorTheme } = useTheme();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [phone, setPhone] = useState('');
   const [savingPhone, setSavingPhone] = useState(false);
   const [phoneSaved, setPhoneSaved] = useState(false);
-  const [photoUploading, setPhotoUploading] = useState(false);
-  const [showPhotoUrl, setShowPhotoUrl] = useState(false);
-  const [photoUrlInput, setPhotoUrlInput] = useState('');
-  const [photoUrlSaving, setPhotoUrlSaving] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [apiKeySaved, setApiKeySaved] = useState(false);
   const savedApiKey = typeof window !== 'undefined' ? localStorage.getItem('packops_gemini_api_key') : null;
@@ -71,37 +64,6 @@ export default function SettingsPage() {
   const handleLogout = async () => {
     setSigningOut(true);
     await logout();
-  };
-
-  const handlePhotoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-    setPhotoUploading(true);
-    try {
-      const ext = file.name.split('.').pop() ?? 'jpg';
-      const path = `user-avatars/${user.uid}_${Date.now()}.${ext}`;
-      const snap = await uploadBytes(storageRef(storage, path), file);
-      const url = await getDownloadURL(snap.ref);
-      if (auth.currentUser) await updateProfile(auth.currentUser, { photoURL: url });
-      await updateDoc(doc(db, 'users', user.uid), { photoURL: url, updatedAt: Date.now() });
-    } finally {
-      setPhotoUploading(false);
-      e.target.value = '';
-    }
-  };
-
-  const handleApplyPhotoUrl = async () => {
-    const url = photoUrlInput.trim();
-    if (!url || !user) return;
-    setPhotoUrlSaving(true);
-    try {
-      if (auth.currentUser) await updateProfile(auth.currentUser, { photoURL: url });
-      await updateDoc(doc(db, 'users', user.uid), { photoURL: url, updatedAt: Date.now() });
-      setPhotoUrlInput('');
-      setShowPhotoUrl(false);
-    } finally {
-      setPhotoUrlSaving(false);
-    }
   };
 
   const handleSavePhone = async () => {
@@ -126,65 +88,19 @@ export default function SettingsPage() {
 
       {/* Account */}
       <Section title="Account" description="Your profile information">
-        <div className="flex items-center gap-4 mb-3">
-          <div className="relative shrink-0">
-            <Avatar className="h-14 w-14">
-              {user?.photoURL ? <AvatarImage src={user.photoURL} alt={user.displayName ?? ''} /> : null}
-              <AvatarFallback
-                className="text-base font-bold"
-                style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)' }}
-              >
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={photoUploading}
-              className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md hover:opacity-90 transition-opacity disabled:opacity-50"
-              aria-label="Upload profile photo"
+        <div className="flex items-center gap-4 mb-5">
+          <Avatar className="h-14 w-14 shrink-0">
+            <AvatarFallback
+              className="text-base font-bold"
+              style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)' }}
             >
-              {photoUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
-            </button>
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoFile} />
-          </div>
+              {initials}
+            </AvatarFallback>
+          </Avatar>
           <div>
             <p className="font-semibold capitalize">{user?.displayName}</p>
             <p className="text-sm text-muted-foreground">{user?.email}</p>
-            {!user?.photoURL && <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">No profile photo yet</p>}
           </div>
-        </div>
-        <div className="flex flex-col gap-1.5 mb-5">
-          <button
-            type="button"
-            onClick={() => setShowPhotoUrl(v => !v)}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors self-start"
-          >
-            {showPhotoUrl ? 'Hide URL input' : 'Or enter URL'}
-          </button>
-          {showPhotoUrl && (
-            <div className="flex gap-2">
-              <Input
-                type="url"
-                placeholder="https://example.com/photo.jpg"
-                value={photoUrlInput}
-                onChange={e => setPhotoUrlInput(e.target.value)}
-                onBlur={() => { if (photoUrlInput.trim()) handleApplyPhotoUrl(); }}
-                className="flex-1 text-xs"
-                disabled={photoUrlSaving}
-              />
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={handleApplyPhotoUrl}
-                disabled={!photoUrlInput.trim() || photoUrlSaving}
-                className="shrink-0"
-              >
-                {photoUrlSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Use'}
-              </Button>
-            </div>
-          )}
         </div>
 
         <Separator className="mb-4" />

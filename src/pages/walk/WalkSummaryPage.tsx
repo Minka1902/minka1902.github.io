@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { addDoc } from 'firebase/firestore';
 import { MapPin, Clock, Zap, TrendingUp } from 'lucide-react';
@@ -8,11 +8,23 @@ import { useAuth } from '@/hooks/useAuth';
 import { routinesCol } from '@/lib/firestore';
 import { stripUndefined } from '@/lib/utils';
 
+const WalkMap = lazy(() => import('@/components/walk/WalkMap'));
+
 interface WalkState {
   elapsedSeconds: number;
   distanceKm: number;
   avgSpeedKmh: number;
   dogIds?: string[];
+  coords?: { lat: number; lng: number }[];
+}
+
+// Keep persisted routes compact — sample down to ~300 points for long walks.
+function sampleRoute(coords: { lat: number; lng: number }[], max = 300): { lat: number; lng: number }[] {
+  if (coords.length <= max) return coords;
+  const step = Math.ceil(coords.length / max);
+  const out = coords.filter((_, i) => i % step === 0);
+  if (out[out.length - 1] !== coords[coords.length - 1]) out.push(coords[coords.length - 1]);
+  return out;
 }
 
 function fmtDuration(seconds: number): string {
@@ -74,6 +86,7 @@ export default function WalkSummaryPage() {
   }
 
   const { elapsedSeconds, distanceKm, avgSpeedKmh } = state;
+  const route = state.coords ?? [];
   const distStr = distanceKm >= 0.05 ? `${distanceKm.toFixed(2)}` : '<0.05';
   const speedStr = avgSpeedKmh >= 0.5 ? `${avgSpeedKmh.toFixed(1)}` : '—';
   const paceStr = pace(distanceKm, elapsedSeconds);
@@ -81,10 +94,12 @@ export default function WalkSummaryPage() {
   const handleSave = async () => {
     setSaving(true);
     const now = Date.now();
+    const sampled = sampleRoute(route);
     const walkStats = {
       walkDurationMin: Math.round(elapsedSeconds / 60 * 10) / 10,
       walkDistanceKm: parseFloat(distanceKm.toFixed(3)),
       walkAvgSpeedKmh: parseFloat(avgSpeedKmh.toFixed(2)),
+      walkRoute: sampled.length > 1 ? sampled : undefined,
       timestamp: now,
     };
     const walkId = await logRoutine('walk', walkStats);
@@ -130,6 +145,18 @@ export default function WalkSummaryPage() {
             {dogIds && dogIds.length > 1 ? `${dogIds.length} dogs` : activeDog.name} · great job!
           </p>
         </div>
+
+        {/* Route map */}
+        {route.length > 1 && (
+          <div
+            className="rounded-2xl overflow-hidden mb-8"
+            style={{ height: 220, border: '1px solid oklch(1 0 0 / 8%)' }}
+          >
+            <Suspense fallback={<div className="w-full h-full" style={{ backgroundColor: '#e8e4dc' }} />}>
+              <WalkMap coords={route} completed />
+            </Suspense>
+          </div>
+        )}
 
         {/* Stats grid */}
         <div className="grid grid-cols-2 gap-3 mb-8">

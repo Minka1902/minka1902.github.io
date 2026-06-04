@@ -1,11 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { Camera, Loader2, Plus, Trash2 } from 'lucide-react';
-import { storage } from '@/lib/firebase';
+import { Plus, Trash2 } from 'lucide-react';
 import { useDogActions } from '@/hooks/useDog';
-import { useAuth } from '@/hooks/useAuth';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,11 +23,7 @@ interface Props {
 
 export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
   const { createDog, updateDog } = useDogActions();
-  const { user } = useAuth();
   const navigate = useNavigate();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [photoURL, setPhotoURL] = useState(initial?.photoURL ?? '');
-  const [photoUploading, setPhotoUploading] = useState(false);
   const [name, setName] = useState(initial?.name ?? '');
   const [breed, setBreed] = useState(initial?.breed ?? '');
   const [sex, setSex] = useState<Dog['sex']>(initial?.sex ?? 'unknown');
@@ -54,8 +46,6 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
     return { address: '' };
   });
   const [submitting, setSubmitting] = useState(false);
-  const [showPhotoUrl, setShowPhotoUrl] = useState(false);
-  const [photoUrlInput, setPhotoUrlInput] = useState('');
 
   const defaultQrVisibility = {
     showAddress: false, showPhone: false, showRescueOrg: false, showMedicalAlerts: false,
@@ -66,28 +56,11 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
   const updateFeeding = (i: number, field: keyof FeedingEntry, value: string) =>
     setFeedings(prev => prev.map((f, idx) => idx === i ? { ...f, [field]: value } : f));
 
-  const handlePhotoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-    setPhotoUploading(true);
-    try {
-      const ext = file.name.split('.').pop() ?? 'jpg';
-      const path = `dog-photos/${dogId ?? user.uid}_${Date.now()}.${ext}`;
-      const snap = await uploadBytes(storageRef(storage, path), file);
-      const url = await getDownloadURL(snap.ref);
-      setPhotoURL(url);
-    } finally {
-      setPhotoUploading(false);
-      e.target.value = '';
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     const data: DogFormFields = {
       name, breed: breed || undefined, sex, isMix,
-      photoURL: photoURL || undefined,
       weightKg: weightKg ? parseFloat(weightKg) : undefined,
       chipId: chipId || undefined,
       foodType: foodType || undefined,
@@ -110,55 +83,6 @@ export default function DogProfileForm({ initial, dogId, onSaved }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Photo */}
-      <div className="flex justify-center">
-        <div className="relative">
-          <Avatar className="h-24 w-24">
-            {photoURL ? <AvatarImage src={photoURL} alt="Dog photo" /> : null}
-            <AvatarFallback className="text-2xl">{name?.[0]?.toUpperCase() ?? '🐾'}</AvatarFallback>
-          </Avatar>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={photoUploading}
-            className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md hover:opacity-90 transition-opacity disabled:opacity-50"
-            aria-label="Upload photo"
-          >
-            {photoUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
-          </button>
-          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoFile} />
-        </div>
-      </div>
-      <div className="flex flex-col items-center gap-1.5 mt-2">
-        <button
-          type="button"
-          onClick={() => setShowPhotoUrl(v => !v)}
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          {showPhotoUrl ? 'Hide URL input' : 'Or enter URL'}
-        </button>
-        {showPhotoUrl && (
-          <div className="flex w-full max-w-xs gap-2">
-            <Input
-              type="url"
-              placeholder="https://example.com/photo.jpg"
-              value={photoUrlInput}
-              onChange={e => setPhotoUrlInput(e.target.value)}
-              onBlur={() => { if (photoUrlInput.trim()) setPhotoURL(photoUrlInput.trim()); }}
-              className="text-xs"
-            />
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => { if (photoUrlInput.trim()) { setPhotoURL(photoUrlInput.trim()); setShowPhotoUrl(false); } }}
-            >
-              Use
-            </Button>
-          </div>
-        )}
-      </div>
-
       {/* Basic info */}
       <div className="space-y-4">
         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Basic Info</p>

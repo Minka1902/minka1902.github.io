@@ -1,5 +1,6 @@
-import { Trash2, Pencil, CheckCircle2 } from 'lucide-react';
+import { Trash2, Pencil, CheckCircle2, CircleCheckBig } from 'lucide-react';
 import { fmtDate } from '@/lib/utils';
+import { isMedicationFinished } from '@/types';
 import type { MedicalRecord, Vaccination, Medication, Allergy, Diagnosis, Surgery, FleaTick } from '@/types';
 
 interface Props {
@@ -29,20 +30,26 @@ const URGENCY_STYLES = {
 };
 
 export default function MedicalRecordCard({ record, onDelete, onEdit, onConfirm, categoryColor }: Props) {
+  // A finished medication course supersedes the due-date urgency badge.
+  const finished = record.category === 'medication' && isMedicationFinished(record as Medication);
   const urgency = getUrgency(record);
   const style = URGENCY_STYLES[urgency];
 
   return (
     <div className="group relative flex rounded-2xl border bg-card overflow-hidden transition-all hover:shadow-sm">
-      {/* Left accent bar — 3px, category color */}
-      <div className="w-[3px] shrink-0" style={{ backgroundColor: categoryColor ?? 'hsl(var(--border))' }} />
+      {/* Left accent bar — 3px, category color (transparent once a course is finished) */}
+      <div className="w-[3px] shrink-0" style={{ backgroundColor: finished ? 'transparent' : (categoryColor ?? 'hsl(var(--border))') }} />
 
       {/* Content */}
       <div className="flex flex-col gap-1 px-3.5 py-3 flex-1 min-w-0">
-        {/* Row 1: title + urgency badge */}
+        {/* Row 1: title + urgency / finished badge */}
         <div className="flex items-start justify-between gap-2">
           <p className="text-sm font-semibold leading-snug flex-1 min-w-0">{record.title}</p>
-          {urgency !== 'none' && (
+          {finished ? (
+            <span className="shrink-0 flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
+              <CircleCheckBig className="h-3 w-3" /> Finished
+            </span>
+          ) : urgency !== 'none' && (
             <span className={`shrink-0 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${style.badge}`}>
               {style.label}
             </span>
@@ -82,7 +89,7 @@ export default function MedicalRecordCard({ record, onDelete, onEdit, onConfirm,
             {(record as Medication).dosage && (
               <span className="text-xs text-muted-foreground">· {(record as Medication).dosage}</span>
             )}
-            {(record as Medication).isActive && (
+            {(record as Medication).isActive && !finished && (
               <span className="text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-full">Active</span>
             )}
           </div>

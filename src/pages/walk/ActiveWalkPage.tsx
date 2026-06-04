@@ -48,6 +48,7 @@ export default function ActiveWalkPage() {
         distanceKm: tracker.distanceKm,
         avgSpeedKmh: tracker.avgSpeedKmh,
         dogIds,
+        coords: tracker.coords.map(c => ({ lat: c.lat, lng: c.lng })),
       },
     });
   };

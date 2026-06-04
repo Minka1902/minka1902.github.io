@@ -135,11 +135,35 @@ export interface GeoPoint {
   label?: string;            // human-readable location (e.g. "Austin, TX")
 }
 
+// Weekly opening hours, one entry per weekday (0 = Sunday … 6 = Saturday).
+// `null` means closed that day.
+export interface DayHours {
+  open: string;              // "HH:MM"
+  close: string;             // "HH:MM"
+}
+export type WeeklyAvailability = (DayHours | null)[]; // length 7
+
+export interface BusySlot {
+  start: number;
+  end: number;
+}
+
+// Business types that interact directly with a dog and may therefore be added to
+// a dog's care team. Retail-only types (pet shop, breeder…) are excluded.
+export const TEAM_ELIGIBLE_BUSINESS_TYPES: BusinessType[] = [
+  'dog_walker', 'vet', 'trainer', 'chiro', 'grooming_salon', 'daycare', 'boarding',
+];
+
+export function isTeamEligibleBusiness(type: BusinessType): boolean {
+  return TEAM_ELIGIBLE_BUSINESS_TYPES.includes(type);
+}
+
 export interface Business {
   id: string;
   name: string;
   type: BusinessType;
   logoURL?: string;
+  registrationId?: string;     // official business / tax registration number
   description?: string;
   email?: string;
   phone?: string;
@@ -154,6 +178,8 @@ export interface Business {
   bookable?: boolean;          // customers may self-book appointments online
   services?: string[];         // offered services, shown to customers
   location?: GeoPoint;         // for "businesses near me" search
+  availability?: WeeklyAvailability; // weekly opening hours for online booking
+  slotMinutes?: number;        // appointment slot length (default 60)
   createdAt: number;
   updatedAt: number;
 }
@@ -174,8 +200,14 @@ export interface BusinessDirectoryEntry {
   location?: GeoPoint;
   bookable: boolean;
   services?: string[];
+  availability?: WeeklyAvailability; // weekly opening hours (for slot generation)
+  slotMinutes?: number;
+  busySlots?: BusySlot[];            // upcoming booked intervals (to grey out slots)
   updatedAt: number;
 }
+
+export const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+export const DEFAULT_SLOT_MINUTES = 60;
 
 export interface BusinessRole {
   id: string;

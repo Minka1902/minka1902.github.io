@@ -82,7 +82,14 @@ service cloud.firestore {
 
     match /businesses/{bid} {
       allow read:   if isBizMember(bid);
-      allow create: if request.auth != null && request.resource.data.ownerUserId == request.auth.uid;
+      // The business model requires a logo, a registration/business ID and an
+      // exact location (lat/lng) at creation.
+      allow create: if request.auth != null
+        && request.resource.data.ownerUserId == request.auth.uid
+        && request.resource.data.registrationId is string && request.resource.data.registrationId.size() > 0
+        && request.resource.data.logoURL is string && request.resource.data.logoURL.size() > 0
+        && request.resource.data.location.lat is number
+        && request.resource.data.location.lng is number;
       allow update: if hasCap(bid, 'manage_business');
       allow delete: if isBizOwner(bid);
 

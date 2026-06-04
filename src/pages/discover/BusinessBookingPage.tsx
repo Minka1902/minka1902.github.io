@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, CalendarPlus, CheckCircle2, Globe, Mail, MapPin, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,11 +9,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useDirectoryEntry, useBooking } from '@/hooks/useDirectory';
-import { BUSINESS_TYPES } from '@/types';
+import { generateSlots, dayStartOffset } from '@/lib/availability';
+import { BUSINESS_TYPES, DEFAULT_SLOT_MINUTES } from '@/types';
 
 const TYPE_LABELS = Object.fromEntries(BUSINESS_TYPES.map(t => [t.type, t.label]));
 const DURATIONS = [30, 45, 60, 90, 120];
 const OTHER = '__other__';
+const DAYS_AHEAD = 14;
 
 function toLocalMin(): string {
   const d = new Date(Date.now() + 60 * 60 * 1000); // default: an hour from now
@@ -21,6 +23,9 @@ function toLocalMin(): string {
   const off = d.getTimezoneOffset() * 60000;
   return new Date(d.getTime() - off).toISOString().slice(0, 16);
 }
+
+const fmtSlot = (ms: number) =>
+  new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
 export default function BusinessBookingPage() {
   const { bid } = useParams<{ bid: string }>();
@@ -31,6 +36,8 @@ export default function BusinessBookingPage() {
   const [customService, setCustomService] = useState('');
   const [start, setStart] = useState(toLocalMin());
   const [duration, setDuration] = useState(60);
+  const [dayOffset, setDayOffset] = useState(0);
+  const [slotStart, setSlotStart] = useState<number | null>(null);
   const [petName, setPetName] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -41,17 +48,31 @@ export default function BusinessBookingPage() {
   const usingCustom = services.length === 0 || service === OTHER;
   const effectiveService = usingCustom ? customService.trim() : service;
 
+  // When the business publishes opening hours, customers pick a free slot rather
+  // than a raw date/time — so they can only book when the business is open & free.
+  const hasAvailability = !!entry?.availability?.some(Boolean);
+  const slotMin = entry?.slotMinutes ?? DEFAULT_SLOT_MINUTES;
+  const slots = useMemo(
+    () => (hasAvailability
+      ? generateSlots(dayStartOffset(dayOffset), entry?.availability, slotMin, entry?.busySlots ?? [])
+      : []),
+    [hasAvailability, dayOffset, entry?.availability, entry?.busySlots, slotMin],
+  );
+
+  const canSubmit = !!effectiveService && (hasAvailability ? slotStart !== null : !!start);
+
   const handleBook = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bid || !effectiveService || !start) return;
+    if (!bid || !canSubmit) return;
     setSubmitting(true);
     setError(null);
     try {
-      const startAt = new Date(start).getTime();
+      const startAt = hasAvailability ? slotStart! : new Date(start).getTime();
+      const endAt = hasAvailability ? startAt + slotMin * 60_000 : startAt + duration * 60_000;
       await book(bid, {
         serviceLabel: effectiveService,
         startAt,
-        endAt: startAt + duration * 60 * 1000,
+        endAt,
         petName: petName.trim() || undefined,
         notes: notes.trim() || undefined,
       });
@@ -148,21 +169,64 @@ export default function BusinessBookingPage() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="book-start">Date &amp; time <span className="text-destructive">*</span></Label>
-                  <Input id="book-start" type="datetime-local" value={start} onChange={e => setStart(e.target.value)} required />
+              {hasAvailability ? (
+                <div className="space-y-2">
+                  <Label>Pick a free slot <span className="text-destructive">*</span></Label>
+                  {/* Day selector */}
+                  <div className="flex gap-1.5 overflow-x-auto pb-1">
+                    {Array.from({ length: DAYS_AHEAD }, (_, i) => i).map(off => {
+                      const d = new Date(dayStartOffset(off));
+                      const active = off === dayOffset;
+                      return (
+                        <button
+                          key={off}
+                          type="button"
+                          onClick={() => { setDayOffset(off); setSlotStart(null); }}
+                          className={`flex shrink-0 flex-col items-center rounded-lg border px-2.5 py-1.5 text-xs ${active ? 'border-primary bg-primary/10 text-primary' : 'text-muted-foreground'}`}
+                        >
+                          <span>{d.toLocaleDateString([], { weekday: 'short' })}</span>
+                          <span className="font-semibold">{d.getDate()}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {/* Slot grid */}
+                  {slots.length === 0 ? (
+                    <p className="rounded-lg bg-muted/60 px-3 py-2 text-sm text-muted-foreground">
+                      No free slots that day. Try another date.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                      {slots.map(s => (
+                        <button
+                          key={s.start}
+                          type="button"
+                          onClick={() => setSlotStart(s.start)}
+                          className={`rounded-lg border py-1.5 text-sm ${slotStart === s.start ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+                        >
+                          {fmtSlot(s.start)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Duration</Label>
-                  <Select value={String(duration)} onValueChange={v => setDuration(Number(v))}>
-                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {DURATIONS.map(d => <SelectItem key={d} value={String(d)}>{d} min</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="book-start">Date &amp; time <span className="text-destructive">*</span></Label>
+                    <Input id="book-start" type="datetime-local" value={start} onChange={e => setStart(e.target.value)} required />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Duration</Label>
+                    <Select value={String(duration)} onValueChange={v => setDuration(Number(v))}>
+                      <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {DURATIONS.map(d => <SelectItem key={d} value={String(d)}>{d} min</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="space-y-1.5">
                 <Label htmlFor="book-pet">Pet name</Label>
@@ -176,7 +240,7 @@ export default function BusinessBookingPage() {
 
               {error && <p className="text-sm text-destructive">{error}</p>}
 
-              <Button type="submit" className="w-full" disabled={submitting || !effectiveService || !start}>
+              <Button type="submit" className="w-full" disabled={submitting || !canSubmit}>
                 {submitting ? 'Requesting…' : 'Request appointment'}
               </Button>
             </form>
