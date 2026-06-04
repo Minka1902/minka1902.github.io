@@ -27,7 +27,6 @@ export interface HomeLocation {
 export interface Dog {
   id: string;
   name: string;
-  photoURL?: string;
   breed?: string;
   isMix: boolean;
   sex: 'male' | 'female' | 'unknown';
@@ -47,12 +46,16 @@ export interface Dog {
 }
 
 export interface DogHuman {
-  userId: string;
+  userId: string;            // for businesses: synthetic id `biz_<businessId>`
   displayName: string;
   email: string;
   role: HumanRole;
   approvedAt: number;
   approvedBy: string;
+  // Set when the team member is a business (dog walker, vet, …) rather than a person.
+  isBusiness?: boolean;
+  businessId?: string;
+  businessType?: string;
 }
 
 export interface PendingHuman {

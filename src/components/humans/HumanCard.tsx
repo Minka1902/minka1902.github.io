@@ -1,6 +1,6 @@
-import { X } from 'lucide-react';
+import { X, Building2 } from 'lucide-react';
 import RoleBadge from './RoleBadge';
-import type { DogHuman } from '@/types';
+import { BUSINESS_TYPES, type DogHuman } from '@/types';
 
 interface Props {
   human: DogHuman;
@@ -8,15 +8,20 @@ interface Props {
   onRevoke?: (userId: string) => void;
 }
 
+const BIZ_TYPE_LABELS = Object.fromEntries(BUSINESS_TYPES.map(t => [t.type, t.label]));
+
 export default function HumanCard({ human, canRevoke, onRevoke }: Props) {
+  const subtitle = human.isBusiness
+    ? (human.businessType ? `${BIZ_TYPE_LABELS[human.businessType] ?? 'Business'} · Business` : 'Business')
+    : human.email;
   return (
     <div className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3 group">
       <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary shrink-0">
-        {human.displayName.slice(0, 2).toUpperCase()}
+        {human.isBusiness ? <Building2 className="h-4 w-4" /> : human.displayName.slice(0, 2).toUpperCase()}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold truncate capitalize">{human.displayName}</p>
-        <p className="text-xs text-muted-foreground truncate">{human.email}</p>
+        <p className="text-xs text-muted-foreground truncate">{subtitle}</p>
       </div>
       <RoleBadge role={human.role} />
       {canRevoke && onRevoke && (

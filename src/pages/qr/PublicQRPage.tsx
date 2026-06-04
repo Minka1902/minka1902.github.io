@@ -36,9 +36,6 @@ export default function PublicQRPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="max-w-sm w-full text-center space-y-4">
-        {card.photoURL && (
-          <img src={card.photoURL} alt={card.name} className="w-32 h-32 rounded-full object-cover mx-auto" />
-        )}
         <h1 className="text-3xl font-bold capitalize">{card.name}</h1>
         <p className="text-muted-foreground">If found, please contact:</p>
         <div className="space-y-2 text-sm">

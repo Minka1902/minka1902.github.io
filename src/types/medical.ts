@@ -28,6 +28,7 @@ export interface Medication extends MedicalBase {
   dosage?: string;
   frequency?: string;
   isActive: boolean;
+  endDate?: number;               // course end — after this the medication auto-finishes
   administrationTimes?: string[]; // HH:MM strings, e.g. ['08:00', '20:00']
 }
 export interface FleaTick extends MedicalBase { category: 'flea_tick'; productName?: string; }
@@ -48,3 +49,8 @@ export interface Surgery extends MedicalBase {
   veterinarian?: string;
 }
 export type MedicalRecord = Vaccination | Medication | FleaTick | Deworming | Allergy | Diagnosis | Surgery;
+
+/** A medication is "finished" once its course end date has passed. */
+export function isMedicationFinished(med: Pick<Medication, 'endDate'>): boolean {
+  return med.endDate !== undefined && med.endDate < Date.now();
+}

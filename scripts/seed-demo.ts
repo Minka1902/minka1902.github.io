@@ -191,12 +191,23 @@ async function seedBusinesses(): Promise<void> {
   for (const biz of businesses) {
     const staffUids = biz.staff.map((_, i) => `${biz.id}-staff-${i + 1}`);
 
+    // Standard weekly hours for bookable businesses (closed Sat/Sun for the vet).
+    const weekHours = biz.bookable
+      ? [null,
+         { open: '09:00', close: '17:00' }, { open: '09:00', close: '17:00' },
+         { open: '09:00', close: '17:00' }, { open: '09:00', close: '17:00' },
+         { open: '09:00', close: '15:00' }, null]
+      : undefined;
+    const slotMinutes = biz.bookable ? 60 : undefined;
+
     // Business doc — owner is Minka; staffUserIds includes owner + all staff.
     await ab.set(db.collection('businesses').doc(biz.id), {
       name: biz.name, type: biz.type, description: biz.description, email: biz.email,
-      currency: 'ILS', ownerUserId: MINKA_UID, staffUserIds: [MINKA_UID, ...staffUids],
+      registrationId: `IL-${biz.id.slice(0, 4).toUpperCase()}-${1000 + businesses.indexOf(biz)}`,
+      logoURL: '', currency: 'ILS', ownerUserId: MINKA_UID, staffUserIds: [MINKA_UID, ...staffUids],
       requireMfa: false, listed: true, bookable: biz.bookable,
       modules: biz.modules, services: biz.services, location: biz.location,
+      availability: weekHours, slotMinutes,
       createdAt: now, updatedAt: now,
     });
 
@@ -204,7 +215,7 @@ async function seedBusinesses(): Promise<void> {
     await ab.set(db.collection('businessDirectory').doc(biz.id), {
       name: biz.name, type: biz.type, description: biz.description, email: biz.email,
       city: biz.location.label, location: biz.location, bookable: biz.bookable,
-      services: biz.services, updatedAt: now,
+      services: biz.services, availability: weekHours, slotMinutes, updatedAt: now,
     });
 
     // Roles — system owner role + custom roles.

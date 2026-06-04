@@ -58,7 +58,7 @@ export default function Topbar({ onMenuClick }: Props) {
               {dogs.map(d => (
                 <DropdownMenuItem
                   key={d.id}
-                  onClick={() => setActiveDog(d)}
+                  onClick={() => { setActiveDog(d); navigate('/'); }}
                   className={d.id === activeDog?.id ? 'font-semibold text-primary' : ''}
                 >
                   <span className="capitalize">{d.name}</span>

@@ -22,7 +22,6 @@ export function useQR(dogId: string) {
     const card: PublicDogCard = {
       dogId,
       name: dogData.name,
-      photoURL: dogData.photoURL,
       mainHumanName: user!.displayName,
       phone: config.showPhone ? (user!.phoneNumber ?? undefined) : undefined,
       address: config.showAddress ? dogData.homeAddress?.address : undefined,

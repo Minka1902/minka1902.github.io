@@ -50,11 +50,7 @@ export default function DogOverviewCard({ dog, showQuickLog }: DogOverviewCardPr
           className="shrink-0 w-14 h-14 md:w-[68px] md:h-[68px] rounded-xl md:rounded-2xl overflow-hidden flex items-end justify-center"
           style={{ background: 'oklch(0.95 0.06 65)' }}
         >
-          {dog.photoURL ? (
-            <img src={dog.photoURL} alt={dog.name} className="w-full h-full object-cover" />
-          ) : (
-            <LabDog size={56} />
-          )}
+          <LabDog size={56} />
         </div>
 
         {/* Info */}

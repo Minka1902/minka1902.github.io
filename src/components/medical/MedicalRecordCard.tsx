@@ -1,6 +1,6 @@
-import { Trash2, Pencil, CalendarClock, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Trash2, Pencil, CalendarClock, AlertTriangle, CheckCircle, CircleCheckBig } from 'lucide-react';
 import { fmtDate } from '@/lib/utils';
-import type { MedicalRecord } from '@/types';
+import { isMedicationFinished, type MedicalRecord, type Medication } from '@/types';
 
 interface Props {
   record: MedicalRecord;
@@ -27,13 +27,15 @@ const URGENCY_STYLES = {
 };
 
 export default function MedicalRecordCard({ record, onDelete, onEdit }: Props) {
+  // A finished medication course supersedes the due-date urgency badge.
+  const finished = record.category === 'medication' && isMedicationFinished(record as Medication);
   const urgency = getUrgency(record);
   const style = URGENCY_STYLES[urgency];
 
   return (
     <div className="group relative flex rounded-xl border bg-card overflow-hidden hover:bg-muted/20 transition-colors">
       {/* Left urgency bar */}
-      <div className="w-1 shrink-0" style={{ backgroundColor: style.bar }} />
+      <div className="w-1 shrink-0" style={{ backgroundColor: finished ? 'transparent' : style.bar }} />
 
       <div className="flex flex-1 items-start gap-3 px-4 py-3 min-w-0">
         <div className="flex-1 min-w-0 space-y-1">
@@ -54,7 +56,11 @@ export default function MedicalRecordCard({ record, onDelete, onEdit }: Props) {
           {record.notes && <p className="text-xs text-muted-foreground/70 truncate">{record.notes}</p>}
         </div>
 
-        {urgency !== 'none' && (
+        {finished ? (
+          <span className="shrink-0 flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border bg-muted text-muted-foreground border-border">
+            <CircleCheckBig className="h-3 w-3" /> Finished
+          </span>
+        ) : urgency !== 'none' && (
           <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full border ${style.badge}`}>
             {style.label}
           </span>

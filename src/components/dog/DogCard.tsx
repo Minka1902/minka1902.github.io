@@ -15,13 +15,9 @@ export default function DogCard({ dog, isMain }: Props) {
     <Link to={`/dogs/${dog.id}/edit`}>
       <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
         <CardContent className="flex items-center gap-4 p-4">
-          {dog.photoURL ? (
-            <img src={dog.photoURL} alt={dog.name} className="h-12 w-12 rounded-full object-cover" />
-          ) : (
-            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
-              {initials}
-            </div>
-          )}
+          <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
+            {initials}
+          </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <p className="font-semibold truncate capitalize">{dog.name}</p>

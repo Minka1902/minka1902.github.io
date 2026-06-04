@@ -5,16 +5,18 @@ import { useDog } from '@/contexts/DogContext';
 import { ROUTINE_TYPES } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { Check, X } from 'lucide-react';
+import DogSelectForWalkDialog from '@/components/walk/DogSelectForWalkDialog';
 import type { RoutineType } from '@/types';
 
 export default function QuickLogBar() {
   const navigate = useNavigate();
-  const { activeDog } = useDog();
+  const { activeDog, dogs } = useDog();
   const { logRoutine } = useRoutine(activeDog?.id ?? '');
   const [logging, setLogging] = useState<RoutineType | null>(null);
   const [customMode, setCustomMode] = useState(false);
   const [customLabel, setCustomLabel] = useState('');
   const [savingCustom, setSavingCustom] = useState(false);
+  const [showWalkPicker, setShowWalkPicker] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -23,7 +25,12 @@ export default function QuickLogBar() {
 
   const handleLog = async (type: RoutineType) => {
     if (!activeDog) return;
-    if (type === 'walk') { navigate('/walk/active'); return; }
+    // Starting a walk: when there's more than one dog, ask who's coming first.
+    if (type === 'walk') {
+      if (dogs.length > 1) setShowWalkPicker(true);
+      else navigate('/walk/active', { state: { dogIds: [activeDog.id] } });
+      return;
+    }
     if (type === 'custom') { setCustomMode(true); return; }
     if (logging) return;
     setLogging(type);
@@ -87,6 +94,8 @@ export default function QuickLogBar() {
   }
 
   return (
+    <>
+    {showWalkPicker && <DogSelectForWalkDialog onClose={() => setShowWalkPicker(false)} />}
     <div className="flex flex-wrap justify-center gap-2">
       {ROUTINE_TYPES.map(({ type, label, icon }) => (
         <button
@@ -107,5 +116,6 @@ export default function QuickLogBar() {
         </button>
       ))}
     </div>
+    </>
   );
 }

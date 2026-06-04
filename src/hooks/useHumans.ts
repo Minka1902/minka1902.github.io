@@ -3,9 +3,18 @@ import { onSnapshot, setDoc, doc, writeBatch, deleteDoc, arrayUnion, arrayRemove
 import { db } from '@/lib/firebase';
 import { humansCol, pendingCol } from '@/lib/firestore';
 import { useAuth } from '@/hooks/useAuth';
-import type { DogHuman, PendingHuman, HumanRole } from '@/types';
+import { stripUndefined } from '@/lib/utils';
+import type { DogHuman, PendingHuman, HumanRole, BusinessType } from '@/types';
+
+// Map a service business to the closest care-team role.
+function roleForBusiness(type: BusinessType): HumanRole {
+  if (type === 'dog_walker') return 'walker';
+  if (type === 'trainer') return 'trainer';
+  return 'caregiver';
+}
 
 export function useHumans(dogId: string) {
+  const { user } = useAuth();
   const [humans, setHumans] = useState<DogHuman[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -25,7 +34,24 @@ export function useHumans(dogId: string) {
     await updateDoc(doc(db, 'dogs', dogId), { memberUserIds: arrayRemove(userId) }).catch(console.error);
   };
 
-  return { humans, loading, revokeHuman };
+  // Add a service business (dog walker, vet, …) to the dog's care team. Stored in
+  // the same humans subcollection under a synthetic `biz_<id>` id.
+  const addBusinessToTeam = async (biz: { id: string; name: string; type: BusinessType }) => {
+    const id = `biz_${biz.id}`;
+    await setDoc(doc(db, 'dogs', dogId, 'humans', id), stripUndefined({
+      userId: id,
+      displayName: biz.name,
+      email: '',
+      role: roleForBusiness(biz.type),
+      isBusiness: true,
+      businessId: biz.id,
+      businessType: biz.type,
+      approvedAt: Date.now(),
+      approvedBy: user!.uid,
+    } as DogHuman));
+  };
+
+  return { humans, loading, revokeHuman, addBusinessToTeam };
 }
 
 export function usePendingHumans(dogId: string) {
