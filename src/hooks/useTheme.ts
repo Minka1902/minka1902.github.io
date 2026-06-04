@@ -2,14 +2,16 @@ import { useEffect, useState } from 'react';
 
 type Theme = 'light' | 'dark';
 
-export type ColorTheme = 'warm-cream' | 'white-sage' | 'neutral-slate';
-export const COLOR_THEMES: ColorTheme[] = ['warm-cream', 'white-sage', 'neutral-slate'];
+export type ColorTheme = 'warm-cream' | 'white-sage' | 'neutral-slate' | 'royal-purple' | 'ruby-red';
+export const COLOR_THEMES: ColorTheme[] = ['warm-cream', 'white-sage', 'neutral-slate', 'royal-purple', 'ruby-red'];
 
 const COLOR_THEME_KEY = 'packops_color_theme';
 const THEME_CLASSES: Record<ColorTheme, string> = {
   'warm-cream': 'theme-warm-cream',
   'white-sage': 'theme-white-sage',
   'neutral-slate': 'theme-neutral-slate',
+  'royal-purple': 'theme-royal-purple',
+  'ruby-red': 'theme-ruby-red',
 };
 
 function getInitialTheme(): Theme {
