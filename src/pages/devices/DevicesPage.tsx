@@ -5,6 +5,7 @@ import { useDevices } from '@/hooks/useDevice';
 import DeviceCard from '@/components/devices/DeviceCard';
 import DeviceLinkForm from '@/components/devices/DeviceLinkForm';
 import DeviceActivitySummary from '@/components/devices/DeviceActivitySummary';
+import DeviceLocationPanel from '@/components/devices/DeviceLocationPanel';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -35,7 +36,7 @@ export default function DevicesPage() {
           </div>
           <div className="text-center">
             <p className="font-semibold">No devices linked</p>
-            <p className="text-sm text-muted-foreground mt-1">Link a GPS collar or activity tracker to see <span className="capitalize">{activeDog.name}</span>'s data here.</p>
+            <p className="text-sm text-muted-foreground mt-1">Link an Apple AirTag, GPS collar or activity tracker to see <span className="capitalize">{activeDog.name}</span>'s location and data here.</p>
           </div>
           <Button variant="outline" size="sm" onClick={() => setShowForm(true)} className="gap-1.5">
             <PlusCircle className="h-4 w-4" /> Link First Device
@@ -46,16 +47,19 @@ export default function DevicesPage() {
           {devices.map(device => (
             <div key={device.id} className="space-y-2">
               <DeviceCard device={device} onUnlink={unlinkDevice} />
-              <Card className="border-dashed">
-                <CardHeader className="pb-1 pt-3 px-4">
-                  <CardTitle className="text-xs font-medium text-muted-foreground">Latest Activity</CardTitle>
-                </CardHeader>
-                <CardContent className="pb-3 px-4">
-                  {getStubActivity(device.id).map(a => (
-                    <DeviceActivitySummary key={a.timestamp} activity={a} />
-                  ))}
-                </CardContent>
-              </Card>
+              <DeviceLocationPanel device={device} dogId={dogId} dogName={activeDog.name} />
+              {device.provider !== 'airtag' && (
+                <Card className="border-dashed">
+                  <CardHeader className="pb-1 pt-3 px-4">
+                    <CardTitle className="text-xs font-medium text-muted-foreground">Latest Activity</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pb-3 px-4">
+                    {getStubActivity(device.id).map(a => (
+                      <DeviceActivitySummary key={a.timestamp} activity={a} />
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
             </div>
           ))}
         </div>

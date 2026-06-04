@@ -10,6 +10,7 @@ interface Props {
 }
 
 const PROVIDER_LABELS: Record<string, string> = {
+  airtag: 'Apple AirTag',
   fi: 'Fi',
   whistle: 'Whistle',
   tractive: 'Tractive',

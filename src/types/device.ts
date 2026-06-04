@@ -1,4 +1,12 @@
-export type DeviceProvider = 'fi' | 'whistle' | 'tractive' | 'link_ak' | 'other';
+export type DeviceProvider = 'airtag' | 'fi' | 'whistle' | 'tractive' | 'link_ak' | 'other';
+
+export interface DeviceLocation {
+  lat: number;
+  lng: number;
+  address?: string;
+  updatedAt: number;
+  updatedByName?: string;
+}
 
 export interface Device {
   id: string;
@@ -12,6 +20,8 @@ export interface Device {
   lastSyncAt?: number;
   batteryPercent?: number;
   isActive: boolean;
+  /** Last-known location of the dog reported through this device. */
+  lastLocation?: DeviceLocation;
 }
 
 export interface DeviceActivity {

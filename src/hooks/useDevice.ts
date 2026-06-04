@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { addDoc, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
+import { addDoc, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { devicesCol } from '@/lib/firestore';
 import { useAuth } from '@/hooks/useAuth';
-import type { Device, DeviceActivity } from '@/types';
+import { stripUndefined } from '@/lib/utils';
+import type { Device, DeviceActivity, DeviceLocation } from '@/types';
 
 export function useDevices(dogId: string) {
   const { user } = useAuth();
@@ -30,6 +31,25 @@ export function useDevices(dogId: string) {
     await deleteDoc(doc(db, 'dogs', dogId, 'devices', deviceId));
   };
 
+  // Record the dog's last-known location for a device. AirTags have no public
+  // API, so this is updated manually (map pin or the phone's current GPS).
+  const updateDeviceLocation = async (
+    deviceId: string,
+    loc: Pick<DeviceLocation, 'lat' | 'lng' | 'address'>,
+  ) => {
+    const lastLocation: DeviceLocation = stripUndefined({
+      lat: loc.lat,
+      lng: loc.lng,
+      address: loc.address,
+      updatedAt: Date.now(),
+      updatedByName: user?.displayName,
+    }) as DeviceLocation;
+    await updateDoc(doc(db, 'dogs', dogId, 'devices', deviceId), {
+      lastLocation,
+      lastSyncAt: Date.now(),
+    });
+  };
+
   const getStubActivity = (deviceId: string): DeviceActivity[] => [
     {
       deviceId,
@@ -40,5 +60,5 @@ export function useDevices(dogId: string) {
     },
   ];
 
-  return { devices, linkDevice, unlinkDevice, getStubActivity };
+  return { devices, linkDevice, unlinkDevice, updateDeviceLocation, getStubActivity };
 }

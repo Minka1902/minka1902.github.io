@@ -12,7 +12,7 @@
           document.documentElement.classList.add('dark');
         }
         var ct = localStorage.getItem('packops_color_theme');
-        var validThemes = ['warm-cream', 'white-sage', 'neutral-slate'];
+        var validThemes = ['warm-cream', 'white-sage', 'neutral-slate', 'royal-purple', 'ruby-red'];
         if (ct && validThemes.indexOf(ct) !== -1 && ct !== 'warm-cream') {
           document.documentElement.classList.add('theme-' + ct);
         }

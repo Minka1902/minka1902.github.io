@@ -21,6 +21,8 @@ const COLOR_THEME_META: Record<ColorTheme, { label: string; bg: string; primary:
   'warm-cream':     { label: 'Warm Cream',     bg: '#f5e8d0', primary: '#c17d3c' },
   'white-sage':     { label: 'White & Sage',   bg: '#f0f7f0', primary: '#3d8a5a' },
   'neutral-slate':  { label: 'Neutral & Slate', bg: '#f0f2f7', primary: '#4a6fa5' },
+  'royal-purple':   { label: 'Royal Purple',   bg: '#f2ecfb', primary: '#7c3aed' },
+  'ruby-red':       { label: 'Ruby Red',       bg: '#fbecec', primary: '#d61f3a' },
 };
 
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
