@@ -30,6 +30,7 @@ import {
   type Stay, type StayDailyNote, type StayStatus,
   type BusinessService,
   computePurchaseOrderTotal, type PurchaseOrder, type Supplier,
+  type Shift, type TimeOffRequest, type TimeOffStatus,
 } from '@/types';
 import { fullDates, hasCapacityForRange, todayStr } from '@/lib/occupancy';
 
@@ -667,6 +668,46 @@ export function useServices(bid: string) {
     void refreshServiceMenu(bid);
   };
   return { services, loading, createService, updateService, deleteService };
+}
+
+// ─── Staff shifts & time off ──────────────────────────────────────────────────
+
+export function useShifts(bid: string) {
+  const { items: shifts, loading } = useCollection<Shift>(
+    () => (bid ? bizShiftsCol(bid) : null), [bid], [orderBy('date', 'asc')],
+  );
+  const createShift = async (data: Omit<Shift, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = Date.now();
+    return addDoc(bizShiftsCol(bid), stripUndefined({ ...data, createdAt: now, updatedAt: now }));
+  };
+  const updateShift = async (id: string, data: Partial<Shift>) => {
+    await updateDoc(doc(bizShiftsCol(bid), id), stripUndefined({ ...data, updatedAt: Date.now() }));
+  };
+  const deleteShift = async (id: string) => { await deleteDoc(doc(bizShiftsCol(bid), id)); };
+  return { shifts, loading, createShift, updateShift, deleteShift };
+}
+
+export function useTimeOff(bid: string) {
+  const { user } = useAuth();
+  const { items: requests, loading } = useCollection<TimeOffRequest>(
+    () => (bid ? bizTimeOffCol(bid) : null), [bid], [orderBy('startDate', 'asc')],
+  );
+  // Staff file their own requests (rules enforce staffUserId == uid).
+  const requestTimeOff = async (data: Pick<TimeOffRequest, 'startDate' | 'endDate' | 'reason'>) => {
+    const now = Date.now();
+    return addDoc(bizTimeOffCol(bid), stripUndefined({
+      ...data,
+      staffUserId: user!.uid,
+      staffName: user!.displayName ?? 'Staff',
+      status: 'requested',
+      createdAt: now, updatedAt: now,
+    } as TimeOffRequest));
+  };
+  const decideTimeOff = async (id: string, status: TimeOffStatus) => {
+    await updateDoc(doc(bizTimeOffCol(bid), id), { status, updatedAt: Date.now() });
+  };
+  const deleteTimeOff = async (id: string) => { await deleteDoc(doc(bizTimeOffCol(bid), id)); };
+  return { requests, loading, requestTimeOff, decideTimeOff, deleteTimeOff };
 }
 
 // ─── Purchasing / supplier orders ─────────────────────────────────────────────

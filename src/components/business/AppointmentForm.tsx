@@ -4,7 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useCustomers, usePets, useBusinessStaff, useServices } from '@/hooks/useBusiness';
+import { useCustomers, usePets, useBusinessStaff, useServices, useShifts } from '@/hooks/useBusiness';
+import { isOnShift } from '@/lib/shifts';
 import type { Appointment } from '@/types';
 
 const CUSTOM_SERVICE = '__custom__';
@@ -35,6 +36,7 @@ export default function AppointmentForm({ bid, initial, onSubmit, onCancel }: Pr
   const { customers } = useCustomers(bid);
   const { staff } = useBusinessStaff(bid);
   const { services } = useServices(bid);
+  const { shifts } = useShifts(bid);
   const [customerId, setCustomerId] = useState(initial?.customerId ?? '');
   const { pets } = usePets(bid, customerId || undefined);
   const [petId, setPetId] = useState(initial?.petId ?? '');
@@ -52,6 +54,10 @@ export default function AppointmentForm({ bid, initial, onSubmit, onCancel }: Pr
   const selectedStaff = useMemo(() => staff.find(s => s.userId === assignedStaffId), [staff, assignedStaffId]);
 
   const valid = customerId && serviceLabel.trim() && start && end;
+
+  // Soft warning only — the rota is advisory, assignment is never blocked.
+  const offShift = !!assignedStaffId && !!start && shifts.length > 0 &&
+    !isOnShift(shifts, assignedStaffId, fromLocalInput(start));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,6 +158,11 @@ export default function AppointmentForm({ bid, initial, onSubmit, onCancel }: Pr
             {staff.map(s => <SelectItem key={s.userId} value={s.userId}>{s.displayName}</SelectItem>)}
           </SelectContent>
         </Select>
+        {offShift && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            {selectedStaff?.displayName ?? 'This staff member'} has no shift at that time.
+          </p>
+        )}
       </div>
 
       <div className="space-y-1.5">
