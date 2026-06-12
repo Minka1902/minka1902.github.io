@@ -36,6 +36,7 @@ import {
   type CustomerPackage, type PackageDef,
   type ChartEntry, type MedicalRecord,
   classSpotsLeft, type ClassEnrollment, type GroupClass,
+  type AdoptionApplication, type AdoptionListing,
 } from '@/types';
 import { derivePackageStatus, packageExpiry } from '@/lib/packages';
 import { medicalCol } from '@/lib/firestore';
@@ -764,6 +765,90 @@ export function useThreadMessages(bid: string, tid: string | null) {
     return () => unsub();
   }, [bid, tid]);
   return { messages };
+}
+
+// ─── Shelter adoptions ────────────────────────────────────────────────────────
+
+// Public projection: available/pending listings only — adopted animals leave
+// the public gallery.
+async function syncAdoptable(bid: string, listingId: string, listing: AdoptionListing | null) {
+  try {
+    const ref = doc(directoryAdoptablesCol(bid), listingId);
+    if (!listing || listing.status === 'adopted') await deleteDoc(ref);
+    else {
+      await setDoc(ref, stripUndefined({
+        name: listing.name, species: listing.species, breed: listing.breed,
+        ageMonths: listing.ageMonths, sex: listing.sex, description: listing.description,
+        photoURLs: listing.photoURLs, fee: listing.fee, status: listing.status,
+        updatedAt: Date.now(),
+      }));
+    }
+  } catch { /* best-effort */ }
+}
+
+export function useAdoptionListings(bid: string) {
+  const { items: listings, loading } = useCollection<AdoptionListing>(
+    () => (bid ? bizAdoptionListingsCol(bid) : null), [bid], [orderBy('createdAt', 'desc')],
+  );
+  const createListing = async (data: Omit<AdoptionListing, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = Date.now();
+    const ref = await addDoc(bizAdoptionListingsCol(bid), stripUndefined({ ...data, createdAt: now, updatedAt: now }));
+    void syncAdoptable(bid, ref.id, { ...data, id: ref.id, createdAt: now, updatedAt: now });
+    return ref;
+  };
+  const updateListing = async (id: string, data: Partial<AdoptionListing>) => {
+    await updateDoc(doc(bizAdoptionListingsCol(bid), id), stripUndefined({ ...data, updatedAt: Date.now() }));
+    const snap = await getDoc(doc(bizAdoptionListingsCol(bid), id));
+    if (snap.exists()) void syncAdoptable(bid, id, { id, ...snap.data() } as AdoptionListing);
+  };
+  const deleteListing = async (id: string) => {
+    await deleteDoc(doc(bizAdoptionListingsCol(bid), id));
+    void syncAdoptable(bid, id, null);
+  };
+  return { listings, loading, createListing, updateListing, deleteListing };
+}
+
+export function useAdoptionApplications(bid: string) {
+  const { user } = useAuth();
+  const { items: applications, loading } = useCollection<AdoptionApplication>(
+    () => (bid ? bizAdoptionApplicationsCol(bid) : null), [bid], [orderBy('createdAt', 'desc')],
+  );
+
+  const setApplicationStatus = async (app: AdoptionApplication, status: AdoptionApplication['status']) => {
+    await updateDoc(doc(bizAdoptionApplicationsCol(bid), app.id), { status, updatedAt: Date.now() });
+    const texts: Partial<Record<AdoptionApplication['status'], string>> = {
+      under_review: `Your application to adopt ${app.petName} is under review.`,
+      approved: `Great news — your application to adopt ${app.petName} was approved! The shelter will be in touch.`,
+      declined: `Your application to adopt ${app.petName} was declined.`,
+    };
+    const text = texts[status];
+    if (text) void postSystemMessage(bid, { userId: app.customerUserId, name: app.applicantName }, text);
+  };
+
+  // Approval bookkeeping: mark the listing pending and raise the fee invoice.
+  const approveApplication = async (app: AdoptionApplication, listing: AdoptionListing | undefined) => {
+    await setApplicationStatus(app, 'approved');
+    if (listing && listing.status === 'available') {
+      await updateDoc(doc(bizAdoptionListingsCol(bid), listing.id), { status: 'pending', updatedAt: Date.now() });
+      void syncAdoptable(bid, listing.id, { ...listing, status: 'pending' });
+    }
+    if (listing?.fee) {
+      const now = Date.now();
+      await addDoc(bizInvoicesCol(bid), stripUndefined({
+        number: `INV-${now}`,
+        customerId: '',
+        customerName: app.applicantName,
+        lineItems: [{ description: `Adoption fee — ${listing.name}`, quantity: 1, unitPrice: listing.fee }],
+        subtotal: listing.fee, total: listing.fee,
+        amountPaid: 0, status: 'sent', payments: [], issuedAt: now,
+        createdBy: user!.uid, createdAt: now, updatedAt: now,
+      } as Omit<Invoice, 'id'>));
+    }
+  };
+
+  const deleteApplication = async (id: string) => { await deleteDoc(doc(bizAdoptionApplicationsCol(bid), id)); };
+
+  return { applications, loading, setApplicationStatus, approveApplication, deleteApplication };
 }
 
 // ─── Trainer group classes ────────────────────────────────────────────────────

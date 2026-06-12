@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, BedDouble, CalendarPlus, CheckCircle2, Globe, GraduationCap, Mail, MapPin, Phone, ShoppingCart, Star } from 'lucide-react';
+import { ArrowLeft, BedDouble, CalendarPlus, CheckCircle2, Globe, GraduationCap, HeartHandshake, Mail, MapPin, Phone, ShoppingCart, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -128,7 +128,7 @@ export default function BusinessBookingPage() {
 
       {entry.description && <p className="text-sm text-muted-foreground">{entry.description}</p>}
 
-      {(entry.orderable || entry.boarding?.requestsOpen || entry.type === 'trainer') && (
+      {(entry.orderable || entry.boarding?.requestsOpen || entry.type === 'trainer' || entry.type === 'shelter') && (
         <div className="flex flex-wrap gap-2">
           {entry.orderable && (
             <Button render={<Link to={`/discover/${bid}/order`} />} variant="outline" size="sm" className="gap-1.5">
@@ -143,6 +143,11 @@ export default function BusinessBookingPage() {
           {entry.type === 'trainer' && (
             <Button render={<Link to={`/discover/${bid}/classes`} />} variant="outline" size="sm" className="gap-1.5">
               <GraduationCap className="h-4 w-4" /> Group classes
+            </Button>
+          )}
+          {entry.type === 'shelter' && (
+            <Button render={<Link to={`/discover/${bid}/adopt`} />} variant="outline" size="sm" className="gap-1.5">
+              <HeartHandshake className="h-4 w-4" /> Adopt
             </Button>
           )}
         </div>

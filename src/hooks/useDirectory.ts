@@ -6,14 +6,15 @@ import {
 import { db } from '@/lib/firebase';
 import {
   businessDirectoryCol, bizAppointmentsCol, bizCustomerPackagesCol, bizOrdersCol,
-  bizEnrollmentsCol, bizStaysCol, bizThreadsCol, bizThreadMessagesCol,
-  directoryCatalogCol, directoryClassesCol, directoryReviewsCol,
+  bizAdoptionApplicationsCol, bizEnrollmentsCol, bizStaysCol, bizThreadsCol, bizThreadMessagesCol,
+  directoryAdoptablesCol, directoryCatalogCol, directoryClassesCol, directoryReviewsCol,
 } from '@/lib/firestore';
 import { useAuth } from '@/hooks/useAuth';
 import { stripUndefined } from '@/lib/utils';
 import { distanceKm } from '@/lib/geo';
 import { computeOrderTotals } from '@/types';
 import type {
+  AdoptionApplication, PublicAdoptable,
   BusinessAddress, BusinessDirectoryEntry, BusinessReview, CustomerPackage, FulfillmentMethod,
   ClassEnrollment, GeoPoint, MessageThread, OrderItem, OrderPaymentMethod, PublicCatalogItem,
   PublicClassItem, PublicPackageItem, StayFoodPlan, StayMedication, ThreadMessage,
@@ -313,6 +314,59 @@ export function usePurchasePackage() {
   };
 
   return { purchasePackage };
+}
+
+// ─── Adoptions (customer side) ────────────────────────────────────────────────
+
+/** Public adoptable animals of a shelter. */
+export function usePublicAdoptables(bid: string | undefined) {
+  const [adoptables, setAdoptables] = useState<PublicAdoptable[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!bid) { setAdoptables([]); setLoading(false); return; }
+    const unsub = onSnapshot(
+      query(directoryAdoptablesCol(bid), orderBy('updatedAt', 'desc')),
+      snap => {
+        setAdoptables(snap.docs.map(d => ({ id: d.id, ...d.data() } as PublicAdoptable)));
+        setLoading(false);
+      },
+      () => setLoading(false),
+    );
+    return () => unsub();
+  }, [bid]);
+
+  return { adoptables, loading };
+}
+
+export interface AdoptionApplicationInput {
+  listingId: string;
+  petName: string;
+  applicantPhone?: string;
+  homeInfo: AdoptionApplication['homeInfo'];
+}
+
+/** Customer adoption application — lands as 'submitted' for shelter review. */
+export function useApplyForAdoption() {
+  const { user } = useAuth();
+
+  const apply = async (bid: string, entry: BusinessDirectoryEntry, input: AdoptionApplicationInput) => {
+    const now = Date.now();
+    void openThread(bid, entry.name, user!, `Applied to adopt ${input.petName}.`);
+    return addDoc(bizAdoptionApplicationsCol(bid), stripUndefined({
+      listingId: input.listingId,
+      petName: input.petName,
+      customerUserId: user!.uid,
+      applicantName: user!.displayName ?? 'Applicant',
+      applicantEmail: user!.email ?? undefined,
+      applicantPhone: input.applicantPhone,
+      homeInfo: input.homeInfo,
+      status: 'submitted',
+      createdAt: now, updatedAt: now,
+    } as Omit<AdoptionApplication, 'id'>));
+  };
+
+  return { apply };
 }
 
 // ─── Group classes (customer side) ────────────────────────────────────────────
