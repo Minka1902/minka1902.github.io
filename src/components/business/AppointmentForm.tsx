@@ -4,8 +4,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useCustomers, usePets, useBusinessStaff } from '@/hooks/useBusiness';
+import { useCustomers, usePets, useBusinessStaff, useServices } from '@/hooks/useBusiness';
 import type { Appointment } from '@/types';
+
+const CUSTOM_SERVICE = '__custom__';
 
 export type AppointmentFormData = Omit<Appointment, 'id' | 'createdAt' | 'updatedAt' | 'createdBy'>;
 
@@ -32,10 +34,13 @@ function fromLocalInput(value: string): number {
 export default function AppointmentForm({ bid, initial, onSubmit, onCancel }: Props) {
   const { customers } = useCustomers(bid);
   const { staff } = useBusinessStaff(bid);
+  const { services } = useServices(bid);
   const [customerId, setCustomerId] = useState(initial?.customerId ?? '');
   const { pets } = usePets(bid, customerId || undefined);
   const [petId, setPetId] = useState(initial?.petId ?? '');
   const [serviceLabel, setServiceLabel] = useState(initial?.serviceLabel ?? '');
+  const [serviceChoice, setServiceChoice] = useState(initial?.serviceLabel ?? CUSTOM_SERVICE);
+  const activeServices = services.filter(s => s.active);
   const [start, setStart] = useState(toLocalInput(initial?.startAt));
   const [end, setEnd] = useState(toLocalInput(initial?.endAt));
   const [assignedStaffId, setAssignedStaffId] = useState(initial?.assignedStaffId ?? '');
@@ -96,7 +101,35 @@ export default function AppointmentForm({ bid, initial, onSubmit, onCancel }: Pr
 
       <div className="space-y-1.5">
         <Label htmlFor="appt-service">Service <span className="text-destructive">*</span></Label>
-        <Input id="appt-service" value={serviceLabel} onChange={e => setServiceLabel(e.target.value)} placeholder="e.g. Grooming, Walk" required />
+        {activeServices.length > 0 && (
+          <Select
+            value={serviceChoice}
+            onValueChange={v => {
+              const choice = v ?? CUSTOM_SERVICE;
+              setServiceChoice(choice);
+              setServiceLabel(choice === CUSTOM_SERVICE ? '' : choice);
+              // Pre-fill the end time from the service's duration when one is set.
+              const svc = activeServices.find(s => s.name === choice);
+              if (svc?.durationMinutes && start) {
+                setEnd(toLocalInput(fromLocalInput(start) + svc.durationMinutes * 60_000));
+              }
+            }}
+          >
+            <SelectTrigger className="w-full"><SelectValue placeholder="Pick from your menu" /></SelectTrigger>
+            <SelectContent>
+              {activeServices.map(s => (
+                <SelectItem key={s.id} value={s.name}>
+                  {s.name}{s.durationMinutes ? ` · ${s.durationMinutes} min` : ''}
+                </SelectItem>
+              ))}
+              <SelectItem value={CUSTOM_SERVICE}>Other…</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+        {(activeServices.length === 0 || serviceChoice === CUSTOM_SERVICE ||
+          !activeServices.some(s => s.name === serviceChoice)) && (
+          <Input id="appt-service" value={serviceLabel} onChange={e => setServiceLabel(e.target.value)} placeholder="e.g. Grooming, Walk" required />
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

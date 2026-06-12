@@ -44,9 +44,13 @@ export default function BusinessBookingPage() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const services = entry?.services ?? [];
+  // Prefer the priced service menu when the business published one; fall back
+  // to the legacy plain service names.
+  const menu = entry?.serviceMenu ?? [];
+  const services = menu.length ? menu.map(m => m.name) : (entry?.services ?? []);
   const usingCustom = services.length === 0 || service === OTHER;
   const effectiveService = usingCustom ? customService.trim() : service;
+  const chosenMenuItem = menu.find(m => m.name === service);
 
   // When the business publishes opening hours, customers pick a free slot rather
   // than a raw date/time — so they can only book when the business is open & free.
@@ -68,7 +72,9 @@ export default function BusinessBookingPage() {
     setError(null);
     try {
       const startAt = hasAvailability ? slotStart! : new Date(start).getTime();
-      const endAt = hasAvailability ? startAt + slotMin * 60_000 : startAt + duration * 60_000;
+      // A published service duration wins over the generic slot/duration length.
+      const minutes = chosenMenuItem?.durationMinutes ?? (hasAvailability ? slotMin : duration);
+      const endAt = startAt + minutes * 60_000;
       await book(bid, {
         serviceLabel: effectiveService,
         startAt,
@@ -170,7 +176,15 @@ export default function BusinessBookingPage() {
                   <Select value={service} onValueChange={setService}>
                     <SelectTrigger className="w-full"><SelectValue placeholder="Choose a service" /></SelectTrigger>
                     <SelectContent>
-                      {services.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                      {services.map(s => {
+                        const item = menu.find(m => m.name === s);
+                        return (
+                          <SelectItem key={s} value={s}>
+                            {s}
+                            {item ? ` — ${item.price.toFixed(2)} ${entry.currency ?? ''}${item.durationMinutes ? ` · ${item.durationMinutes} min` : ''}` : ''}
+                          </SelectItem>
+                        );
+                      })}
                       <SelectItem value={OTHER}>Other…</SelectItem>
                     </SelectContent>
                   </Select>

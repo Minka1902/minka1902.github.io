@@ -28,6 +28,7 @@ import {
   type BusinessPet, type Appointment, type Invoice, type Product, type Shipment,
   type Order, type OrderItem, type OrderStatus,
   type Stay, type StayDailyNote, type StayStatus,
+  type BusinessService,
 } from '@/types';
 import { fullDates, hasCapacityForRange, todayStr } from '@/lib/occupancy';
 
@@ -628,6 +629,43 @@ export function useOrders(bid: string) {
     orders, loading, createOrder, acceptOrder, closeOrder, updateOrderStatus,
     setOrderPaid, createInvoiceFromOrder, createShipmentFromOrder, deleteOrder,
   };
+}
+
+// ─── Services & price list ────────────────────────────────────────────────────
+
+// Publish the active services as a priced menu on the directory entry so the
+// booking page can show real prices/durations. Best-effort, like busySlots.
+async function refreshServiceMenu(bid: string) {
+  try {
+    const snap = await getDocs(bizServicesCol(bid));
+    const menu = snap.docs
+      .map(d => d.data() as BusinessService)
+      .filter(s => s.active)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(s => stripUndefined({ name: s.name, price: s.price, durationMinutes: s.durationMinutes }));
+    await setDoc(doc(businessDirectoryCol(), bid), { serviceMenu: menu, updatedAt: Date.now() }, { merge: true });
+  } catch { /* directory may not exist for unlisted businesses — ignore */ }
+}
+
+export function useServices(bid: string) {
+  const { items: services, loading } = useCollection<BusinessService>(
+    () => (bid ? bizServicesCol(bid) : null), [bid], [orderBy('name', 'asc')],
+  );
+  const createService = async (data: Omit<BusinessService, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = Date.now();
+    const ref = await addDoc(bizServicesCol(bid), stripUndefined({ ...data, createdAt: now, updatedAt: now }));
+    void refreshServiceMenu(bid);
+    return ref;
+  };
+  const updateService = async (id: string, data: Partial<BusinessService>) => {
+    await updateDoc(doc(bizServicesCol(bid), id), stripUndefined({ ...data, updatedAt: Date.now() }));
+    void refreshServiceMenu(bid);
+  };
+  const deleteService = async (id: string) => {
+    await deleteDoc(doc(bizServicesCol(bid), id));
+    void refreshServiceMenu(bid);
+  };
+  return { services, loading, createService, updateService, deleteService };
 }
 
 // ─── Boarding & daycare ───────────────────────────────────────────────────────
