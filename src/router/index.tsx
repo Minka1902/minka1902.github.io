@@ -27,6 +27,7 @@ const HumansPage                = lazy(() => import('@/pages/humans/HumansPage')
 const DiscoverPage              = lazy(() => import('@/pages/discover/DiscoverPage'));
 const BusinessBookingPage       = lazy(() => import('@/pages/discover/BusinessBookingPage'));
 const BusinessOrderPage         = lazy(() => import('@/pages/discover/BusinessOrderPage'));
+const BusinessStayRequestPage   = lazy(() => import('@/pages/discover/BusinessStayRequestPage'));
 const DevicesPage               = lazy(() => import('@/pages/devices/DevicesPage'));
 const QRPage                    = lazy(() => import('@/pages/qr/QRPage'));
 const SettingsPage              = lazy(() => import('@/pages/settings/SettingsPage'));
@@ -94,6 +95,7 @@ export const router = createBrowserRouter([
               { path: '/discover',             element: <DiscoverPage /> },
               { path: '/discover/:bid',        element: <BusinessBookingPage /> },
               { path: '/discover/:bid/order',  element: <BusinessOrderPage /> },
+              { path: '/discover/:bid/boarding', element: <BusinessStayRequestPage /> },
               { path: '/devices',              element: <DevicesPage /> },
               { path: '/qr',                   element: <QRPage /> },
               { path: '/settings',             element: <SettingsPage /> },
