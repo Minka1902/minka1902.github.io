@@ -47,6 +47,7 @@ const ShiftsPage            = lazy(() => import('@/pages/business/ShiftsPage'));
 const ReportsPage           = lazy(() => import('@/pages/business/ReportsPage'));
 const MessagesPage          = lazy(() => import('@/pages/business/MessagesPage'));
 const ReportCardsPage       = lazy(() => import('@/pages/business/ReportCardsPage'));
+const PackagesPage          = lazy(() => import('@/pages/business/PackagesPage'));
 const MyMessagesPage        = lazy(() => import('@/pages/messages/MyMessagesPage'));
 const ShipmentsPage         = lazy(() => import('@/pages/business/ShipmentsPage'));
 const StaffPage             = lazy(() => import('@/pages/business/StaffPage'));
@@ -136,6 +137,7 @@ export const router = createBrowserRouter([
               { path: '/business/reports',     element: <ReportsPage /> },
               { path: '/business/messages',    element: <MessagesPage /> },
               { path: '/business/report-cards', element: <ReportCardsPage /> },
+              { path: '/business/packages',    element: <PackagesPage /> },
               { path: '/business/shipments',    element: <ShipmentsPage /> },
               { path: '/business/staff',        element: <StaffPage /> },
               { path: '/business/roles',        element: <RolesPage /> },

@@ -33,7 +33,9 @@ import {
   type Shift, type TimeOffRequest, type TimeOffStatus,
   type MessageThread, type ThreadMessage,
   type ReportCard,
+  type CustomerPackage, type PackageDef,
 } from '@/types';
+import { derivePackageStatus, packageExpiry } from '@/lib/packages';
 import { fullDates, hasCapacityForRange, todayStr } from '@/lib/occupancy';
 
 // Build the public directory projection of a business and publish it (or remove
@@ -759,6 +761,103 @@ export function useThreadMessages(bid: string, tid: string | null) {
     return () => unsub();
   }, [bid, tid]);
   return { messages };
+}
+
+// ─── Packages & memberships ───────────────────────────────────────────────────
+
+// Publish active package templates to the directory entry so customers can buy
+// them online (record-only payment).
+async function refreshPackageCatalog(bid: string) {
+  try {
+    const snap = await getDocs(bizPackagesCol(bid));
+    const items = snap.docs
+      .map(d => ({ id: d.id, ...d.data() } as PackageDef))
+      .filter(p => p.active)
+      .map(p => stripUndefined({
+        id: p.id, name: p.name, description: p.description, price: p.price,
+        credits: p.credits, creditType: p.creditType, validityDays: p.validityDays,
+      }));
+    await setDoc(doc(businessDirectoryCol(), bid), { packages: items, updatedAt: Date.now() }, { merge: true });
+  } catch { /* best-effort */ }
+}
+
+export function usePackageDefs(bid: string) {
+  const { items: packageDefs, loading } = useCollection<PackageDef>(
+    () => (bid ? bizPackagesCol(bid) : null), [bid], [orderBy('name', 'asc')],
+  );
+  const createPackageDef = async (data: Omit<PackageDef, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = Date.now();
+    const ref = await addDoc(bizPackagesCol(bid), stripUndefined({ ...data, createdAt: now, updatedAt: now }));
+    void refreshPackageCatalog(bid);
+    return ref;
+  };
+  const updatePackageDef = async (id: string, data: Partial<PackageDef>) => {
+    await updateDoc(doc(bizPackagesCol(bid), id), stripUndefined({ ...data, updatedAt: Date.now() }));
+    void refreshPackageCatalog(bid);
+  };
+  const deletePackageDef = async (id: string) => {
+    await deleteDoc(doc(bizPackagesCol(bid), id));
+    void refreshPackageCatalog(bid);
+  };
+  return { packageDefs, loading, createPackageDef, updatePackageDef, deletePackageDef };
+}
+
+export function useCustomerPackages(bid: string) {
+  const { user } = useAuth();
+  const { items: customerPackages, loading } = useCollection<CustomerPackage>(
+    () => (bid ? bizCustomerPackagesCol(bid) : null), [bid], [orderBy('createdAt', 'desc')],
+  );
+
+  // Staff sale: creates the customer package and a paid invoice in one go.
+  const sellPackage = async (
+    def: PackageDef,
+    customer: { customerId: string; customerName: string; customerUserId?: string },
+  ) => {
+    const now = Date.now();
+    const invoiceRef = await addDoc(bizInvoicesCol(bid), stripUndefined({
+      number: `INV-${now}`,
+      customerId: customer.customerId,
+      customerName: customer.customerName,
+      lineItems: [{ description: def.name, quantity: 1, unitPrice: def.price }],
+      subtotal: def.price, total: def.price,
+      amountPaid: def.price, status: 'paid',
+      payments: [{ amount: def.price, method: 'other', paidAt: now, recordedBy: user!.uid }],
+      issuedAt: now,
+      createdBy: user!.uid, createdAt: now, updatedAt: now,
+    } as Omit<Invoice, 'id'>));
+    return addDoc(bizCustomerPackagesCol(bid), stripUndefined({
+      packageId: def.id, name: def.name, creditType: def.creditType,
+      customerId: customer.customerId,
+      customerUserId: customer.customerUserId,
+      customerName: customer.customerName,
+      creditsTotal: def.credits, creditsRemaining: def.credits,
+      expiresAt: packageExpiry(def, now),
+      invoiceId: invoiceRef.id,
+      status: 'active',
+      createdAt: now, updatedAt: now,
+    } as CustomerPackage));
+  };
+
+  // Transactional credit redemption — concurrent redeems can't overdraw.
+  const redeemCredit = async (pkg: CustomerPackage) => {
+    await runTransaction(db, async tx => {
+      const ref = doc(bizCustomerPackagesCol(bid), pkg.id);
+      const snap = await tx.get(ref);
+      if (!snap.exists()) throw new Error('Package not found.');
+      const current = snap.data() as CustomerPackage;
+      if (derivePackageStatus(current) !== 'active') throw new Error('No usable credits left.');
+      const remaining = current.creditsRemaining - 1;
+      tx.update(ref, {
+        creditsRemaining: remaining,
+        status: derivePackageStatus({ ...current, creditsRemaining: remaining }),
+        updatedAt: Date.now(),
+      });
+    });
+  };
+
+  const deleteCustomerPackage = async (id: string) => { await deleteDoc(doc(bizCustomerPackagesCol(bid), id)); };
+
+  return { customerPackages, loading, sellPackage, redeemCredit, deleteCustomerPackage };
 }
 
 // ─── Pet report cards ─────────────────────────────────────────────────────────

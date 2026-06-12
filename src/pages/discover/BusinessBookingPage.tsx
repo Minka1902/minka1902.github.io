@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useDirectoryEntry, useBooking } from '@/hooks/useDirectory';
+import { useDirectoryEntry, useBooking, usePurchasePackage } from '@/hooks/useDirectory';
 import { generateSlots, dayStartOffset } from '@/lib/availability';
 import { BUSINESS_TYPES, DEFAULT_SLOT_MINUTES } from '@/types';
 
@@ -31,6 +31,8 @@ export default function BusinessBookingPage() {
   const { bid } = useParams<{ bid: string }>();
   const { entry, loading } = useDirectoryEntry(bid);
   const { book } = useBooking();
+  const { purchasePackage } = usePurchasePackage();
+  const [boughtPackageId, setBoughtPackageId] = useState<string | null>(null);
 
   const [service, setService] = useState('');
   const [customService, setCustomService] = useState('');
@@ -141,6 +143,47 @@ export default function BusinessBookingPage() {
           </p>
         )}
       </div>
+
+      {entry.packages && entry.packages.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">Packages &amp; memberships</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {entry.packages.map(p => (
+              <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm">
+                <div>
+                  <p className="font-medium">{p.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {p.credits} credits · {p.price.toFixed(2)} {entry.currency ?? ''}
+                    {p.validityDays ? ` · valid ${p.validityDays} days` : ''}
+                    {p.description ? ` — ${p.description}` : ''}
+                  </p>
+                </div>
+                {boughtPackageId === p.id ? (
+                  <span className="flex items-center gap-1 text-xs font-medium text-emerald-600">
+                    <CheckCircle2 className="h-4 w-4" /> Purchased
+                  </span>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        await purchasePackage(bid!, entry, p);
+                        setBoughtPackageId(p.id);
+                      } catch { /* surfaced by the unchanged button state */ }
+                    }}
+                  >
+                    Buy
+                  </Button>
+                )}
+              </div>
+            ))}
+            <p className="text-xs text-muted-foreground">
+              Payment is settled with the business directly; credits appear on their side right away.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {!entry.bookable ? (
         <Card>

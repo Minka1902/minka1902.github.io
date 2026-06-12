@@ -5,16 +5,17 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
-  businessDirectoryCol, bizAppointmentsCol, bizOrdersCol, bizStaysCol,
-  bizThreadsCol, bizThreadMessagesCol, directoryCatalogCol,
+  businessDirectoryCol, bizAppointmentsCol, bizCustomerPackagesCol, bizOrdersCol,
+  bizStaysCol, bizThreadsCol, bizThreadMessagesCol, directoryCatalogCol,
 } from '@/lib/firestore';
 import { useAuth } from '@/hooks/useAuth';
 import { stripUndefined } from '@/lib/utils';
 import { distanceKm } from '@/lib/geo';
 import { computeOrderTotals } from '@/types';
 import type {
-  BusinessAddress, BusinessDirectoryEntry, FulfillmentMethod, GeoPoint, MessageThread,
-  OrderItem, OrderPaymentMethod, PublicCatalogItem, StayFoodPlan, StayMedication, ThreadMessage,
+  BusinessAddress, BusinessDirectoryEntry, CustomerPackage, FulfillmentMethod, GeoPoint,
+  MessageThread, OrderItem, OrderPaymentMethod, PublicCatalogItem, PublicPackageItem,
+  StayFoodPlan, StayMedication, ThreadMessage,
 } from '@/types';
 
 export interface DirectoryResult extends BusinessDirectoryEntry {
@@ -283,6 +284,34 @@ export function useCustomerMessaging() {
   };
 
   return { sendToBusiness, markReadByCustomer };
+}
+
+/**
+ * Customer package self-purchase (record-only payment — the business reconciles
+ * actual payment). Rules require own uid and full credits at creation.
+ */
+export function usePurchasePackage() {
+  const { user } = useAuth();
+
+  const purchasePackage = async (bid: string, entry: BusinessDirectoryEntry, item: PublicPackageItem) => {
+    const now = Date.now();
+    void openThread(bid, entry.name, user!,
+      `Purchased package "${item.name}" (${item.credits} credits, ${item.price.toFixed(2)} ${entry.currency ?? ''}).`);
+    return addDoc(bizCustomerPackagesCol(bid), stripUndefined({
+      packageId: item.id,
+      name: item.name,
+      creditType: item.creditType,
+      customerUserId: user!.uid,
+      customerName: user!.displayName ?? 'Customer',
+      creditsTotal: item.credits,
+      creditsRemaining: item.credits,
+      expiresAt: item.validityDays ? now + item.validityDays * 24 * 60 * 60 * 1000 : undefined,
+      status: 'active',
+      createdAt: now, updatedAt: now,
+    } as CustomerPackage));
+  };
+
+  return { purchasePackage };
 }
 
 export interface StayRequestInput {
