@@ -1,7 +1,7 @@
 import {
   Home, Activity, Dumbbell, Stethoscope, Users, Cpu, QrCode, Settings,
   Calendar, Receipt, Package, Truck, UserCog, ShieldCheck, Lock, MapPin,
-  ShoppingCart, BedDouble, Tags, PackagePlus, CalendarClock,
+  ShoppingCart, BedDouble, Tags, PackagePlus, CalendarClock, BarChart3,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Capability, BusinessModule } from '@/types';
@@ -50,6 +50,7 @@ export const BUSINESS_NAV_ITEMS: BusinessNavItem[] = [
   { to: '/business/shipments',    label: 'Shipments',    icon: Truck,    cap: 'view_shipments',    module: 'shipments' },
   { to: '/business/purchasing',   label: 'Purchasing',   icon: PackagePlus, cap: 'view_purchasing', module: 'purchasing' },
   { to: '/business/shifts',       label: 'Shifts',       icon: CalendarClock, cap: 'view_shifts',  module: 'shifts' },
+  { to: '/business/reports',      label: 'Reports',      icon: BarChart3, cap: 'view_reports',     module: 'reports' },
   { to: '/business/staff',        label: 'Staff',        icon: UserCog,  cap: 'manage_staff' },
   { to: '/business/roles',        label: 'Roles',        icon: ShieldCheck, cap: 'manage_roles' },
   { to: '/business/security',     label: 'Security',     icon: Lock },
