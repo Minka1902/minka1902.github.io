@@ -29,6 +29,7 @@ import {
   type Order, type OrderItem, type OrderStatus,
   type Stay, type StayDailyNote, type StayStatus,
   type BusinessService,
+  computePurchaseOrderTotal, type PurchaseOrder, type Supplier,
 } from '@/types';
 import { fullDates, hasCapacityForRange, todayStr } from '@/lib/occupancy';
 
@@ -666,6 +667,72 @@ export function useServices(bid: string) {
     void refreshServiceMenu(bid);
   };
   return { services, loading, createService, updateService, deleteService };
+}
+
+// ─── Purchasing / supplier orders ─────────────────────────────────────────────
+
+export function useSuppliers(bid: string) {
+  const { items: suppliers, loading } = useCollection<Supplier>(
+    () => (bid ? bizSuppliersCol(bid) : null), [bid], [orderBy('name', 'asc')],
+  );
+  const createSupplier = async (data: Omit<Supplier, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = Date.now();
+    return addDoc(bizSuppliersCol(bid), stripUndefined({ ...data, createdAt: now, updatedAt: now }));
+  };
+  const updateSupplier = async (id: string, data: Partial<Supplier>) => {
+    await updateDoc(doc(bizSuppliersCol(bid), id), stripUndefined({ ...data, updatedAt: Date.now() }));
+  };
+  const deleteSupplier = async (id: string) => { await deleteDoc(doc(bizSuppliersCol(bid), id)); };
+  return { suppliers, loading, createSupplier, updateSupplier, deleteSupplier };
+}
+
+export function usePurchaseOrders(bid: string) {
+  const { user } = useAuth();
+  const { items: purchaseOrders, loading } = useCollection<PurchaseOrder>(
+    () => (bid ? bizPurchaseOrdersCol(bid) : null), [bid], [orderBy('createdAt', 'desc')],
+  );
+
+  const createPurchaseOrder = async (
+    data: Omit<PurchaseOrder, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'total'>,
+  ) => {
+    const now = Date.now();
+    return addDoc(bizPurchaseOrdersCol(bid), stripUndefined({
+      ...data,
+      total: computePurchaseOrderTotal(data.items),
+      createdBy: user!.uid, createdAt: now, updatedAt: now,
+    } as PurchaseOrder));
+  };
+
+  const updatePurchaseOrder = async (id: string, data: Partial<PurchaseOrder>) => {
+    const patch: Partial<PurchaseOrder> = { ...data, updatedAt: Date.now() };
+    if (data.items) patch.total = computePurchaseOrderTotal(data.items);
+    await updateDoc(doc(bizPurchaseOrdersCol(bid), id), stripUndefined(patch));
+  };
+
+  // Receiving = the single point where supplier stock moves in. Transactional
+  // mirror image of order acceptance; idempotent via stockAdjusted.
+  const receivePurchaseOrder = async (po: PurchaseOrder) => {
+    if (po.stockAdjusted) return;
+    const incoming = new Map<string, number>();
+    for (const i of po.items) incoming.set(i.productId, (incoming.get(i.productId) ?? 0) + i.quantity);
+    await runTransaction(db, async tx => {
+      const refs = [...incoming.keys()].map(pid => doc(bizProductsCol(bid), pid));
+      const snaps = await Promise.all(refs.map(r => tx.get(r)));
+      const now = Date.now();
+      snaps.forEach((s, i) => {
+        if (!s.exists()) return; // product deleted since ordering — skip
+        tx.update(refs[i], { stockQty: (s.data() as Product).stockQty + incoming.get(refs[i].id)!, updatedAt: now });
+      });
+      tx.update(doc(bizPurchaseOrdersCol(bid), po.id), {
+        status: 'received', receivedAt: now, stockAdjusted: true, updatedAt: now,
+      });
+    });
+    void refreshCatalogStock(bid, [...incoming.keys()]);
+  };
+
+  const deletePurchaseOrder = async (id: string) => { await deleteDoc(doc(bizPurchaseOrdersCol(bid), id)); };
+
+  return { purchaseOrders, loading, createPurchaseOrder, updatePurchaseOrder, receivePurchaseOrder, deletePurchaseOrder };
 }
 
 // ─── Boarding & daycare ───────────────────────────────────────────────────────

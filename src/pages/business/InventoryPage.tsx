@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { AlertTriangle, Package, Plus, ShoppingCart, Truck } from 'lucide-react';
+import { AlertTriangle, Package, PackagePlus, Plus, ShoppingCart, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useBusiness, useOrders, useProducts, useShipments } from '@/hooks/useBusiness';
+import { useBusiness, useOrders, useProducts, usePurchaseOrders, useShipments } from '@/hooks/useBusiness';
 import { usePermissions } from '@/hooks/usePermissions';
 import ProductCard from '@/components/business/ProductCard';
 import ProductForm, { type ProductFormData } from '@/components/business/ProductForm';
@@ -30,6 +30,8 @@ export default function InventoryPage() {
     setOrderPaid, createInvoiceFromOrder, createShipmentFromOrder, deleteOrder,
   } = useOrders(showOrders ? bid : '');
   const { shipments, loading: shipmentsLoading, updateShipment, deleteShipment } = useShipments(showShipments ? bid : '');
+  const showPurchasing = isModuleEnabled(activeBusiness, 'purchasing') && (can('view_purchasing') || can('manage_purchasing'));
+  const { purchaseOrders, loading: poLoading, receivePurchaseOrder } = usePurchaseOrders(showPurchasing ? bid : '');
 
   const [addOpen, setAddOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
@@ -51,6 +53,7 @@ export default function InventoryPage() {
 
   const openOrders = orders.filter(o => !['completed', 'cancelled', 'rejected'].includes(o.status));
   const activeShipments = shipments.filter(s => !['delivered', 'returned'].includes(s.status));
+  const incomingPOs = purchaseOrders.filter(po => po.status === 'ordered');
 
   const emptyState = (icon: React.ReactNode, title: string, hint: string) => (
     <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed bg-background py-14">
@@ -83,6 +86,7 @@ export default function InventoryPage() {
       <Tabs defaultValue="stock">
         <TabsList>
           <TabsTrigger value="stock">Stock</TabsTrigger>
+          {showPurchasing && <TabsTrigger value="incoming">Incoming{incomingPOs.length ? ` (${incomingPOs.length})` : ''}</TabsTrigger>}
           {showOrders && <TabsTrigger value="fulfil">To fulfil{openOrders.length ? ` (${openOrders.length})` : ''}</TabsTrigger>}
           {showShipments && <TabsTrigger value="outgoing">Outgoing{activeShipments.length ? ` (${activeShipments.length})` : ''}</TabsTrigger>}
         </TabsList>
@@ -107,6 +111,35 @@ export default function InventoryPage() {
             </div>
           )}
         </TabsContent>
+
+        {showPurchasing && (
+          <TabsContent value="incoming">
+            {poLoading ? (
+              <div className="space-y-2">{[1, 2].map(i => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}</div>
+            ) : incomingPOs.length === 0 ? (
+              emptyState(<PackagePlus className="h-6 w-6 text-muted-foreground" />, 'No incoming deliveries', 'Ordered supplier deliveries show up here.')
+            ) : (
+              <div className="space-y-2">
+                {incomingPOs.map(po => (
+                  <div key={po.id} className="space-y-2 rounded-xl border bg-card p-3">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p className="text-sm font-medium">{po.supplierName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {po.expectedAt ? `expected ${new Date(po.expectedAt).toLocaleDateString()}` : 'no ETA'}
+                      </p>
+                    </div>
+                    <ul className="space-y-0.5 text-xs text-muted-foreground">
+                      {po.items.map((it, i) => <li key={i}>{it.quantity} × {it.name}</li>)}
+                    </ul>
+                    {can('manage_purchasing') && (
+                      <Button size="sm" onClick={() => void receivePurchaseOrder(po)}>Receive into stock</Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        )}
 
         {showOrders && (
           <TabsContent value="fulfil">
