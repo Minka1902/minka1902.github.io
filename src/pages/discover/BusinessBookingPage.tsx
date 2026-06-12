@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, CalendarPlus, CheckCircle2, Globe, Mail, MapPin, Phone } from 'lucide-react';
+import { ArrowLeft, BedDouble, CalendarPlus, CheckCircle2, Globe, Mail, MapPin, Phone, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -107,6 +107,21 @@ export default function BusinessBookingPage() {
       </div>
 
       {entry.description && <p className="text-sm text-muted-foreground">{entry.description}</p>}
+
+      {(entry.orderable || entry.boarding?.requestsOpen) && (
+        <div className="flex flex-wrap gap-2">
+          {entry.orderable && (
+            <Button render={<Link to={`/discover/${bid}/order`} />} variant="outline" size="sm" className="gap-1.5">
+              <ShoppingCart className="h-4 w-4" /> Order products
+            </Button>
+          )}
+          {entry.boarding?.requestsOpen && (
+            <Button render={<Link to={`/discover/${bid}/boarding`} />} variant="outline" size="sm" className="gap-1.5">
+              <BedDouble className="h-4 w-4" /> Request a stay
+            </Button>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-col gap-1.5 text-sm text-muted-foreground">
         {(entry.location?.label || entry.city) && (

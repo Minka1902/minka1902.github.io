@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { MapPin, CalendarPlus, ChevronRight } from 'lucide-react';
+import { BedDouble, MapPin, CalendarPlus, ChevronRight, ShoppingCart, Star } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatDistance } from '@/lib/geo';
 import { BUSINESS_TYPES } from '@/types';
@@ -13,7 +14,15 @@ export default function BusinessDiscoverCard({ biz }: { biz: DirectoryResult }) 
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="truncate font-semibold leading-tight">{biz.name}</h3>
-          <p className="mt-0.5 text-xs text-muted-foreground">{TYPE_LABELS[biz.type] ?? biz.type}</p>
+          <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span>{TYPE_LABELS[biz.type] ?? biz.type}</span>
+            {biz.ratingAvg != null && (biz.ratingCount ?? 0) > 0 && (
+              <span className="inline-flex items-center gap-0.5">
+                <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                {biz.ratingAvg.toFixed(1)} ({biz.ratingCount})
+              </span>
+            )}
+          </p>
         </div>
         {biz.distance != null && (
           <span className="flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
@@ -37,6 +46,17 @@ export default function BusinessDiscoverCard({ biz }: { biz: DirectoryResult }) 
           {biz.services.slice(0, 4).map(s => (
             <span key={s} className="rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">{s}</span>
           ))}
+        </div>
+      )}
+
+      {(biz.orderable || biz.boarding?.requestsOpen) && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {biz.orderable && (
+            <Badge variant="secondary" className="gap-1"><ShoppingCart className="h-3 w-3" /> Online orders</Badge>
+          )}
+          {biz.boarding?.requestsOpen && (
+            <Badge variant="secondary" className="gap-1"><BedDouble className="h-3 w-3" /> Boarding</Badge>
+          )}
         </div>
       )}
 
