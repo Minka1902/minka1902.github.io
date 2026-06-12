@@ -27,7 +27,9 @@ import {
   type Business, type BusinessRole, type BusinessStaff, type BusinessCustomer,
   type BusinessPet, type Appointment, type Invoice, type Product, type Shipment,
   type Order, type OrderItem, type OrderStatus,
+  type Stay, type StayDailyNote, type StayStatus,
 } from '@/types';
+import { fullDates, hasCapacityForRange, todayStr } from '@/lib/occupancy';
 
 // Build the public directory projection of a business and publish it (or remove
 // it from the directory when the owner unlists the business).
@@ -623,6 +625,78 @@ export function useOrders(bid: string) {
     orders, loading, createOrder, acceptOrder, closeOrder, updateOrderStatus,
     setOrderPaid, createInvoiceFromOrder, createShipmentFromOrder, deleteOrder,
   };
+}
+
+// ─── Boarding & daycare ───────────────────────────────────────────────────────
+
+// Recompute the public "full dates" window (next 90 days at capacity) so the
+// stay-request page can grey out unavailable dates. Analog of refreshBusySlots:
+// best-effort, merge-written, never exposes raw capacity or occupancy counts.
+const BOARDING_WINDOW_DAYS = 90;
+
+export async function refreshBoardingAvailability(bid: string) {
+  try {
+    const bizSnap = await getDoc(doc(businessesCol(), bid));
+    if (!bizSnap.exists()) return;
+    const biz = bizSnap.data() as Business;
+    if (!biz.boarding) return;
+    const today = todayStr();
+    const snap = await getDocs(query(bizStaysCol(bid), where('endDate', '>=', today)));
+    const stays = snap.docs.map(d => d.data() as Stay);
+    const full = fullDates(stays, biz.boarding.capacity, today, BOARDING_WINDOW_DAYS);
+    await setDoc(doc(businessDirectoryCol(), bid),
+      { boarding: { fullDates: full }, updatedAt: Date.now() }, { merge: true });
+  } catch { /* directory may not exist for unlisted businesses — ignore */ }
+}
+
+export function useStays(bid: string) {
+  const { user } = useAuth();
+  const { items: stays, loading } = useCollection<Stay>(
+    () => (bid ? bizStaysCol(bid) : null), [bid], [orderBy('startDate', 'asc')],
+  );
+
+  const createStay = async (data: Omit<Stay, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'source'>) => {
+    const now = Date.now();
+    const ref = await addDoc(bizStaysCol(bid), stripUndefined({
+      ...data, source: 'staff', createdBy: user!.uid, createdAt: now, updatedAt: now,
+    } as Stay));
+    void refreshBoardingAvailability(bid);
+    return ref;
+  };
+
+  const updateStay = async (id: string, data: Partial<Stay>) => {
+    await updateDoc(doc(bizStaysCol(bid), id), stripUndefined({ ...data, updatedAt: Date.now() }));
+    void refreshBoardingAvailability(bid);
+  };
+
+  // Approving (or directly checking in) is the capacity gate: the stay only
+  // starts occupying a space if every night still fits.
+  const setStayStatus = async (stay: Stay, status: StayStatus, capacity: number): Promise<{ ok: boolean; reason?: string }> => {
+    const takesSpace = (status === 'approved' || status === 'checked_in') &&
+      stay.status !== 'approved' && stay.status !== 'checked_in';
+    if (takesSpace) {
+      const others = stays.filter(s => s.id !== stay.id);
+      if (!hasCapacityForRange(others, capacity, stay.startDate, stay.endDate)) {
+        return { ok: false, reason: 'No free space for part of this date range.' };
+      }
+    }
+    await updateStay(stay.id, { status });
+    return { ok: true };
+  };
+
+  const addDailyNote = async (id: string, text: string) => {
+    const note: StayDailyNote = {
+      at: Date.now(), byUserId: user!.uid, byName: user!.displayName ?? 'Staff', text,
+    };
+    await updateDoc(doc(bizStaysCol(bid), id), { dailyNotes: arrayUnion(note), updatedAt: Date.now() });
+  };
+
+  const deleteStay = async (id: string) => {
+    await deleteDoc(doc(bizStaysCol(bid), id));
+    void refreshBoardingAvailability(bid);
+  };
+
+  return { stays, loading, createStay, updateStay, setStayStatus, addDailyNote, deleteStay };
 }
 
 // ─── small local helpers ──────────────────────────────────────────────────────

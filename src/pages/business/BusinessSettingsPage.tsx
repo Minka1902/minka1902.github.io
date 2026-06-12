@@ -10,10 +10,11 @@ import { usePermissions } from '@/hooks/usePermissions';
 import BusinessProfileForm, { type BusinessProfileFormData } from '@/components/business/BusinessProfileForm';
 import AvailabilityEditor from '@/components/business/AvailabilityEditor';
 import CommerceSettingsCard from '@/components/business/CommerceSettingsCard';
-import { resyncCatalog } from '@/hooks/useBusiness';
+import BoardingSettingsCard from '@/components/business/BoardingSettingsCard';
+import { refreshBoardingAvailability, resyncCatalog } from '@/hooks/useBusiness';
 import {
   ALL_MODULES, MODULE_CATALOG, isModuleEnabled,
-  type BusinessModule, type CommerceSettings, type ModuleGroup, type WeeklyAvailability,
+  type BoardingSettings, type BusinessModule, type CommerceSettings, type ModuleGroup, type WeeklyAvailability,
 } from '@/types';
 
 const MODULE_GROUPS: ModuleGroup[] = ['Operations', 'Customer', 'Specialty'];
@@ -74,6 +75,17 @@ export default function BusinessSettingsPage() {
             await updateBusiness({ commerce });
             // Publish or retract the public product catalog to match the toggle.
             await resyncCatalog(bid, commerce.ordersOpen).catch(() => undefined);
+          }}
+        />
+      )}
+
+      {isModuleEnabled(activeBusiness, 'boarding') && (
+        <BoardingSettingsCard
+          business={activeBusiness}
+          onSave={async (boarding: BoardingSettings) => {
+            await updateBusiness({ boarding });
+            // Re-derive the public full-dates calendar under the new capacity.
+            await refreshBoardingAvailability(bid).catch(() => undefined);
           }}
         />
       )}
