@@ -304,9 +304,12 @@ service cloud.firestore {
         // Staff with messaging caps, or the customer whose thread this is.
         allow read: if hasCap(bid, 'view_messages') || hasCap(bid, 'manage_messages') ||
           (request.auth != null && resource.data.customerUserId == request.auth.uid);
-        allow create: if hasCap(bid, 'manage_messages') ||
+        // Any active member may create/bump a thread — system messages ride on
+        // order/stay transitions handled by non-messaging staff. Customers only
+        // touch their own thread.
+        allow create: if isBizMember(bid) ||
           (request.auth != null && request.resource.data.customerUserId == request.auth.uid);
-        allow update: if hasCap(bid, 'manage_messages') ||
+        allow update: if isBizMember(bid) ||
           (request.auth != null && resource.data.customerUserId == request.auth.uid);
         allow delete: if hasCap(bid, 'manage_messages');
 
@@ -316,7 +319,7 @@ service cloud.firestore {
         match /messages/{mid} {
           allow read: if hasCap(bid, 'view_messages') || hasCap(bid, 'manage_messages') ||
             (request.auth != null && threadOwner(bid, tid) == request.auth.uid);
-          allow create: if hasCap(bid, 'manage_messages') ||
+          allow create: if isBizMember(bid) ||
             (request.auth != null && threadOwner(bid, tid) == request.auth.uid);
           allow update, delete: if false; // messages are immutable
         }

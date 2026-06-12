@@ -51,7 +51,7 @@ export default function BusinessStayRequestPage() {
     setError(null);
     try {
       const times = feedingTimes.split(',').map(t => t.trim()).filter(Boolean);
-      await requestStay(bid, {
+      await requestStay(bid, entry!, {
         petName: petName.trim(),
         petSpecies,
         startDate,

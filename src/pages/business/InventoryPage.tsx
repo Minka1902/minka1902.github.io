@@ -157,7 +157,7 @@ export default function InventoryPage() {
                     canManage={canManageOrders}
                     onAccept={() => acceptOrder(o)}
                     onClose={(status) => { if (confirm(`${status === 'rejected' ? 'Reject' : 'Cancel'} this order?`)) void closeOrder(o, status); }}
-                    onAdvance={(status) => updateOrderStatus(o.id, status)}
+                    onAdvance={(status) => updateOrderStatus(o, status)}
                     onMarkPaid={() => setOrderPaid(o.id, 'paid')}
                     onCreateInvoice={() => void createInvoiceFromOrder(o)}
                     onCreateShipment={() => void createShipmentFromOrder(o)}

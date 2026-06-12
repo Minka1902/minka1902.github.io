@@ -1,15 +1,20 @@
 import { useEffect, useState } from 'react';
-import { addDoc, doc, getDoc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import {
-  businessDirectoryCol, bizAppointmentsCol, bizOrdersCol, bizStaysCol, directoryCatalogCol,
+  addDoc, collectionGroup, doc, getDoc, increment, onSnapshot, orderBy, query,
+  setDoc, updateDoc, where,
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import {
+  businessDirectoryCol, bizAppointmentsCol, bizOrdersCol, bizStaysCol,
+  bizThreadsCol, bizThreadMessagesCol, directoryCatalogCol,
 } from '@/lib/firestore';
 import { useAuth } from '@/hooks/useAuth';
 import { stripUndefined } from '@/lib/utils';
 import { distanceKm } from '@/lib/geo';
 import { computeOrderTotals } from '@/types';
 import type {
-  BusinessAddress, BusinessDirectoryEntry, FulfillmentMethod, GeoPoint, OrderItem,
-  OrderPaymentMethod, PublicCatalogItem, StayFoodPlan, StayMedication,
+  BusinessAddress, BusinessDirectoryEntry, FulfillmentMethod, GeoPoint, MessageThread,
+  OrderItem, OrderPaymentMethod, PublicCatalogItem, StayFoodPlan, StayMedication, ThreadMessage,
 } from '@/types';
 
 export interface DirectoryResult extends BusinessDirectoryEntry {
@@ -147,6 +152,28 @@ export interface PlaceOrderInput {
  * (unpaid, own uid) — even "pay online" orders start unpaid and are reconciled
  * by staff, since payment is record-only today.
  */
+// Best-effort thread opener so the conversation exists from the first order or
+// stay request — staff replies and status updates land in the same place.
+async function openThread(bid: string, businessName: string, user: { uid: string; displayName: string | null }, text: string) {
+  try {
+    const now = Date.now();
+    await setDoc(doc(bizThreadsCol(bid), user.uid), {
+      customerUserId: user.uid,
+      customerName: user.displayName ?? 'Customer',
+      businessId: bid,
+      businessName,
+      lastMessageAt: now,
+      lastMessageText: text,
+      unreadByStaff: increment(1),
+      updatedAt: now,
+    }, { merge: true });
+    await addDoc(bizThreadMessagesCol(bid, user.uid), {
+      at: now, fromUserId: user.uid, fromName: user.displayName ?? 'Customer',
+      fromSide: 'customer', kind: 'system', text,
+    } satisfies Omit<ThreadMessage, 'id'>);
+  } catch { /* messaging rides on top of the real write */ }
+}
+
 export function usePlaceOrder() {
   const { user } = useAuth();
 
@@ -154,6 +181,9 @@ export function usePlaceOrder() {
     const now = Date.now();
     const deliveryFee = input.fulfillment === 'delivery' ? (entry.deliveryFee ?? 0) : 0;
     const { subtotal, total } = computeOrderTotals(input.items, deliveryFee);
+    const itemCount = input.items.reduce((s, i) => s + i.quantity, 0);
+    void openThread(bid, entry.name, user!,
+      `Order placed: ${itemCount} item${itemCount !== 1 ? 's' : ''}, total ${total.toFixed(2)} ${entry.currency ?? ''}.`);
     return addDoc(bizOrdersCol(bid), stripUndefined({
       items: input.items,
       customerUserId: user!.uid,
@@ -178,6 +208,83 @@ export function usePlaceOrder() {
   return { placeOrder };
 }
 
+// ─── Customer messaging ───────────────────────────────────────────────────────
+// Thread doc id == the customer's uid inside each business. Customers find all
+// their threads across businesses with one collection-group query.
+
+/** All message threads belonging to the signed-in user, newest first. */
+export function useMyThreads() {
+  const { user } = useAuth();
+  const [threads, setThreads] = useState<MessageThread[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) { setThreads([]); setLoading(false); return; }
+    const unsub = onSnapshot(
+      query(collectionGroup(db, 'threads'),
+        where('customerUserId', '==', user.uid), orderBy('lastMessageAt', 'desc')),
+      snap => {
+        setThreads(snap.docs.map(d => ({ id: d.id, ...d.data() } as MessageThread)));
+        setLoading(false);
+      },
+      () => setLoading(false),
+    );
+    return () => unsub();
+  }, [user]);
+
+  return { threads, loading };
+}
+
+/** Live messages of one thread (works for the thread's customer by rules). */
+export function useCustomerThreadMessages(bid: string | null, tid: string | null) {
+  const [messages, setMessages] = useState<ThreadMessage[]>([]);
+  useEffect(() => {
+    if (!bid || !tid) { setMessages([]); return; }
+    const unsub = onSnapshot(
+      query(bizThreadMessagesCol(bid, tid), orderBy('at', 'asc')),
+      snap => setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() } as ThreadMessage))),
+      () => setMessages([]),
+    );
+    return () => unsub();
+  }, [bid, tid]);
+  return { messages };
+}
+
+export function useCustomerMessaging() {
+  const { user } = useAuth();
+
+  // Create-or-bump the user's thread at a business and append a message. Used
+  // for chat replies and for the "order placed" style openers.
+  const sendToBusiness = async (
+    bid: string,
+    businessName: string,
+    text: string,
+    kind: 'chat' | 'system' = 'chat',
+  ) => {
+    const now = Date.now();
+    await setDoc(doc(bizThreadsCol(bid), user!.uid), {
+      customerUserId: user!.uid,
+      customerName: user!.displayName ?? 'Customer',
+      businessId: bid,
+      businessName,
+      lastMessageAt: now,
+      lastMessageText: text,
+      unreadByStaff: increment(1),
+      updatedAt: now,
+    }, { merge: true });
+    await addDoc(bizThreadMessagesCol(bid, user!.uid), {
+      at: now, fromUserId: user!.uid, fromName: user!.displayName ?? 'Customer',
+      fromSide: 'customer', kind, text,
+    } satisfies Omit<ThreadMessage, 'id'>);
+  };
+
+  const markReadByCustomer = async (bid: string) => {
+    await updateDoc(doc(bizThreadsCol(bid), user!.uid), { unreadByCustomer: 0 }).catch(() => undefined);
+  };
+
+  return { sendToBusiness, markReadByCustomer };
+}
+
 export interface StayRequestInput {
   petName: string;
   petSpecies?: 'dog' | 'cat' | 'other';
@@ -195,8 +302,10 @@ export interface StayRequestInput {
 export function useRequestStay() {
   const { user } = useAuth();
 
-  const requestStay = async (bid: string, input: StayRequestInput) => {
+  const requestStay = async (bid: string, entry: BusinessDirectoryEntry, input: StayRequestInput) => {
     const now = Date.now();
+    void openThread(bid, entry.name, user!,
+      `Stay requested for ${input.petName}: ${input.startDate} → ${input.endDate}.`);
     return addDoc(bizStaysCol(bid), stripUndefined({
       customerUserId: user!.uid,
       customerName: user!.displayName,

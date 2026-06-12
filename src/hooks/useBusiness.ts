@@ -2,7 +2,7 @@ export { useBusiness } from '@/contexts/BusinessContext';
 
 import { useEffect, useState } from 'react';
 import {
-  addDoc, arrayRemove, arrayUnion, deleteDoc, doc, getDoc, getDocs,
+  addDoc, arrayRemove, arrayUnion, deleteDoc, doc, getDoc, getDocs, increment,
   onSnapshot, orderBy, query, runTransaction, setDoc, updateDoc, where, writeBatch,
   type QueryConstraint,
 } from 'firebase/firestore';
@@ -14,7 +14,7 @@ import {
   businessesCol, businessDirectoryCol, bizStaffCol, bizRolesCol, bizCustomersCol, bizPetsCol,
   bizAppointmentsCol, bizInvoicesCol, bizProductsCol, bizShipmentsCol,
   bizOrdersCol, bizStaysCol, bizServicesCol, bizShiftsCol, bizTimeOffCol,
-  bizSuppliersCol, bizPurchaseOrdersCol, bizThreadsCol, bizReportCardsCol,
+  bizSuppliersCol, bizPurchaseOrdersCol, bizThreadsCol, bizThreadMessagesCol, bizReportCardsCol,
   bizPackagesCol, bizCustomerPackagesCol, bizAdoptionListingsCol,
   bizAdoptionApplicationsCol, bizChartEntriesCol, bizClassesCol,
   bizEnrollmentsCol, bizLittersCol, bizWaitlistCol,
@@ -31,6 +31,7 @@ import {
   type BusinessService,
   computePurchaseOrderTotal, type PurchaseOrder, type Supplier,
   type Shift, type TimeOffRequest, type TimeOffStatus,
+  type MessageThread, type ThreadMessage,
 } from '@/types';
 import { fullDates, hasCapacityForRange, todayStr } from '@/lib/occupancy';
 
@@ -552,30 +553,43 @@ export function useOrders(bid: string) {
       tx.update(doc(bizOrdersCol(bid), order.id), { status: 'accepted', stockAdjusted: true, updatedAt: now });
     });
     void refreshCatalogStock(bid, [...wanted.keys()]);
+    void postSystemMessage(bid, { userId: order.customerUserId, name: order.customerName },
+      'Your order was accepted and is being prepared.');
   };
 
   // Cancel / reject. Returns held stock when the order had already been accepted.
   const closeOrder = async (order: Order, status: 'cancelled' | 'rejected') => {
     if (!order.stockAdjusted) {
       await updateDoc(doc(bizOrdersCol(bid), order.id), { status, updatedAt: Date.now() });
-      return;
-    }
-    const held = quantitiesByProduct(order.items);
-    await runTransaction(db, async tx => {
-      const refs = [...held.keys()].map(pid => doc(bizProductsCol(bid), pid));
-      const snaps = await Promise.all(refs.map(r => tx.get(r)));
-      const now = Date.now();
-      snaps.forEach((s, i) => {
-        if (!s.exists()) return; // product deleted meanwhile — nothing to restock
-        tx.update(refs[i], { stockQty: (s.data() as Product).stockQty + held.get(refs[i].id)!, updatedAt: now });
+    } else {
+      const held = quantitiesByProduct(order.items);
+      await runTransaction(db, async tx => {
+        const refs = [...held.keys()].map(pid => doc(bizProductsCol(bid), pid));
+        const snaps = await Promise.all(refs.map(r => tx.get(r)));
+        const now = Date.now();
+        snaps.forEach((s, i) => {
+          if (!s.exists()) return; // product deleted meanwhile — nothing to restock
+          tx.update(refs[i], { stockQty: (s.data() as Product).stockQty + held.get(refs[i].id)!, updatedAt: now });
+        });
+        tx.update(doc(bizOrdersCol(bid), order.id), { status, stockAdjusted: false, updatedAt: now });
       });
-      tx.update(doc(bizOrdersCol(bid), order.id), { status, stockAdjusted: false, updatedAt: now });
-    });
-    void refreshCatalogStock(bid, [...held.keys()]);
+      void refreshCatalogStock(bid, [...held.keys()]);
+    }
+    void postSystemMessage(bid, { userId: order.customerUserId, name: order.customerName },
+      status === 'rejected' ? 'Your order was rejected.' : 'Your order was cancelled.');
   };
 
-  const updateOrderStatus = async (id: string, status: OrderStatus) => {
-    await updateDoc(doc(bizOrdersCol(bid), id), { status, updatedAt: Date.now() });
+  const ORDER_STATUS_MESSAGES: Partial<Record<OrderStatus, string>> = {
+    preparing: 'Your order is being prepared.',
+    ready_for_pickup: 'Your order is ready for pickup!',
+    out_for_delivery: 'Your order is out for delivery.',
+    completed: 'Your order is complete. Thank you!',
+  };
+
+  const updateOrderStatus = async (order: Order, status: OrderStatus) => {
+    await updateDoc(doc(bizOrdersCol(bid), order.id), { status, updatedAt: Date.now() });
+    const text = ORDER_STATUS_MESSAGES[status];
+    if (text) void postSystemMessage(bid, { userId: order.customerUserId, name: order.customerName }, text);
   };
 
   const setOrderPaid = async (id: string, paymentStatus: Order['paymentStatus']) => {
@@ -668,6 +682,82 @@ export function useServices(bid: string) {
     void refreshServiceMenu(bid);
   };
   return { services, loading, createService, updateService, deleteService };
+}
+
+// ─── Messaging ────────────────────────────────────────────────────────────────
+// One thread per customer app-user; the thread doc id IS the customer uid, so
+// find-or-create is a single merge write. In-app only — no push/email.
+
+async function bumpThread(
+  bid: string,
+  customer: { userId: string; name: string },
+  lastMessageText: string,
+  unread: 'customer' | 'staff',
+) {
+  const bizSnap = await getDoc(doc(businessesCol(), bid));
+  const businessName = bizSnap.exists() ? (bizSnap.data() as Business).name : '';
+  const now = Date.now();
+  await setDoc(doc(bizThreadsCol(bid), customer.userId), {
+    customerUserId: customer.userId,
+    customerName: customer.name,
+    businessId: bid,
+    businessName,
+    lastMessageAt: now,
+    lastMessageText,
+    ...(unread === 'customer' ? { unreadByCustomer: increment(1) } : { unreadByStaff: increment(1) }),
+    updatedAt: now,
+  }, { merge: true });
+}
+
+// Posted by the acting client on key transitions (order status, stay approval…).
+// Best-effort: a missing customerUserId (walk-in customer) just skips it.
+export async function postSystemMessage(
+  bid: string,
+  customer: { userId?: string; name: string },
+  text: string,
+) {
+  if (!customer.userId) return;
+  try {
+    await bumpThread(bid, { userId: customer.userId, name: customer.name }, text, 'customer');
+    await addDoc(bizThreadMessagesCol(bid, customer.userId), {
+      at: Date.now(), fromUserId: 'system', fromName: 'Update', fromSide: 'staff', kind: 'system', text,
+    } satisfies Omit<ThreadMessage, 'id'>);
+  } catch { /* messaging is best-effort on top of the real transition */ }
+}
+
+export function useThreads(bid: string) {
+  const { user } = useAuth();
+  const { items: threads, loading } = useCollection<MessageThread>(
+    () => (bid ? bizThreadsCol(bid) : null), [bid], [orderBy('lastMessageAt', 'desc')],
+  );
+
+  const sendStaffMessage = async (thread: MessageThread, text: string) => {
+    await bumpThread(bid, { userId: thread.customerUserId, name: thread.customerName }, text, 'customer');
+    await addDoc(bizThreadMessagesCol(bid, thread.id), {
+      at: Date.now(), fromUserId: user!.uid, fromName: user!.displayName ?? 'Staff',
+      fromSide: 'staff', kind: 'chat', text,
+    } satisfies Omit<ThreadMessage, 'id'>);
+  };
+
+  const markReadByStaff = async (tid: string) => {
+    await updateDoc(doc(bizThreadsCol(bid), tid), { unreadByStaff: 0 });
+  };
+
+  return { threads, loading, sendStaffMessage, markReadByStaff };
+}
+
+export function useThreadMessages(bid: string, tid: string | null) {
+  const [messages, setMessages] = useState<ThreadMessage[]>([]);
+  useEffect(() => {
+    if (!bid || !tid) { setMessages([]); return; }
+    const unsub = onSnapshot(
+      query(bizThreadMessagesCol(bid, tid), orderBy('at', 'asc')),
+      snap => setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() } as ThreadMessage))),
+      () => setMessages([]),
+    );
+    return () => unsub();
+  }, [bid, tid]);
+  return { messages };
 }
 
 // ─── Staff shifts & time off ──────────────────────────────────────────────────
@@ -830,6 +920,14 @@ export function useStays(bid: string) {
       }
     }
     await updateStay(stay.id, { status });
+    const STAY_STATUS_MESSAGES: Partial<Record<StayStatus, string>> = {
+      approved: `${stay.petName}'s stay (${stay.startDate} → ${stay.endDate}) was approved. See you then!`,
+      declined: `${stay.petName}'s stay request was declined.`,
+      checked_in: `${stay.petName} checked in. We'll take good care of them!`,
+      checked_out: `${stay.petName} checked out. Thanks for staying with us!`,
+    };
+    const text = STAY_STATUS_MESSAGES[status];
+    if (text) void postSystemMessage(bid, { userId: stay.customerUserId, name: stay.customerName }, text);
     return { ok: true };
   };
 

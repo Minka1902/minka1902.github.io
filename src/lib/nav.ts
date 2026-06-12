@@ -1,7 +1,7 @@
 import {
   Home, Activity, Dumbbell, Stethoscope, Users, Cpu, QrCode, Settings,
   Calendar, Receipt, Package, Truck, UserCog, ShieldCheck, Lock, MapPin,
-  ShoppingCart, BedDouble, Tags, PackagePlus, CalendarClock, BarChart3,
+  ShoppingCart, BedDouble, Tags, PackagePlus, CalendarClock, BarChart3, MessageSquare,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Capability, BusinessModule } from '@/types';
@@ -19,6 +19,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/medical',  label: 'Medical',   icon: Stethoscope },
   { to: '/humans',   label: 'Team',      icon: Users },
   { to: '/discover', label: 'Discover',  icon: MapPin },
+  { to: '/messages', label: 'Messages',  icon: MessageSquare },
   { to: '/devices',  label: 'Devices',   icon: Cpu },
   { to: '/qr',       label: 'QR Code',   icon: QrCode },
   { to: '/settings', label: 'Settings',  icon: Settings },
@@ -44,6 +45,7 @@ export const BUSINESS_NAV_ITEMS: BusinessNavItem[] = [
   { to: '/business/orders',       label: 'Orders',       icon: ShoppingCart, cap: 'view_orders',   module: 'orders' },
   { to: '/business/boarding',     label: 'Boarding',     icon: BedDouble, cap: 'view_boarding',    module: 'boarding' },
   { to: '/business/customers',    label: 'Customers',    icon: Users,    cap: 'view_customers',    module: 'customers' },
+  { to: '/business/messages',     label: 'Messages',     icon: MessageSquare, cap: 'view_messages', module: 'messages' },
   { to: '/business/invoices',     label: 'Invoices',     icon: Receipt,  cap: 'view_invoices',     module: 'invoices' },
   { to: '/business/services',     label: 'Services',     icon: Tags,     cap: 'view_services',     module: 'services' },
   { to: '/business/inventory',    label: 'Stock',        icon: Package,  cap: 'view_inventory',    module: 'inventory' },
