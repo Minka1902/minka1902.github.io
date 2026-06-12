@@ -66,7 +66,7 @@ export default function ReportsPage() {
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis dataKey="date" tickFormatter={shortDate} fontSize={11} minTickGap={24} />
                 <YAxis fontSize={11} width={44} />
-                <Tooltip formatter={(v: number) => [`${v.toFixed(2)} ${currency}`, 'Payments']} />
+                <Tooltip formatter={(v) => [`${Number(v).toFixed(2)} ${currency}`, 'Payments']} />
                 <Line type="monotone" dataKey="value" strokeWidth={2} dot={false} className="stroke-primary" stroke="currentColor" />
               </LineChart>
             </ResponsiveContainer>
@@ -83,7 +83,7 @@ export default function ReportsPage() {
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis dataKey="date" tickFormatter={shortDate} fontSize={11} minTickGap={24} />
                 <YAxis fontSize={11} width={28} allowDecimals={false} />
-                <Tooltip formatter={(v: number) => [v, 'Appointments']} />
+                <Tooltip formatter={(v) => [String(v), 'Appointments']} />
                 <Bar dataKey="value" className="fill-primary" fill="currentColor" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -163,7 +163,7 @@ export default function ReportsPage() {
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis dataKey="date" tickFormatter={shortDate} fontSize={11} minTickGap={24} />
                 <YAxis fontSize={11} width={36} unit="%" domain={[0, 100]} />
-                <Tooltip formatter={(v: number) => [`${v}%`, 'Occupied']} />
+                <Tooltip formatter={(v) => [`${v}%`, 'Occupied']} />
                 <Bar dataKey="value" className="fill-primary" fill="currentColor" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
