@@ -22,8 +22,8 @@ import {
   directoryLittersCol, directoryReviewsCol,
 } from '@/lib/firestore';
 import {
-  ALL_CAPABILITIES, DEFAULT_ROLE_TEMPLATES, computeInvoiceTotals, computeOrderTotals,
-  findStockShortages, isModuleEnabled,
+  ALL_CAPABILITIES, DEFAULT_ROLE_TEMPLATES, TYPE_MODULE_PRESETS,
+  computeInvoiceTotals, computeOrderTotals, findStockShortages, isModuleEnabled,
   type Business, type BusinessRole, type BusinessStaff, type BusinessCustomer,
   type BusinessPet, type Appointment, type Invoice, type Product, type Shipment,
   type Order, type OrderItem, type OrderStatus,
@@ -186,6 +186,9 @@ export function useCreateBusiness() {
     const ref = await addDoc(businessesCol(), stripUndefined({
       ...data,
       currency: data.currency ?? 'USD',
+      // Each business type starts with the modules it actually needs; the owner
+      // can adjust the set later in Settings.
+      modules: data.modules ?? TYPE_MODULE_PRESETS[data.type],
       ownerUserId: user!.uid,
       staffUserIds: [user!.uid],
       createdAt: now,

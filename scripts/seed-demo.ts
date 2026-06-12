@@ -81,6 +81,13 @@ const ALL_CAPS = [
   'view_appointments', 'manage_appointments', 'manage_own_appointments',
   'view_invoices', 'manage_invoices', 'record_payments',
   'view_inventory', 'manage_inventory', 'view_shipments', 'manage_shipments',
+  'view_orders', 'manage_orders', 'view_boarding', 'manage_boarding',
+  'view_services', 'manage_services', 'view_shifts', 'manage_shifts',
+  'view_purchasing', 'manage_purchasing', 'view_reports',
+  'view_messages', 'manage_messages', 'view_report_cards', 'manage_report_cards',
+  'view_packages', 'manage_packages', 'view_adoptions', 'manage_adoptions',
+  'view_patients', 'manage_patients', 'view_classes', 'manage_classes',
+  'view_breeding', 'manage_breeding',
 ];
 
 const slug = (s: string) => s.toLowerCase().replace(/[.\s]+/g, '.');

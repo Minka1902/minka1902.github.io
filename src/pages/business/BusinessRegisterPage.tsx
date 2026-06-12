@@ -13,7 +13,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCreateBusiness } from '@/hooks/useBusiness';
 import BusinessTypeSelector from '@/components/business/BusinessTypeSelector';
 import AddressLocationPicker from '@/components/dog/AddressLocationPicker';
+import { MODULE_CATALOG, TYPE_MODULE_PRESETS } from '@/types';
 import type { BusinessType, HomeLocation } from '@/types';
+
+const MODULE_LABELS = Object.fromEntries(MODULE_CATALOG.map(m => [m.module, m.label]));
 
 export default function BusinessRegisterPage() {
   const { createBusiness } = useCreateBusiness();
@@ -128,6 +131,12 @@ export default function BusinessRegisterPage() {
                 <Input id="reg-regid" value={registrationId} onChange={e => setRegistrationId(e.target.value)} placeholder="Registration / tax number" required />
               </div>
             </div>
+
+            <p className="text-xs text-muted-foreground">
+              Pages enabled for this type:{' '}
+              {TYPE_MODULE_PRESETS[type].map(m => MODULE_LABELS[m]).join(', ')}.
+              You can adjust these any time in Settings.
+            </p>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
