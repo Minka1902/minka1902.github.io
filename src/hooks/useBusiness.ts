@@ -12,6 +12,13 @@ import { lookupUserByEmail } from '@/lib/userLookup';
 import {
   businessesCol, businessDirectoryCol, bizStaffCol, bizRolesCol, bizCustomersCol, bizPetsCol,
   bizAppointmentsCol, bizInvoicesCol, bizProductsCol, bizShipmentsCol,
+  bizOrdersCol, bizStaysCol, bizServicesCol, bizShiftsCol, bizTimeOffCol,
+  bizSuppliersCol, bizPurchaseOrdersCol, bizThreadsCol, bizReportCardsCol,
+  bizPackagesCol, bizCustomerPackagesCol, bizAdoptionListingsCol,
+  bizAdoptionApplicationsCol, bizChartEntriesCol, bizClassesCol,
+  bizEnrollmentsCol, bizLittersCol, bizWaitlistCol,
+  directoryCatalogCol, directoryAdoptablesCol, directoryClassesCol,
+  directoryLittersCol, directoryReviewsCol,
 } from '@/lib/firestore';
 import {
   ALL_CAPABILITIES, DEFAULT_ROLE_TEMPLATES, computeInvoiceTotals,
@@ -149,12 +156,20 @@ export function useBusinessActions(bid: string) {
   const deleteBusiness = async () => {
     // Best-effort cascade delete of subcollections, then the business doc.
     const subs = [bizStaffCol, bizRolesCol, bizCustomersCol, bizPetsCol,
-      bizAppointmentsCol, bizInvoicesCol, bizProductsCol, bizShipmentsCol];
+      bizAppointmentsCol, bizInvoicesCol, bizProductsCol, bizShipmentsCol,
+      bizOrdersCol, bizStaysCol, bizServicesCol, bizShiftsCol, bizTimeOffCol,
+      bizSuppliersCol, bizPurchaseOrdersCol, bizThreadsCol, bizReportCardsCol,
+      bizPackagesCol, bizCustomerPackagesCol, bizAdoptionListingsCol,
+      bizAdoptionApplicationsCol, bizChartEntriesCol, bizClassesCol,
+      bizEnrollmentsCol, bizLittersCol, bizWaitlistCol,
+      directoryCatalogCol, directoryAdoptablesCol, directoryClassesCol,
+      directoryLittersCol, directoryReviewsCol];
     for (const sub of subs) {
-      const snap = await getDocs(sub(bid));
+      const snap = await getDocs(sub(bid)).catch(() => null);
+      if (!snap?.size) continue;
       const batch = writeBatch(db);
       snap.docs.forEach(d => batch.delete(d.ref));
-      if (snap.size) await batch.commit();
+      await batch.commit();
     }
     await deleteDoc(doc(businessDirectoryCol(), bid)).catch(() => undefined);
     await deleteDoc(doc(businessesCol(), bid));

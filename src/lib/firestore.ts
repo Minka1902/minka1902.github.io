@@ -33,3 +33,29 @@ export const bizAppointmentsCol = (bid: string) => collection(db, 'businesses', 
 export const bizInvoicesCol     = (bid: string) => collection(db, 'businesses', bid, 'invoices');
 export const bizProductsCol     = (bid: string) => collection(db, 'businesses', bid, 'products');
 export const bizShipmentsCol    = (bid: string) => collection(db, 'businesses', bid, 'shipments');
+export const bizOrdersCol       = (bid: string) => collection(db, 'businesses', bid, 'orders');
+export const bizStaysCol        = (bid: string) => collection(db, 'businesses', bid, 'stays');
+export const bizServicesCol     = (bid: string) => collection(db, 'businesses', bid, 'services');
+export const bizShiftsCol       = (bid: string) => collection(db, 'businesses', bid, 'shifts');
+export const bizTimeOffCol      = (bid: string) => collection(db, 'businesses', bid, 'timeOff');
+export const bizSuppliersCol    = (bid: string) => collection(db, 'businesses', bid, 'suppliers');
+export const bizPurchaseOrdersCol = (bid: string) => collection(db, 'businesses', bid, 'purchaseOrders');
+export const bizThreadsCol      = (bid: string) => collection(db, 'businesses', bid, 'threads');
+export const bizThreadMessagesCol = (bid: string, tid: string) => collection(db, 'businesses', bid, 'threads', tid, 'messages');
+export const bizReportCardsCol  = (bid: string) => collection(db, 'businesses', bid, 'reportCards');
+export const bizPackagesCol     = (bid: string) => collection(db, 'businesses', bid, 'packages');
+export const bizCustomerPackagesCol = (bid: string) => collection(db, 'businesses', bid, 'customerPackages');
+export const bizAdoptionListingsCol = (bid: string) => collection(db, 'businesses', bid, 'adoptionListings');
+export const bizAdoptionApplicationsCol = (bid: string) => collection(db, 'businesses', bid, 'adoptionApplications');
+export const bizChartEntriesCol = (bid: string) => collection(db, 'businesses', bid, 'chartEntries');
+export const bizClassesCol      = (bid: string) => collection(db, 'businesses', bid, 'classes');
+export const bizEnrollmentsCol  = (bid: string) => collection(db, 'businesses', bid, 'enrollments');
+export const bizLittersCol      = (bid: string) => collection(db, 'businesses', bid, 'litters');
+export const bizWaitlistCol     = (bid: string) => collection(db, 'businesses', bid, 'waitlist');
+
+// Public subcollections of the directory entry — read by anyone, synced by staff.
+export const directoryCatalogCol    = (bid: string) => collection(db, 'businessDirectory', bid, 'catalog');
+export const directoryAdoptablesCol = (bid: string) => collection(db, 'businessDirectory', bid, 'adoptables');
+export const directoryClassesCol    = (bid: string) => collection(db, 'businessDirectory', bid, 'classCatalog');
+export const directoryLittersCol    = (bid: string) => collection(db, 'businessDirectory', bid, 'litterCatalog');
+export const directoryReviewsCol    = (bid: string) => collection(db, 'businessDirectory', bid, 'reviews');

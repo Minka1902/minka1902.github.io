@@ -6,6 +6,14 @@
       "fields": [
         { "fieldPath": "userId", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "threads",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "customerUserId", "order": "ASCENDING" },
+        { "fieldPath": "lastMessageAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
