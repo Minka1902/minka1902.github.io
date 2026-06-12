@@ -1,6 +1,8 @@
 import {
   Home, Activity, Dumbbell, Stethoscope, Users, Cpu, QrCode, Settings,
   Calendar, Receipt, Package, Truck, UserCog, ShieldCheck, Lock, MapPin,
+  ShoppingCart, BedDouble, Tags, PackagePlus, CalendarClock, BarChart3, MessageSquare,
+  FileHeart, Ticket, GraduationCap, HeartHandshake, PawPrint,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Capability, BusinessModule } from '@/types';
@@ -18,6 +20,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/medical',  label: 'Medical',   icon: Stethoscope },
   { to: '/humans',   label: 'Team',      icon: Users },
   { to: '/discover', label: 'Discover',  icon: MapPin },
+  { to: '/messages', label: 'Messages',  icon: MessageSquare },
   { to: '/devices',  label: 'Devices',   icon: Cpu },
   { to: '/qr',       label: 'QR Code',   icon: QrCode },
   { to: '/settings', label: 'Settings',  icon: Settings },
@@ -40,10 +43,23 @@ export interface BusinessNavItem extends NavItem {
 export const BUSINESS_NAV_ITEMS: BusinessNavItem[] = [
   { to: '/business',              label: 'Dashboard',    icon: Home },
   { to: '/business/appointments', label: 'Appointments', icon: Calendar, cap: 'view_appointments', module: 'appointments' },
+  { to: '/business/orders',       label: 'Orders',       icon: ShoppingCart, cap: 'view_orders',   module: 'orders' },
+  { to: '/business/boarding',     label: 'Boarding',     icon: BedDouble, cap: 'view_boarding',    module: 'boarding' },
   { to: '/business/customers',    label: 'Customers',    icon: Users,    cap: 'view_customers',    module: 'customers' },
+  { to: '/business/messages',     label: 'Messages',     icon: MessageSquare, cap: 'view_messages', module: 'messages' },
+  { to: '/business/report-cards', label: 'Report cards', icon: FileHeart, cap: 'view_report_cards', module: 'report_cards' },
+  { to: '/business/packages',     label: 'Packages',     icon: Ticket,   cap: 'view_packages',     module: 'packages' },
+  { to: '/business/patients',     label: 'Patients',     icon: Stethoscope, cap: 'view_patients',  module: 'patients' },
+  { to: '/business/classes',      label: 'Classes',      icon: GraduationCap, cap: 'view_classes', module: 'classes' },
+  { to: '/business/adoptions',    label: 'Adoptions',    icon: HeartHandshake, cap: 'view_adoptions', module: 'adoptions' },
+  { to: '/business/breeding',     label: 'Litters',      icon: PawPrint, cap: 'view_breeding',     module: 'breeding' },
   { to: '/business/invoices',     label: 'Invoices',     icon: Receipt,  cap: 'view_invoices',     module: 'invoices' },
-  { to: '/business/inventory',    label: 'Inventory',    icon: Package,  cap: 'view_inventory',    module: 'inventory' },
+  { to: '/business/services',     label: 'Services',     icon: Tags,     cap: 'view_services',     module: 'services' },
+  { to: '/business/inventory',    label: 'Stock',        icon: Package,  cap: 'view_inventory',    module: 'inventory' },
   { to: '/business/shipments',    label: 'Shipments',    icon: Truck,    cap: 'view_shipments',    module: 'shipments' },
+  { to: '/business/purchasing',   label: 'Purchasing',   icon: PackagePlus, cap: 'view_purchasing', module: 'purchasing' },
+  { to: '/business/shifts',       label: 'Shifts',       icon: CalendarClock, cap: 'view_shifts',  module: 'shifts' },
+  { to: '/business/reports',      label: 'Reports',      icon: BarChart3, cap: 'view_reports',     module: 'reports' },
   { to: '/business/staff',        label: 'Staff',        icon: UserCog,  cap: 'manage_staff' },
   { to: '/business/roles',        label: 'Roles',        icon: ShieldCheck, cap: 'manage_roles' },
   { to: '/business/security',     label: 'Security',     icon: Lock },

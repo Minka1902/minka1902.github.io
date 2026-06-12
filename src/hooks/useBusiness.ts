@@ -2,8 +2,9 @@ export { useBusiness } from '@/contexts/BusinessContext';
 
 import { useEffect, useState } from 'react';
 import {
-  addDoc, arrayRemove, arrayUnion, deleteDoc, doc, getDoc, getDocs,
-  onSnapshot, orderBy, query, setDoc, updateDoc, where, writeBatch, type QueryConstraint,
+  addDoc, arrayRemove, arrayUnion, deleteDoc, doc, getDoc, getDocs, increment,
+  onSnapshot, orderBy, query, runTransaction, setDoc, updateDoc, where, writeBatch,
+  type QueryConstraint,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
@@ -12,12 +13,35 @@ import { lookupUserByEmail } from '@/lib/userLookup';
 import {
   businessesCol, businessDirectoryCol, bizStaffCol, bizRolesCol, bizCustomersCol, bizPetsCol,
   bizAppointmentsCol, bizInvoicesCol, bizProductsCol, bizShipmentsCol,
+  bizOrdersCol, bizStaysCol, bizServicesCol, bizShiftsCol, bizTimeOffCol,
+  bizSuppliersCol, bizPurchaseOrdersCol, bizThreadsCol, bizThreadMessagesCol, bizReportCardsCol,
+  bizPackagesCol, bizCustomerPackagesCol, bizAdoptionListingsCol,
+  bizAdoptionApplicationsCol, bizChartEntriesCol, bizClassesCol,
+  bizEnrollmentsCol, bizLittersCol, bizWaitlistCol,
+  directoryCatalogCol, directoryAdoptablesCol, directoryClassesCol,
+  directoryLittersCol, directoryReviewsCol,
 } from '@/lib/firestore';
 import {
-  ALL_CAPABILITIES, DEFAULT_ROLE_TEMPLATES, computeInvoiceTotals,
+  ALL_CAPABILITIES, DEFAULT_ROLE_TEMPLATES, TYPE_MODULE_PRESETS,
+  computeInvoiceTotals, computeOrderTotals, findStockShortages, isModuleEnabled,
   type Business, type BusinessRole, type BusinessStaff, type BusinessCustomer,
   type BusinessPet, type Appointment, type Invoice, type Product, type Shipment,
+  type Order, type OrderItem, type OrderStatus,
+  type Stay, type StayDailyNote, type StayStatus,
+  type BusinessService,
+  computePurchaseOrderTotal, type PurchaseOrder, type Supplier,
+  type Shift, type TimeOffRequest, type TimeOffStatus,
+  type MessageThread, type ThreadMessage,
+  type ReportCard,
+  type CustomerPackage, type PackageDef,
+  type ChartEntry, type MedicalRecord,
+  classSpotsLeft, type ClassEnrollment, type GroupClass,
+  type AdoptionApplication, type AdoptionListing,
+  type Litter, type WaitlistEntry,
 } from '@/types';
+import { derivePackageStatus, packageExpiry } from '@/lib/packages';
+import { medicalCol } from '@/lib/firestore';
+import { fullDates, hasCapacityForRange, todayStr } from '@/lib/occupancy';
 
 // Build the public directory projection of a business and publish it (or remove
 // it from the directory when the owner unlists the business).
@@ -36,6 +60,20 @@ function buildDirectoryEntry(b: Business) {
     services: b.services,
     availability: b.availability,
     slotMinutes: b.slotMinutes,
+    currency: b.currency,
+    // Commerce summary — customers need the fulfilment/payment options to order.
+    orderable: (b.commerce?.ordersOpen ?? false) && isModuleEnabled(b, 'orders'),
+    fulfillment: b.commerce?.fulfillment,
+    deliveryFee: b.commerce?.deliveryFee,
+    paymentMethods: b.commerce?.paymentMethods,
+    // Boarding summary — fullDates is maintained separately by
+    // refreshBoardingAvailability and survives via the recursive merge.
+    boarding: b.boarding
+      ? stripUndefined({
+          requestsOpen: b.boarding.requestsOpen && isModuleEnabled(b, 'boarding'),
+          pricePerNight: b.boarding.pricePerNight,
+        })
+      : undefined,
     updatedAt: Date.now(),
   });
 }
@@ -64,6 +102,65 @@ async function refreshBusySlots(bid: string) {
       .map(a => ({ start: a.startAt, end: a.endAt }));
     await setDoc(doc(businessDirectoryCol(), bid), { busySlots: busy, updatedAt: now }, { merge: true });
   } catch { /* directory may not exist for unlisted businesses — ignore */ }
+}
+
+// ─── Public catalog sync ──────────────────────────────────────────────────────
+// The order page reads businessDirectory/{bid}/catalog — a projection that only
+// exposes name / category / price / inStock (never raw stock numbers). Synced on
+// product mutations while online ordering is on; fully rebuilt on toggle.
+
+function toCatalogDoc(p: Product) {
+  return stripUndefined({
+    name: p.name,
+    category: p.category,
+    unitPrice: p.unitPrice,
+    inStock: p.active && p.stockQty > 0,
+    updatedAt: Date.now(),
+  });
+}
+
+async function isOrderable(bid: string): Promise<boolean> {
+  const snap = await getDoc(doc(businessDirectoryCol(), bid)).catch(() => null);
+  return snap?.exists() === true && snap.data()?.orderable === true;
+}
+
+// Upsert (or, for inactive products, remove) one catalog projection. Best-effort.
+async function syncCatalogItem(bid: string, productId: string, product: Product | null) {
+  try {
+    if (!(await isOrderable(bid))) return;
+    const ref = doc(directoryCatalogCol(bid), productId);
+    if (!product || !product.active) await deleteDoc(ref);
+    else await setDoc(ref, toCatalogDoc(product));
+  } catch { /* projection is best-effort; the accept transaction is the truth */ }
+}
+
+// Rebuild the whole catalog projection (Settings toggle, module changes).
+export async function resyncCatalog(bid: string, ordersOpen: boolean) {
+  const existing = await getDocs(directoryCatalogCol(bid)).catch(() => null);
+  const batch = writeBatch(db);
+  existing?.docs.forEach(d => batch.delete(d.ref));
+  if (ordersOpen) {
+    const products = await getDocs(bizProductsCol(bid));
+    products.docs.forEach(d => {
+      const p = d.data() as Product;
+      if (p.active) batch.set(doc(directoryCatalogCol(bid), d.id), toCatalogDoc(p));
+    });
+  }
+  await batch.commit();
+}
+
+// Refresh inStock for the products an order touched (post-transaction).
+async function refreshCatalogStock(bid: string, productIds: string[]) {
+  try {
+    if (!(await isOrderable(bid))) return;
+    for (const pid of productIds) {
+      const snap = await getDoc(doc(bizProductsCol(bid), pid));
+      if (!snap.exists()) continue;
+      const p = snap.data() as Product;
+      await setDoc(doc(directoryCatalogCol(bid), pid),
+        { inStock: p.active && p.stockQty > 0, updatedAt: Date.now() }, { merge: true });
+    }
+  } catch { /* best-effort */ }
 }
 
 // Generic realtime subscription helper.
@@ -101,6 +198,9 @@ export function useCreateBusiness() {
     const ref = await addDoc(businessesCol(), stripUndefined({
       ...data,
       currency: data.currency ?? 'USD',
+      // Each business type starts with the modules it actually needs; the owner
+      // can adjust the set later in Settings.
+      modules: data.modules ?? TYPE_MODULE_PRESETS[data.type],
       ownerUserId: user!.uid,
       staffUserIds: [user!.uid],
       createdAt: now,
@@ -149,12 +249,20 @@ export function useBusinessActions(bid: string) {
   const deleteBusiness = async () => {
     // Best-effort cascade delete of subcollections, then the business doc.
     const subs = [bizStaffCol, bizRolesCol, bizCustomersCol, bizPetsCol,
-      bizAppointmentsCol, bizInvoicesCol, bizProductsCol, bizShipmentsCol];
+      bizAppointmentsCol, bizInvoicesCol, bizProductsCol, bizShipmentsCol,
+      bizOrdersCol, bizStaysCol, bizServicesCol, bizShiftsCol, bizTimeOffCol,
+      bizSuppliersCol, bizPurchaseOrdersCol, bizThreadsCol, bizReportCardsCol,
+      bizPackagesCol, bizCustomerPackagesCol, bizAdoptionListingsCol,
+      bizAdoptionApplicationsCol, bizChartEntriesCol, bizClassesCol,
+      bizEnrollmentsCol, bizLittersCol, bizWaitlistCol,
+      directoryCatalogCol, directoryAdoptablesCol, directoryClassesCol,
+      directoryLittersCol, directoryReviewsCol];
     for (const sub of subs) {
-      const snap = await getDocs(sub(bid));
+      const snap = await getDocs(sub(bid)).catch(() => null);
+      if (!snap?.size) continue;
       const batch = writeBatch(db);
       snap.docs.forEach(d => batch.delete(d.ref));
-      if (snap.size) await batch.commit();
+      await batch.commit();
     }
     await deleteDoc(doc(businessDirectoryCol(), bid)).catch(() => undefined);
     await deleteDoc(doc(businessesCol(), bid));
@@ -350,12 +458,19 @@ export function useProducts(bid: string) {
   );
   const createProduct = async (data: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => {
     const now = Date.now();
-    return addDoc(bizProductsCol(bid), stripUndefined({ ...data, createdAt: now, updatedAt: now }));
+    const ref = await addDoc(bizProductsCol(bid), stripUndefined({ ...data, createdAt: now, updatedAt: now }));
+    void syncCatalogItem(bid, ref.id, { ...data, id: ref.id, createdAt: now, updatedAt: now });
+    return ref;
   };
   const updateProduct = async (id: string, data: Partial<Product>) => {
     await updateDoc(doc(bizProductsCol(bid), id), stripUndefined({ ...data, updatedAt: Date.now() }));
+    const snap = await getDoc(doc(bizProductsCol(bid), id));
+    if (snap.exists()) void syncCatalogItem(bid, id, { id, ...snap.data() } as Product);
   };
-  const deleteProduct = async (id: string) => { await deleteDoc(doc(bizProductsCol(bid), id)); };
+  const deleteProduct = async (id: string) => {
+    await deleteDoc(doc(bizProductsCol(bid), id));
+    void syncCatalogItem(bid, id, null);
+  };
   return { products, loading, createProduct, updateProduct, deleteProduct };
 }
 
@@ -375,6 +490,907 @@ export function useShipments(bid: string) {
   };
   const deleteShipment = async (id: string) => { await deleteDoc(doc(bizShipmentsCol(bid), id)); };
   return { shipments, loading, createShipment, updateShipment, deleteShipment };
+}
+
+// ─── Orders ───────────────────────────────────────────────────────────────────
+
+// Thrown by acceptOrder when stock can't cover the order; the UI lists the
+// short items so staff can reject or restock.
+export class OrderStockError extends Error {
+  shortages: ReturnType<typeof findStockShortages>;
+  constructor(shortages: ReturnType<typeof findStockShortages>) {
+    super(`Insufficient stock: ${shortages.map(s => `${s.name} (${s.available}/${s.requested})`).join(', ')}`);
+    this.name = 'OrderStockError';
+    this.shortages = shortages;
+  }
+}
+
+// Quantity per product, with duplicate lines folded together so the stock
+// transaction touches each product doc exactly once.
+function quantitiesByProduct(items: OrderItem[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const i of items) map.set(i.productId, (map.get(i.productId) ?? 0) + i.quantity);
+  return map;
+}
+
+export function useOrders(bid: string) {
+  const { user } = useAuth();
+  const { items: orders, loading } = useCollection<Order>(
+    () => (bid ? bizOrdersCol(bid) : null), [bid], [orderBy('createdAt', 'desc')],
+  );
+
+  const createOrder = async (
+    data: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'subtotal' | 'total' | 'status' | 'source' | 'paymentStatus'>,
+  ) => {
+    const now = Date.now();
+    const { subtotal, total } = computeOrderTotals(data.items, data.deliveryFee ?? 0);
+    return addDoc(bizOrdersCol(bid), stripUndefined({
+      ...data,
+      subtotal, total,
+      status: 'placed',
+      source: 'staff',
+      // 'online' is record-only today: the payment is considered collected at
+      // placement. In-person / on-delivery orders start unpaid.
+      paymentStatus: data.paymentMethod === 'online' ? 'paid' : 'unpaid',
+      createdBy: user!.uid, createdAt: now, updatedAt: now,
+    } as Order));
+  };
+
+  // Accept = the single point where stock moves out. Transactional so two
+  // staffers accepting concurrently can't oversell.
+  const acceptOrder = async (order: Order) => {
+    const wanted = quantitiesByProduct(order.items);
+    await runTransaction(db, async tx => {
+      const refs = [...wanted.keys()].map(pid => doc(bizProductsCol(bid), pid));
+      const snaps = await Promise.all(refs.map(r => tx.get(r)));
+      const stockById: Record<string, number | undefined> = {};
+      snaps.forEach((s, i) => { stockById[refs[i].id] = s.exists() ? (s.data() as Product).stockQty : undefined; });
+      const shortages = findStockShortages(
+        [...wanted.entries()].map(([productId, quantity]) => ({
+          productId, quantity,
+          name: order.items.find(it => it.productId === productId)!.name,
+          unitPrice: 0,
+        })),
+        stockById,
+      );
+      if (shortages.length) throw new OrderStockError(shortages);
+      const now = Date.now();
+      refs.forEach(r => {
+        tx.update(r, { stockQty: stockById[r.id]! - wanted.get(r.id)!, updatedAt: now });
+      });
+      tx.update(doc(bizOrdersCol(bid), order.id), { status: 'accepted', stockAdjusted: true, updatedAt: now });
+    });
+    void refreshCatalogStock(bid, [...wanted.keys()]);
+    void postSystemMessage(bid, { userId: order.customerUserId, name: order.customerName },
+      'Your order was accepted and is being prepared.');
+  };
+
+  // Cancel / reject. Returns held stock when the order had already been accepted.
+  const closeOrder = async (order: Order, status: 'cancelled' | 'rejected') => {
+    if (!order.stockAdjusted) {
+      await updateDoc(doc(bizOrdersCol(bid), order.id), { status, updatedAt: Date.now() });
+    } else {
+      const held = quantitiesByProduct(order.items);
+      await runTransaction(db, async tx => {
+        const refs = [...held.keys()].map(pid => doc(bizProductsCol(bid), pid));
+        const snaps = await Promise.all(refs.map(r => tx.get(r)));
+        const now = Date.now();
+        snaps.forEach((s, i) => {
+          if (!s.exists()) return; // product deleted meanwhile — nothing to restock
+          tx.update(refs[i], { stockQty: (s.data() as Product).stockQty + held.get(refs[i].id)!, updatedAt: now });
+        });
+        tx.update(doc(bizOrdersCol(bid), order.id), { status, stockAdjusted: false, updatedAt: now });
+      });
+      void refreshCatalogStock(bid, [...held.keys()]);
+    }
+    void postSystemMessage(bid, { userId: order.customerUserId, name: order.customerName },
+      status === 'rejected' ? 'Your order was rejected.' : 'Your order was cancelled.');
+  };
+
+  const ORDER_STATUS_MESSAGES: Partial<Record<OrderStatus, string>> = {
+    preparing: 'Your order is being prepared.',
+    ready_for_pickup: 'Your order is ready for pickup!',
+    out_for_delivery: 'Your order is out for delivery.',
+    completed: 'Your order is complete. Thank you!',
+  };
+
+  const updateOrderStatus = async (order: Order, status: OrderStatus) => {
+    await updateDoc(doc(bizOrdersCol(bid), order.id), { status, updatedAt: Date.now() });
+    const text = ORDER_STATUS_MESSAGES[status];
+    if (text) void postSystemMessage(bid, { userId: order.customerUserId, name: order.customerName }, text);
+  };
+
+  const setOrderPaid = async (id: string, paymentStatus: Order['paymentStatus']) => {
+    await updateDoc(doc(bizOrdersCol(bid), id), { paymentStatus, updatedAt: Date.now() });
+  };
+
+  // Raise an invoice mirroring the order (items + delivery fee line). Marks the
+  // invoice paid right away when the order's payment was already collected.
+  const createInvoiceFromOrder = async (order: Order) => {
+    const now = Date.now();
+    const lineItems = [
+      ...order.items.map(i => ({ description: i.name, quantity: i.quantity, unitPrice: i.unitPrice, productId: i.productId })),
+      ...(order.deliveryFee ? [{ description: 'Delivery', quantity: 1, unitPrice: order.deliveryFee }] : []),
+    ];
+    const { subtotal, total } = computeInvoiceTotals(lineItems);
+    const paid = order.paymentStatus === 'paid';
+    const ref = await addDoc(bizInvoicesCol(bid), stripUndefined({
+      number: `INV-${now}`,
+      customerId: order.customerId ?? '',
+      customerName: order.customerName,
+      lineItems, subtotal, total,
+      amountPaid: paid ? total : 0,
+      status: paid ? 'paid' : 'sent',
+      payments: paid ? [{ amount: total, method: 'other', paidAt: now, recordedBy: user!.uid }] : [],
+      issuedAt: now,
+      notes: `Order ${order.id}`,
+      createdBy: user!.uid, createdAt: now, updatedAt: now,
+    } as Omit<Invoice, 'id'>));
+    await updateDoc(doc(bizOrdersCol(bid), order.id), { invoiceId: ref.id, updatedAt: now });
+    return ref;
+  };
+
+  // Hand a carrier delivery over to the shipments module.
+  const createShipmentFromOrder = async (order: Order) => {
+    const now = Date.now();
+    const ref = await addDoc(bizShipmentsCol(bid), stripUndefined({
+      customerId: order.customerId,
+      customerName: order.customerName,
+      invoiceId: order.invoiceId,
+      items: order.items.map(i => ({ productId: i.productId, productName: i.name, quantity: i.quantity })),
+      destinationAddress: order.deliveryAddress,
+      status: 'pending',
+      notes: `Order ${order.id}`,
+      createdBy: user!.uid, createdAt: now, updatedAt: now,
+    } as Omit<Shipment, 'id'>));
+    await updateDoc(doc(bizOrdersCol(bid), order.id), { shipmentId: ref.id, updatedAt: now });
+    return ref;
+  };
+
+  const deleteOrder = async (id: string) => { await deleteDoc(doc(bizOrdersCol(bid), id)); };
+
+  return {
+    orders, loading, createOrder, acceptOrder, closeOrder, updateOrderStatus,
+    setOrderPaid, createInvoiceFromOrder, createShipmentFromOrder, deleteOrder,
+  };
+}
+
+// ─── Services & price list ────────────────────────────────────────────────────
+
+// Publish the active services as a priced menu on the directory entry so the
+// booking page can show real prices/durations. Best-effort, like busySlots.
+async function refreshServiceMenu(bid: string) {
+  try {
+    const snap = await getDocs(bizServicesCol(bid));
+    const menu = snap.docs
+      .map(d => d.data() as BusinessService)
+      .filter(s => s.active)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(s => stripUndefined({ name: s.name, price: s.price, durationMinutes: s.durationMinutes }));
+    await setDoc(doc(businessDirectoryCol(), bid), { serviceMenu: menu, updatedAt: Date.now() }, { merge: true });
+  } catch { /* directory may not exist for unlisted businesses — ignore */ }
+}
+
+export function useServices(bid: string) {
+  const { items: services, loading } = useCollection<BusinessService>(
+    () => (bid ? bizServicesCol(bid) : null), [bid], [orderBy('name', 'asc')],
+  );
+  const createService = async (data: Omit<BusinessService, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = Date.now();
+    const ref = await addDoc(bizServicesCol(bid), stripUndefined({ ...data, createdAt: now, updatedAt: now }));
+    void refreshServiceMenu(bid);
+    return ref;
+  };
+  const updateService = async (id: string, data: Partial<BusinessService>) => {
+    await updateDoc(doc(bizServicesCol(bid), id), stripUndefined({ ...data, updatedAt: Date.now() }));
+    void refreshServiceMenu(bid);
+  };
+  const deleteService = async (id: string) => {
+    await deleteDoc(doc(bizServicesCol(bid), id));
+    void refreshServiceMenu(bid);
+  };
+  return { services, loading, createService, updateService, deleteService };
+}
+
+// ─── Messaging ────────────────────────────────────────────────────────────────
+// One thread per customer app-user; the thread doc id IS the customer uid, so
+// find-or-create is a single merge write. In-app only — no push/email.
+
+async function bumpThread(
+  bid: string,
+  customer: { userId: string; name: string },
+  lastMessageText: string,
+  unread: 'customer' | 'staff',
+) {
+  const bizSnap = await getDoc(doc(businessesCol(), bid));
+  const businessName = bizSnap.exists() ? (bizSnap.data() as Business).name : '';
+  const now = Date.now();
+  await setDoc(doc(bizThreadsCol(bid), customer.userId), {
+    customerUserId: customer.userId,
+    customerName: customer.name,
+    businessId: bid,
+    businessName,
+    lastMessageAt: now,
+    lastMessageText,
+    ...(unread === 'customer' ? { unreadByCustomer: increment(1) } : { unreadByStaff: increment(1) }),
+    updatedAt: now,
+  }, { merge: true });
+}
+
+// Posted by the acting client on key transitions (order status, stay approval…).
+// Best-effort: a missing customerUserId (walk-in customer) just skips it.
+export async function postSystemMessage(
+  bid: string,
+  customer: { userId?: string; name: string },
+  text: string,
+) {
+  if (!customer.userId) return;
+  try {
+    await bumpThread(bid, { userId: customer.userId, name: customer.name }, text, 'customer');
+    await addDoc(bizThreadMessagesCol(bid, customer.userId), {
+      at: Date.now(), fromUserId: 'system', fromName: 'Update', fromSide: 'staff', kind: 'system', text,
+    } satisfies Omit<ThreadMessage, 'id'>);
+  } catch { /* messaging is best-effort on top of the real transition */ }
+}
+
+export function useThreads(bid: string) {
+  const { user } = useAuth();
+  const { items: threads, loading } = useCollection<MessageThread>(
+    () => (bid ? bizThreadsCol(bid) : null), [bid], [orderBy('lastMessageAt', 'desc')],
+  );
+
+  const sendStaffMessage = async (thread: MessageThread, text: string) => {
+    await bumpThread(bid, { userId: thread.customerUserId, name: thread.customerName }, text, 'customer');
+    await addDoc(bizThreadMessagesCol(bid, thread.id), {
+      at: Date.now(), fromUserId: user!.uid, fromName: user!.displayName ?? 'Staff',
+      fromSide: 'staff', kind: 'chat', text,
+    } satisfies Omit<ThreadMessage, 'id'>);
+  };
+
+  const markReadByStaff = async (tid: string) => {
+    await updateDoc(doc(bizThreadsCol(bid), tid), { unreadByStaff: 0 });
+  };
+
+  return { threads, loading, sendStaffMessage, markReadByStaff };
+}
+
+export function useThreadMessages(bid: string, tid: string | null) {
+  const [messages, setMessages] = useState<ThreadMessage[]>([]);
+  useEffect(() => {
+    if (!bid || !tid) { setMessages([]); return; }
+    const unsub = onSnapshot(
+      query(bizThreadMessagesCol(bid, tid), orderBy('at', 'asc')),
+      snap => setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() } as ThreadMessage))),
+      () => setMessages([]),
+    );
+    return () => unsub();
+  }, [bid, tid]);
+  return { messages };
+}
+
+// ─── Breeder litters & waitlist ───────────────────────────────────────────────
+
+async function syncLitterCatalog(bid: string, litterId: string, litter: Litter | null) {
+  try {
+    const ref = doc(directoryLittersCol(bid), litterId);
+    const availableCount = litter?.puppies.filter(p => p.status === 'available').length ?? 0;
+    if (!litter || availableCount === 0) await deleteDoc(ref);
+    else {
+      await setDoc(ref, stripUndefined({
+        breed: litter.breed, bornAt: litter.bornAt, expectedAt: litter.expectedAt,
+        availableCount, updatedAt: Date.now(),
+      }));
+    }
+  } catch { /* best-effort */ }
+}
+
+export function useLitters(bid: string) {
+  const { user } = useAuth();
+  const { items: litters, loading } = useCollection<Litter>(
+    () => (bid ? bizLittersCol(bid) : null), [bid], [orderBy('createdAt', 'desc')],
+  );
+  const createLitter = async (data: Omit<Litter, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = Date.now();
+    const ref = await addDoc(bizLittersCol(bid), stripUndefined({ ...data, createdAt: now, updatedAt: now }));
+    void syncLitterCatalog(bid, ref.id, { ...data, id: ref.id, createdAt: now, updatedAt: now });
+    return ref;
+  };
+  const updateLitter = async (id: string, data: Partial<Litter>) => {
+    await updateDoc(doc(bizLittersCol(bid), id), stripUndefined({ ...data, updatedAt: Date.now() }));
+    const snap = await getDoc(doc(bizLittersCol(bid), id));
+    if (snap.exists()) void syncLitterCatalog(bid, id, { id, ...snap.data() } as Litter);
+  };
+  const deleteLitter = async (id: string) => {
+    await deleteDoc(doc(bizLittersCol(bid), id));
+    void syncLitterCatalog(bid, id, null);
+  };
+
+  // Reservation = puppy goes 'reserved' + a deposit invoice (the existing
+  // 'partial' invoice status carries deposits natively).
+  const reservePuppy = async (litter: Litter, puppyId: string, customerName: string, depositAmount?: number) => {
+    const puppies = litter.puppies.map(p => p.id === puppyId ? { ...p, status: 'reserved' as const } : p);
+    await updateLitter(litter.id, { puppies });
+    if (depositAmount && depositAmount > 0) {
+      const now = Date.now();
+      await addDoc(bizInvoicesCol(bid), stripUndefined({
+        number: `INV-${now}`,
+        customerId: '',
+        customerName,
+        lineItems: [{ description: `Deposit — ${litter.breed} puppy`, quantity: 1, unitPrice: depositAmount }],
+        subtotal: depositAmount, total: depositAmount,
+        amountPaid: 0, status: 'sent', payments: [], issuedAt: now,
+        createdBy: user!.uid, createdAt: now, updatedAt: now,
+      } as Omit<Invoice, 'id'>));
+    }
+  };
+
+  return { litters, loading, createLitter, updateLitter, deleteLitter, reservePuppy };
+}
+
+export function useWaitlist(bid: string) {
+  const { items: waitlist, loading } = useCollection<WaitlistEntry>(
+    () => (bid ? bizWaitlistCol(bid) : null), [bid], [orderBy('createdAt', 'asc')],
+  );
+  const setWaitlistStatus = async (entry: WaitlistEntry, status: WaitlistEntry['status']) => {
+    await updateDoc(doc(bizWaitlistCol(bid), entry.id), { status, updatedAt: Date.now() });
+    const texts: Partial<Record<WaitlistEntry['status'], string>> = {
+      offered: 'A puppy is available for you — the breeder will be in touch!',
+      reserved: 'Your puppy reservation is confirmed.',
+      fulfilled: 'Congratulations on your new puppy!',
+    };
+    const text = texts[status];
+    if (text) void postSystemMessage(bid, { userId: entry.customerUserId, name: entry.customerName }, text);
+  };
+  const deleteWaitlistEntry = async (id: string) => { await deleteDoc(doc(bizWaitlistCol(bid), id)); };
+  return { waitlist, loading, setWaitlistStatus, deleteWaitlistEntry };
+}
+
+// ─── Shelter adoptions ────────────────────────────────────────────────────────
+
+// Public projection: available/pending listings only — adopted animals leave
+// the public gallery.
+async function syncAdoptable(bid: string, listingId: string, listing: AdoptionListing | null) {
+  try {
+    const ref = doc(directoryAdoptablesCol(bid), listingId);
+    if (!listing || listing.status === 'adopted') await deleteDoc(ref);
+    else {
+      await setDoc(ref, stripUndefined({
+        name: listing.name, species: listing.species, breed: listing.breed,
+        ageMonths: listing.ageMonths, sex: listing.sex, description: listing.description,
+        photoURLs: listing.photoURLs, fee: listing.fee, status: listing.status,
+        updatedAt: Date.now(),
+      }));
+    }
+  } catch { /* best-effort */ }
+}
+
+export function useAdoptionListings(bid: string) {
+  const { items: listings, loading } = useCollection<AdoptionListing>(
+    () => (bid ? bizAdoptionListingsCol(bid) : null), [bid], [orderBy('createdAt', 'desc')],
+  );
+  const createListing = async (data: Omit<AdoptionListing, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = Date.now();
+    const ref = await addDoc(bizAdoptionListingsCol(bid), stripUndefined({ ...data, createdAt: now, updatedAt: now }));
+    void syncAdoptable(bid, ref.id, { ...data, id: ref.id, createdAt: now, updatedAt: now });
+    return ref;
+  };
+  const updateListing = async (id: string, data: Partial<AdoptionListing>) => {
+    await updateDoc(doc(bizAdoptionListingsCol(bid), id), stripUndefined({ ...data, updatedAt: Date.now() }));
+    const snap = await getDoc(doc(bizAdoptionListingsCol(bid), id));
+    if (snap.exists()) void syncAdoptable(bid, id, { id, ...snap.data() } as AdoptionListing);
+  };
+  const deleteListing = async (id: string) => {
+    await deleteDoc(doc(bizAdoptionListingsCol(bid), id));
+    void syncAdoptable(bid, id, null);
+  };
+  return { listings, loading, createListing, updateListing, deleteListing };
+}
+
+export function useAdoptionApplications(bid: string) {
+  const { user } = useAuth();
+  const { items: applications, loading } = useCollection<AdoptionApplication>(
+    () => (bid ? bizAdoptionApplicationsCol(bid) : null), [bid], [orderBy('createdAt', 'desc')],
+  );
+
+  const setApplicationStatus = async (app: AdoptionApplication, status: AdoptionApplication['status']) => {
+    await updateDoc(doc(bizAdoptionApplicationsCol(bid), app.id), { status, updatedAt: Date.now() });
+    const texts: Partial<Record<AdoptionApplication['status'], string>> = {
+      under_review: `Your application to adopt ${app.petName} is under review.`,
+      approved: `Great news — your application to adopt ${app.petName} was approved! The shelter will be in touch.`,
+      declined: `Your application to adopt ${app.petName} was declined.`,
+    };
+    const text = texts[status];
+    if (text) void postSystemMessage(bid, { userId: app.customerUserId, name: app.applicantName }, text);
+  };
+
+  // Approval bookkeeping: mark the listing pending and raise the fee invoice.
+  const approveApplication = async (app: AdoptionApplication, listing: AdoptionListing | undefined) => {
+    await setApplicationStatus(app, 'approved');
+    if (listing && listing.status === 'available') {
+      await updateDoc(doc(bizAdoptionListingsCol(bid), listing.id), { status: 'pending', updatedAt: Date.now() });
+      void syncAdoptable(bid, listing.id, { ...listing, status: 'pending' });
+    }
+    if (listing?.fee) {
+      const now = Date.now();
+      await addDoc(bizInvoicesCol(bid), stripUndefined({
+        number: `INV-${now}`,
+        customerId: '',
+        customerName: app.applicantName,
+        lineItems: [{ description: `Adoption fee — ${listing.name}`, quantity: 1, unitPrice: listing.fee }],
+        subtotal: listing.fee, total: listing.fee,
+        amountPaid: 0, status: 'sent', payments: [], issuedAt: now,
+        createdBy: user!.uid, createdAt: now, updatedAt: now,
+      } as Omit<Invoice, 'id'>));
+    }
+  };
+
+  const deleteApplication = async (id: string) => { await deleteDoc(doc(bizAdoptionApplicationsCol(bid), id)); };
+
+  return { applications, loading, setApplicationStatus, approveApplication, deleteApplication };
+}
+
+// ─── Trainer group classes ────────────────────────────────────────────────────
+
+// Publish open classes (with live spotsLeft) so customers can enroll from the
+// directory. Recomputed from enrollments after every class/enrollment change.
+async function refreshClassCatalog(bid: string) {
+  try {
+    const [classSnap, enrollSnap] = await Promise.all([
+      getDocs(bizClassesCol(bid)),
+      getDocs(bizEnrollmentsCol(bid)),
+    ]);
+    const enrollments = enrollSnap.docs.map(d => d.data() as ClassEnrollment);
+    const batch = writeBatch(db);
+    classSnap.docs.forEach(d => {
+      const cls = { id: d.id, ...d.data() } as GroupClass;
+      const ref = doc(directoryClassesCol(bid), d.id);
+      if (cls.status !== 'open') { batch.delete(ref); return; }
+      const spotsLeft = classSpotsLeft(cls, enrollments.filter(e => e.classId === d.id));
+      batch.set(ref, stripUndefined({
+        name: cls.name, description: cls.description, price: cls.price,
+        sessions: cls.sessions, spotsLeft, updatedAt: Date.now(),
+      }));
+    });
+    await batch.commit();
+  } catch { /* best-effort */ }
+}
+
+export function useClasses(bid: string) {
+  const { items: classes, loading } = useCollection<GroupClass>(
+    () => (bid ? bizClassesCol(bid) : null), [bid], [orderBy('createdAt', 'desc')],
+  );
+  const createClass = async (data: Omit<GroupClass, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = Date.now();
+    const ref = await addDoc(bizClassesCol(bid), stripUndefined({ ...data, createdAt: now, updatedAt: now }));
+    void refreshClassCatalog(bid);
+    return ref;
+  };
+  const updateClass = async (id: string, data: Partial<GroupClass>) => {
+    await updateDoc(doc(bizClassesCol(bid), id), stripUndefined({ ...data, updatedAt: Date.now() }));
+    void refreshClassCatalog(bid);
+  };
+  const deleteClass = async (id: string) => {
+    await deleteDoc(doc(bizClassesCol(bid), id));
+    await deleteDoc(doc(directoryClassesCol(bid), id)).catch(() => undefined);
+  };
+  return { classes, loading, createClass, updateClass, deleteClass };
+}
+
+export function useEnrollments(bid: string, classId?: string) {
+  const { items: allEnrollments, loading } = useCollection<ClassEnrollment>(
+    () => (bid ? bizEnrollmentsCol(bid) : null), [bid], [orderBy('createdAt', 'asc')],
+  );
+  const enrollments = classId ? allEnrollments.filter(e => e.classId === classId) : allEnrollments;
+
+  const enrollCustomer = async (
+    cls: GroupClass,
+    customer: { customerId?: string; customerName: string; customerUserId?: string; petName: string },
+  ) => {
+    const taken = allEnrollments.filter(e => e.classId === cls.id);
+    const status = classSpotsLeft(cls, taken) > 0 ? 'enrolled' : 'waitlisted';
+    const now = Date.now();
+    const ref = await addDoc(bizEnrollmentsCol(bid), stripUndefined({
+      classId: cls.id, ...customer, status, createdAt: now, updatedAt: now,
+    } as ClassEnrollment));
+    void refreshClassCatalog(bid);
+    return { ref, status };
+  };
+
+  const setEnrollmentStatus = async (id: string, status: ClassEnrollment['status']) => {
+    await updateDoc(doc(bizEnrollmentsCol(bid), id), { status, updatedAt: Date.now() });
+    void refreshClassCatalog(bid);
+  };
+
+  const setAttendance = async (enrollment: ClassEnrollment, sessionDate: string, attended: boolean) => {
+    await updateDoc(doc(bizEnrollmentsCol(bid), enrollment.id), {
+      attendance: { ...(enrollment.attendance ?? {}), [sessionDate]: attended },
+      updatedAt: Date.now(),
+    });
+  };
+
+  const deleteEnrollment = async (id: string) => {
+    await deleteDoc(doc(bizEnrollmentsCol(bid), id));
+    void refreshClassCatalog(bid);
+  };
+
+  return { enrollments, loading, enrollCustomer, setEnrollmentStatus, setAttendance, deleteEnrollment };
+}
+
+// ─── Vet patient charts ───────────────────────────────────────────────────────
+
+export function useChartEntries(bid: string, petId?: string) {
+  const { user } = useAuth();
+  const { items: allEntries, loading } = useCollection<ChartEntry>(
+    () => (bid ? bizChartEntriesCol(bid) : null), [bid], [orderBy('date', 'desc')],
+  );
+  const entries = petId ? allEntries.filter(e => e.petId === petId) : allEntries;
+
+  const createChartEntry = async (data: Omit<ChartEntry, 'id' | 'createdAt' | 'updatedAt' | 'createdBy'>) => {
+    const now = Date.now();
+    return addDoc(bizChartEntriesCol(bid), stripUndefined({
+      ...data, createdBy: user!.uid, createdAt: now, updatedAt: now,
+    } as ChartEntry));
+  };
+
+  const updateChartEntry = async (id: string, data: Partial<ChartEntry>) => {
+    await updateDoc(doc(bizChartEntriesCol(bid), id), stripUndefined({ ...data, updatedAt: Date.now() }));
+  };
+
+  // Push a chart entry into the linked PackOps dog's medical records, using the
+  // existing provider-attribution flow (the owner confirms it in their app).
+  // Works only when the pet is linked AND this staffer is on the dog's care
+  // team — otherwise the personal-app rules reject the write.
+  const shareChartEntry = async (entry: ChartEntry, dogId: string, businessName: string): Promise<{ ok: boolean; reason?: string }> => {
+    const category = entry.type === 'vaccination' ? 'vaccination'
+      : entry.type === 'prescription' ? 'medication'
+      : entry.type === 'diagnosis' ? 'diagnosis' : null;
+    if (!category) return { ok: false, reason: 'Only vaccinations, prescriptions and diagnoses can be shared.' };
+    const now = Date.now();
+    const base = {
+      dogId,
+      category,
+      title: entry.title,
+      date: new Date(`${entry.date}T12:00:00`).getTime(),
+      provider: businessName,
+      notes: entry.details,
+      createdBy: user!.uid,
+      createdByName: entry.staffName,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const extras =
+      category === 'vaccination' ? { vaccineName: entry.medicationName ?? entry.title, batchNumber: entry.batchNumber }
+      : category === 'medication' ? { medicationName: entry.medicationName ?? entry.title, dosage: entry.dosage, isActive: true }
+      : { condition: entry.title, isActive: true };
+    try {
+      const ref = await addDoc(medicalCol(dogId, category), stripUndefined({ ...base, ...extras } as Omit<MedicalRecord, 'id'>));
+      await updateChartEntry(entry.id, { sharedMedicalRecordId: ref.id });
+      return { ok: true };
+    } catch {
+      return { ok: false, reason: "No access to this dog's records — the owner must add your business to the dog's care team first." };
+    }
+  };
+
+  const deleteChartEntry = async (id: string) => { await deleteDoc(doc(bizChartEntriesCol(bid), id)); };
+
+  return { entries, loading, createChartEntry, updateChartEntry, shareChartEntry, deleteChartEntry };
+}
+
+// ─── Packages & memberships ───────────────────────────────────────────────────
+
+// Publish active package templates to the directory entry so customers can buy
+// them online (record-only payment).
+async function refreshPackageCatalog(bid: string) {
+  try {
+    const snap = await getDocs(bizPackagesCol(bid));
+    const items = snap.docs
+      .map(d => ({ id: d.id, ...d.data() } as PackageDef))
+      .filter(p => p.active)
+      .map(p => stripUndefined({
+        id: p.id, name: p.name, description: p.description, price: p.price,
+        credits: p.credits, creditType: p.creditType, validityDays: p.validityDays,
+      }));
+    await setDoc(doc(businessDirectoryCol(), bid), { packages: items, updatedAt: Date.now() }, { merge: true });
+  } catch { /* best-effort */ }
+}
+
+export function usePackageDefs(bid: string) {
+  const { items: packageDefs, loading } = useCollection<PackageDef>(
+    () => (bid ? bizPackagesCol(bid) : null), [bid], [orderBy('name', 'asc')],
+  );
+  const createPackageDef = async (data: Omit<PackageDef, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = Date.now();
+    const ref = await addDoc(bizPackagesCol(bid), stripUndefined({ ...data, createdAt: now, updatedAt: now }));
+    void refreshPackageCatalog(bid);
+    return ref;
+  };
+  const updatePackageDef = async (id: string, data: Partial<PackageDef>) => {
+    await updateDoc(doc(bizPackagesCol(bid), id), stripUndefined({ ...data, updatedAt: Date.now() }));
+    void refreshPackageCatalog(bid);
+  };
+  const deletePackageDef = async (id: string) => {
+    await deleteDoc(doc(bizPackagesCol(bid), id));
+    void refreshPackageCatalog(bid);
+  };
+  return { packageDefs, loading, createPackageDef, updatePackageDef, deletePackageDef };
+}
+
+export function useCustomerPackages(bid: string) {
+  const { user } = useAuth();
+  const { items: customerPackages, loading } = useCollection<CustomerPackage>(
+    () => (bid ? bizCustomerPackagesCol(bid) : null), [bid], [orderBy('createdAt', 'desc')],
+  );
+
+  // Staff sale: creates the customer package and a paid invoice in one go.
+  const sellPackage = async (
+    def: PackageDef,
+    customer: { customerId: string; customerName: string; customerUserId?: string },
+  ) => {
+    const now = Date.now();
+    const invoiceRef = await addDoc(bizInvoicesCol(bid), stripUndefined({
+      number: `INV-${now}`,
+      customerId: customer.customerId,
+      customerName: customer.customerName,
+      lineItems: [{ description: def.name, quantity: 1, unitPrice: def.price }],
+      subtotal: def.price, total: def.price,
+      amountPaid: def.price, status: 'paid',
+      payments: [{ amount: def.price, method: 'other', paidAt: now, recordedBy: user!.uid }],
+      issuedAt: now,
+      createdBy: user!.uid, createdAt: now, updatedAt: now,
+    } as Omit<Invoice, 'id'>));
+    return addDoc(bizCustomerPackagesCol(bid), stripUndefined({
+      packageId: def.id, name: def.name, creditType: def.creditType,
+      customerId: customer.customerId,
+      customerUserId: customer.customerUserId,
+      customerName: customer.customerName,
+      creditsTotal: def.credits, creditsRemaining: def.credits,
+      expiresAt: packageExpiry(def, now),
+      invoiceId: invoiceRef.id,
+      status: 'active',
+      createdAt: now, updatedAt: now,
+    } as CustomerPackage));
+  };
+
+  // Transactional credit redemption — concurrent redeems can't overdraw.
+  const redeemCredit = async (pkg: CustomerPackage) => {
+    await runTransaction(db, async tx => {
+      const ref = doc(bizCustomerPackagesCol(bid), pkg.id);
+      const snap = await tx.get(ref);
+      if (!snap.exists()) throw new Error('Package not found.');
+      const current = snap.data() as CustomerPackage;
+      if (derivePackageStatus(current) !== 'active') throw new Error('No usable credits left.');
+      const remaining = current.creditsRemaining - 1;
+      tx.update(ref, {
+        creditsRemaining: remaining,
+        status: derivePackageStatus({ ...current, creditsRemaining: remaining }),
+        updatedAt: Date.now(),
+      });
+    });
+  };
+
+  const deleteCustomerPackage = async (id: string) => { await deleteDoc(doc(bizCustomerPackagesCol(bid), id)); };
+
+  return { customerPackages, loading, sellPackage, redeemCredit, deleteCustomerPackage };
+}
+
+// ─── Pet report cards ─────────────────────────────────────────────────────────
+
+export function useReportCards(bid: string) {
+  const { user } = useAuth();
+  const { items: reportCards, loading } = useCollection<ReportCard>(
+    () => (bid ? bizReportCardsCol(bid) : null), [bid], [orderBy('createdAt', 'desc')],
+  );
+
+  const createReportCard = async (data: Omit<ReportCard, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'sentAt'>) => {
+    const now = Date.now();
+    return addDoc(bizReportCardsCol(bid), stripUndefined({
+      ...data, createdBy: user!.uid, createdAt: now, updatedAt: now,
+    } as ReportCard));
+  };
+
+  const updateReportCard = async (id: string, data: Partial<ReportCard>) => {
+    await updateDoc(doc(bizReportCardsCol(bid), id), stripUndefined({ ...data, updatedAt: Date.now() }));
+  };
+
+  // Sending stamps sentAt (which unlocks the customer's read access by rules)
+  // and delivers the content into the customer's message thread.
+  const sendReportCard = async (card: ReportCard) => {
+    await updateDoc(doc(bizReportCardsCol(bid), card.id), { sentAt: Date.now(), updatedAt: Date.now() });
+    const moodLine = card.mood ? ` Mood: ${card.mood}.` : '';
+    const activities = card.activities.length ? ` Activities: ${card.activities.join(', ')}.` : '';
+    void postSystemMessage(bid, { userId: card.customerUserId, name: card.customerName },
+      `Report card for ${card.petName} (${card.date}):${moodLine}${activities} ${card.summary}`);
+  };
+
+  const deleteReportCard = async (id: string) => { await deleteDoc(doc(bizReportCardsCol(bid), id)); };
+
+  return { reportCards, loading, createReportCard, updateReportCard, sendReportCard, deleteReportCard };
+}
+
+// ─── Staff shifts & time off ──────────────────────────────────────────────────
+
+export function useShifts(bid: string) {
+  const { items: shifts, loading } = useCollection<Shift>(
+    () => (bid ? bizShiftsCol(bid) : null), [bid], [orderBy('date', 'asc')],
+  );
+  const createShift = async (data: Omit<Shift, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = Date.now();
+    return addDoc(bizShiftsCol(bid), stripUndefined({ ...data, createdAt: now, updatedAt: now }));
+  };
+  const updateShift = async (id: string, data: Partial<Shift>) => {
+    await updateDoc(doc(bizShiftsCol(bid), id), stripUndefined({ ...data, updatedAt: Date.now() }));
+  };
+  const deleteShift = async (id: string) => { await deleteDoc(doc(bizShiftsCol(bid), id)); };
+  return { shifts, loading, createShift, updateShift, deleteShift };
+}
+
+export function useTimeOff(bid: string) {
+  const { user } = useAuth();
+  const { items: requests, loading } = useCollection<TimeOffRequest>(
+    () => (bid ? bizTimeOffCol(bid) : null), [bid], [orderBy('startDate', 'asc')],
+  );
+  // Staff file their own requests (rules enforce staffUserId == uid).
+  const requestTimeOff = async (data: Pick<TimeOffRequest, 'startDate' | 'endDate' | 'reason'>) => {
+    const now = Date.now();
+    return addDoc(bizTimeOffCol(bid), stripUndefined({
+      ...data,
+      staffUserId: user!.uid,
+      staffName: user!.displayName ?? 'Staff',
+      status: 'requested',
+      createdAt: now, updatedAt: now,
+    } as TimeOffRequest));
+  };
+  const decideTimeOff = async (id: string, status: TimeOffStatus) => {
+    await updateDoc(doc(bizTimeOffCol(bid), id), { status, updatedAt: Date.now() });
+  };
+  const deleteTimeOff = async (id: string) => { await deleteDoc(doc(bizTimeOffCol(bid), id)); };
+  return { requests, loading, requestTimeOff, decideTimeOff, deleteTimeOff };
+}
+
+// ─── Purchasing / supplier orders ─────────────────────────────────────────────
+
+export function useSuppliers(bid: string) {
+  const { items: suppliers, loading } = useCollection<Supplier>(
+    () => (bid ? bizSuppliersCol(bid) : null), [bid], [orderBy('name', 'asc')],
+  );
+  const createSupplier = async (data: Omit<Supplier, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = Date.now();
+    return addDoc(bizSuppliersCol(bid), stripUndefined({ ...data, createdAt: now, updatedAt: now }));
+  };
+  const updateSupplier = async (id: string, data: Partial<Supplier>) => {
+    await updateDoc(doc(bizSuppliersCol(bid), id), stripUndefined({ ...data, updatedAt: Date.now() }));
+  };
+  const deleteSupplier = async (id: string) => { await deleteDoc(doc(bizSuppliersCol(bid), id)); };
+  return { suppliers, loading, createSupplier, updateSupplier, deleteSupplier };
+}
+
+export function usePurchaseOrders(bid: string) {
+  const { user } = useAuth();
+  const { items: purchaseOrders, loading } = useCollection<PurchaseOrder>(
+    () => (bid ? bizPurchaseOrdersCol(bid) : null), [bid], [orderBy('createdAt', 'desc')],
+  );
+
+  const createPurchaseOrder = async (
+    data: Omit<PurchaseOrder, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'total'>,
+  ) => {
+    const now = Date.now();
+    return addDoc(bizPurchaseOrdersCol(bid), stripUndefined({
+      ...data,
+      total: computePurchaseOrderTotal(data.items),
+      createdBy: user!.uid, createdAt: now, updatedAt: now,
+    } as PurchaseOrder));
+  };
+
+  const updatePurchaseOrder = async (id: string, data: Partial<PurchaseOrder>) => {
+    const patch: Partial<PurchaseOrder> = { ...data, updatedAt: Date.now() };
+    if (data.items) patch.total = computePurchaseOrderTotal(data.items);
+    await updateDoc(doc(bizPurchaseOrdersCol(bid), id), stripUndefined(patch));
+  };
+
+  // Receiving = the single point where supplier stock moves in. Transactional
+  // mirror image of order acceptance; idempotent via stockAdjusted.
+  const receivePurchaseOrder = async (po: PurchaseOrder) => {
+    if (po.stockAdjusted) return;
+    const incoming = new Map<string, number>();
+    for (const i of po.items) incoming.set(i.productId, (incoming.get(i.productId) ?? 0) + i.quantity);
+    await runTransaction(db, async tx => {
+      const refs = [...incoming.keys()].map(pid => doc(bizProductsCol(bid), pid));
+      const snaps = await Promise.all(refs.map(r => tx.get(r)));
+      const now = Date.now();
+      snaps.forEach((s, i) => {
+        if (!s.exists()) return; // product deleted since ordering — skip
+        tx.update(refs[i], { stockQty: (s.data() as Product).stockQty + incoming.get(refs[i].id)!, updatedAt: now });
+      });
+      tx.update(doc(bizPurchaseOrdersCol(bid), po.id), {
+        status: 'received', receivedAt: now, stockAdjusted: true, updatedAt: now,
+      });
+    });
+    void refreshCatalogStock(bid, [...incoming.keys()]);
+  };
+
+  const deletePurchaseOrder = async (id: string) => { await deleteDoc(doc(bizPurchaseOrdersCol(bid), id)); };
+
+  return { purchaseOrders, loading, createPurchaseOrder, updatePurchaseOrder, receivePurchaseOrder, deletePurchaseOrder };
+}
+
+// ─── Boarding & daycare ───────────────────────────────────────────────────────
+
+// Recompute the public "full dates" window (next 90 days at capacity) so the
+// stay-request page can grey out unavailable dates. Analog of refreshBusySlots:
+// best-effort, merge-written, never exposes raw capacity or occupancy counts.
+const BOARDING_WINDOW_DAYS = 90;
+
+export async function refreshBoardingAvailability(bid: string) {
+  try {
+    const bizSnap = await getDoc(doc(businessesCol(), bid));
+    if (!bizSnap.exists()) return;
+    const biz = bizSnap.data() as Business;
+    if (!biz.boarding) return;
+    const today = todayStr();
+    const snap = await getDocs(query(bizStaysCol(bid), where('endDate', '>=', today)));
+    const stays = snap.docs.map(d => d.data() as Stay);
+    const full = fullDates(stays, biz.boarding.capacity, today, BOARDING_WINDOW_DAYS);
+    await setDoc(doc(businessDirectoryCol(), bid),
+      { boarding: { fullDates: full }, updatedAt: Date.now() }, { merge: true });
+  } catch { /* directory may not exist for unlisted businesses — ignore */ }
+}
+
+export function useStays(bid: string) {
+  const { user } = useAuth();
+  const { items: stays, loading } = useCollection<Stay>(
+    () => (bid ? bizStaysCol(bid) : null), [bid], [orderBy('startDate', 'asc')],
+  );
+
+  const createStay = async (data: Omit<Stay, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'source'>) => {
+    const now = Date.now();
+    const ref = await addDoc(bizStaysCol(bid), stripUndefined({
+      ...data, source: 'staff', createdBy: user!.uid, createdAt: now, updatedAt: now,
+    } as Stay));
+    void refreshBoardingAvailability(bid);
+    return ref;
+  };
+
+  const updateStay = async (id: string, data: Partial<Stay>) => {
+    await updateDoc(doc(bizStaysCol(bid), id), stripUndefined({ ...data, updatedAt: Date.now() }));
+    void refreshBoardingAvailability(bid);
+  };
+
+  // Approving (or directly checking in) is the capacity gate: the stay only
+  // starts occupying a space if every night still fits.
+  const setStayStatus = async (stay: Stay, status: StayStatus, capacity: number): Promise<{ ok: boolean; reason?: string }> => {
+    const takesSpace = (status === 'approved' || status === 'checked_in') &&
+      stay.status !== 'approved' && stay.status !== 'checked_in';
+    if (takesSpace) {
+      const others = stays.filter(s => s.id !== stay.id);
+      if (!hasCapacityForRange(others, capacity, stay.startDate, stay.endDate)) {
+        return { ok: false, reason: 'No free space for part of this date range.' };
+      }
+    }
+    await updateStay(stay.id, { status });
+    const STAY_STATUS_MESSAGES: Partial<Record<StayStatus, string>> = {
+      approved: `${stay.petName}'s stay (${stay.startDate} → ${stay.endDate}) was approved. See you then!`,
+      declined: `${stay.petName}'s stay request was declined.`,
+      checked_in: `${stay.petName} checked in. We'll take good care of them!`,
+      checked_out: `${stay.petName} checked out. Thanks for staying with us!`,
+    };
+    const text = STAY_STATUS_MESSAGES[status];
+    if (text) void postSystemMessage(bid, { userId: stay.customerUserId, name: stay.customerName }, text);
+    return { ok: true };
+  };
+
+  const addDailyNote = async (id: string, text: string) => {
+    const note: StayDailyNote = {
+      at: Date.now(), byUserId: user!.uid, byName: user!.displayName ?? 'Staff', text,
+    };
+    await updateDoc(doc(bizStaysCol(bid), id), { dailyNotes: arrayUnion(note), updatedAt: Date.now() });
+  };
+
+  const deleteStay = async (id: string) => {
+    await deleteDoc(doc(bizStaysCol(bid), id));
+    void refreshBoardingAvailability(bid);
+  };
+
+  return { stays, loading, createStay, updateStay, setStayStatus, addDailyNote, deleteStay };
 }
 
 // ─── small local helpers ──────────────────────────────────────────────────────

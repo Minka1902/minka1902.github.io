@@ -26,6 +26,8 @@ const MedicalPage               = lazy(() => import('@/pages/medical/MedicalPage
 const HumansPage                = lazy(() => import('@/pages/humans/HumansPage'));
 const DiscoverPage              = lazy(() => import('@/pages/discover/DiscoverPage'));
 const BusinessBookingPage       = lazy(() => import('@/pages/discover/BusinessBookingPage'));
+const BusinessOrderPage         = lazy(() => import('@/pages/discover/BusinessOrderPage'));
+const BusinessStayRequestPage   = lazy(() => import('@/pages/discover/BusinessStayRequestPage'));
 const DevicesPage               = lazy(() => import('@/pages/devices/DevicesPage'));
 const QRPage                    = lazy(() => import('@/pages/qr/QRPage'));
 const SettingsPage              = lazy(() => import('@/pages/settings/SettingsPage'));
@@ -37,6 +39,24 @@ const CustomersPage         = lazy(() => import('@/pages/business/CustomersPage'
 const AppointmentsPage      = lazy(() => import('@/pages/business/AppointmentsPage'));
 const InvoicesPage          = lazy(() => import('@/pages/business/InvoicesPage'));
 const InventoryPage         = lazy(() => import('@/pages/business/InventoryPage'));
+const OrdersPage            = lazy(() => import('@/pages/business/OrdersPage'));
+const BoardingPage          = lazy(() => import('@/pages/business/BoardingPage'));
+const ServicesPage          = lazy(() => import('@/pages/business/ServicesPage'));
+const PurchasingPage        = lazy(() => import('@/pages/business/PurchasingPage'));
+const ShiftsPage            = lazy(() => import('@/pages/business/ShiftsPage'));
+const ReportsPage           = lazy(() => import('@/pages/business/ReportsPage'));
+const MessagesPage          = lazy(() => import('@/pages/business/MessagesPage'));
+const ReportCardsPage       = lazy(() => import('@/pages/business/ReportCardsPage'));
+const PackagesPage          = lazy(() => import('@/pages/business/PackagesPage'));
+const PatientsPage          = lazy(() => import('@/pages/business/PatientsPage'));
+const PatientChartPage      = lazy(() => import('@/pages/business/PatientChartPage'));
+const ClassesPage           = lazy(() => import('@/pages/business/ClassesPage'));
+const BusinessClassesPage   = lazy(() => import('@/pages/discover/BusinessClassesPage'));
+const AdoptionsPage         = lazy(() => import('@/pages/business/AdoptionsPage'));
+const BusinessAdoptPage     = lazy(() => import('@/pages/discover/BusinessAdoptPage'));
+const BreedingPage          = lazy(() => import('@/pages/business/BreedingPage'));
+const BusinessLittersPage   = lazy(() => import('@/pages/discover/BusinessLittersPage'));
+const MyMessagesPage        = lazy(() => import('@/pages/messages/MyMessagesPage'));
 const ShipmentsPage         = lazy(() => import('@/pages/business/ShipmentsPage'));
 const StaffPage             = lazy(() => import('@/pages/business/StaffPage'));
 const RolesPage             = lazy(() => import('@/pages/business/RolesPage'));
@@ -90,6 +110,12 @@ export const router = createBrowserRouter([
               { path: '/humans',               element: <HumansPage /> },
               { path: '/discover',             element: <DiscoverPage /> },
               { path: '/discover/:bid',        element: <BusinessBookingPage /> },
+              { path: '/discover/:bid/order',  element: <BusinessOrderPage /> },
+              { path: '/discover/:bid/boarding', element: <BusinessStayRequestPage /> },
+              { path: '/discover/:bid/classes', element: <BusinessClassesPage /> },
+              { path: '/discover/:bid/adopt',  element: <BusinessAdoptPage /> },
+              { path: '/discover/:bid/litters', element: <BusinessLittersPage /> },
+              { path: '/messages',             element: <MyMessagesPage /> },
               { path: '/devices',              element: <DevicesPage /> },
               { path: '/qr',                   element: <QRPage /> },
               { path: '/settings',             element: <SettingsPage /> },
@@ -114,6 +140,20 @@ export const router = createBrowserRouter([
               { path: '/business/appointments', element: <AppointmentsPage /> },
               { path: '/business/invoices',     element: <InvoicesPage /> },
               { path: '/business/inventory',    element: <InventoryPage /> },
+              { path: '/business/orders',      element: <OrdersPage /> },
+              { path: '/business/boarding',    element: <BoardingPage /> },
+              { path: '/business/services',    element: <ServicesPage /> },
+              { path: '/business/purchasing',  element: <PurchasingPage /> },
+              { path: '/business/shifts',      element: <ShiftsPage /> },
+              { path: '/business/reports',     element: <ReportsPage /> },
+              { path: '/business/messages',    element: <MessagesPage /> },
+              { path: '/business/report-cards', element: <ReportCardsPage /> },
+              { path: '/business/packages',    element: <PackagesPage /> },
+              { path: '/business/patients',    element: <PatientsPage /> },
+              { path: '/business/patients/:petId', element: <PatientChartPage /> },
+              { path: '/business/classes',     element: <ClassesPage /> },
+              { path: '/business/adoptions',   element: <AdoptionsPage /> },
+              { path: '/business/breeding',    element: <BreedingPage /> },
               { path: '/business/shipments',    element: <ShipmentsPage /> },
               { path: '/business/staff',        element: <StaffPage /> },
               { path: '/business/roles',        element: <RolesPage /> },

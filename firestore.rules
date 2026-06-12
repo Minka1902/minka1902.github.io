@@ -71,13 +71,78 @@ service cloud.firestore {
       return exists(/databases/$(database)/documents/businessDirectory/$(bid)) &&
         get(/databases/$(database)/documents/businessDirectory/$(bid)).data.bookable == true;
     }
+    function directoryEntry(bid) {
+      return get(/databases/$(database)/documents/businessDirectory/$(bid)).data;
+    }
+    // Customer self-writes are only accepted while the business has opted in via
+    // its public directory entry. The `in` guards keep legacy entries (without
+    // the newer fields) from erroring during evaluation.
+    function acceptsOrders(bid) {
+      return exists(/databases/$(database)/documents/businessDirectory/$(bid)) &&
+        ('orderable' in directoryEntry(bid)) && directoryEntry(bid).orderable == true;
+    }
+    function acceptsStays(bid) {
+      return exists(/databases/$(database)/documents/businessDirectory/$(bid)) &&
+        ('boarding' in directoryEntry(bid)) && directoryEntry(bid).boarding.requestsOpen == true;
+    }
 
     // Public, read-by-anyone business directory ("businesses near me"). Owners /
     // managers publish the denormalized projection; private business data stays
     // behind the /businesses rules below.
     match /businessDirectory/{bid} {
       allow read:  if true;
-      allow write: if isBizOwner(bid) || hasCap(bid, 'manage_business');
+      allow create, delete: if isBizOwner(bid) || hasCap(bid, 'manage_business');
+      // Staff publish the projection. Narrow field-scoped updates let the
+      // relevant staff keep their slice fresh (busy slots, boarding fullDates),
+      // and any signed-in user may refresh only the review aggregate
+      // (best-effort, recomputed from /reviews by readers).
+      allow update: if isBizOwner(bid) || hasCap(bid, 'manage_business') ||
+        (hasCap(bid, 'manage_appointments') &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['busySlots', 'updatedAt'])) ||
+        (hasCap(bid, 'manage_boarding') &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['boarding', 'updatedAt'])) ||
+        (request.auth != null &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['ratingAvg', 'ratingCount', 'updatedAt']));
+
+      // Public product catalog projection. Inventory managers sync it on stock
+      // changes; order managers refresh inStock after accept/restock.
+      match /catalog/{pid} {
+        allow read:  if true;
+        allow write: if hasCap(bid, 'manage_inventory') || hasCap(bid, 'manage_orders')
+                     || hasCap(bid, 'manage_business');
+      }
+
+      // Public adoptable-animal projection (shelters).
+      match /adoptables/{id} {
+        allow read:  if true;
+        allow write: if hasCap(bid, 'manage_adoptions') || hasCap(bid, 'manage_business');
+      }
+
+      // Public group-class projection with spotsLeft (trainers). Enrolling
+      // customers bump spotsLeft, so signed-in users may update that field only.
+      match /classCatalog/{id} {
+        allow read:   if true;
+        allow create, delete: if hasCap(bid, 'manage_classes') || hasCap(bid, 'manage_business');
+        allow update: if hasCap(bid, 'manage_classes') || hasCap(bid, 'manage_business') ||
+          (request.auth != null &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['spotsLeft', 'updatedAt']));
+      }
+
+      // Public litter projection (breeders).
+      match /litterCatalog/{id} {
+        allow read:  if true;
+        allow write: if hasCap(bid, 'manage_breeding') || hasCap(bid, 'manage_business');
+      }
+
+      // Reviews: one per user (doc id == reviewer uid), author-only writes.
+      match /reviews/{uid} {
+        allow read: if true;
+        allow create, update: if request.auth != null && request.auth.uid == uid
+          && request.resource.data.rating is number
+          && request.resource.data.rating >= 1 && request.resource.data.rating <= 5;
+        allow delete: if request.auth != null && request.auth.uid == uid;
+      }
     }
 
     match /businesses/{bid} {
@@ -146,14 +211,213 @@ service cloud.firestore {
       }
 
       match /products/{id} {
-        allow read:  if hasCap(bid, 'view_inventory') || hasCap(bid, 'manage_inventory');
-        allow write: if hasCap(bid, 'manage_inventory');
+        allow read: if hasCap(bid, 'view_inventory') || hasCap(bid, 'manage_inventory') ||
+          hasCap(bid, 'view_orders') || hasCap(bid, 'manage_orders');
+        allow create, delete: if hasCap(bid, 'manage_inventory');
+        // Order acceptance / PO receiving may move stock without full inventory
+        // rights — but only the stockQty field.
+        allow update: if hasCap(bid, 'manage_inventory') ||
+          ((hasCap(bid, 'manage_orders') || hasCap(bid, 'manage_purchasing')) &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stockQty', 'updatedAt']));
       }
 
       match /shipments/{id} {
         allow read:  if hasCap(bid, 'view_shipments') || hasCap(bid, 'manage_shipments');
         allow write: if hasCap(bid, 'manage_shipments');
       }
+
+      match /orders/{id} {
+        // Staff with the capability, or the customer the order belongs to.
+        allow read: if hasCap(bid, 'view_orders') || hasCap(bid, 'manage_orders') ||
+          (request.auth != null && resource.data.customerUserId == request.auth.uid);
+        // Staff create, or a customer placing a constrained unpaid order.
+        allow create: if hasCap(bid, 'manage_orders') ||
+          (request.auth != null
+            && acceptsOrders(bid)
+            && request.resource.data.source == 'customer'
+            && request.resource.data.customerUserId == request.auth.uid
+            && request.resource.data.status == 'placed'
+            && request.resource.data.paymentStatus == 'unpaid');
+        allow delete: if hasCap(bid, 'manage_orders');
+        // Staff update, or the customer cancelling before acceptance (stock has
+        // not moved yet, so no restock is owed).
+        allow update: if hasCap(bid, 'manage_orders') ||
+          (request.auth != null && resource.data.customerUserId == request.auth.uid
+            && resource.data.status == 'placed'
+            && request.resource.data.status == 'cancelled'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']));
+      }
+
+      match /stays/{id} {
+        allow read: if hasCap(bid, 'view_boarding') || hasCap(bid, 'manage_boarding') ||
+          (request.auth != null && resource.data.customerUserId == request.auth.uid);
+        // Staff create, or a customer requesting a stay pending approval.
+        allow create: if hasCap(bid, 'manage_boarding') ||
+          (request.auth != null
+            && acceptsStays(bid)
+            && request.resource.data.source == 'customer'
+            && request.resource.data.customerUserId == request.auth.uid
+            && request.resource.data.status == 'requested');
+        allow delete: if hasCap(bid, 'manage_boarding');
+        allow update: if hasCap(bid, 'manage_boarding') ||
+          (request.auth != null && resource.data.customerUserId == request.auth.uid
+            && request.resource.data.status == 'cancelled'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']));
+      }
+
+      match /services/{id} {
+        // The menu is harmless internally — any member may read it for forms.
+        allow read:  if isBizMember(bid) || hasCap(bid, 'view_services');
+        allow write: if hasCap(bid, 'manage_services');
+      }
+
+      match /shifts/{id} {
+        // Everyone sees the rota they're part of; managers edit it.
+        allow read:  if isBizMember(bid) || hasCap(bid, 'view_shifts');
+        allow write: if hasCap(bid, 'manage_shifts');
+      }
+
+      match /timeOff/{id} {
+        allow read: if isBizMember(bid) || hasCap(bid, 'view_shifts');
+        // Staff file their own requests; managers decide them.
+        allow create: if hasCap(bid, 'manage_shifts') ||
+          (isBizMember(bid)
+            && request.resource.data.staffUserId == request.auth.uid
+            && request.resource.data.status == 'requested');
+        allow update: if hasCap(bid, 'manage_shifts');
+        allow delete: if hasCap(bid, 'manage_shifts') ||
+          (isBizMember(bid) && resource.data.staffUserId == request.auth.uid
+            && resource.data.status == 'requested');
+      }
+
+      match /suppliers/{id} {
+        allow read:  if hasCap(bid, 'view_purchasing') || hasCap(bid, 'manage_purchasing');
+        allow write: if hasCap(bid, 'manage_purchasing');
+      }
+
+      match /purchaseOrders/{id} {
+        allow read:  if hasCap(bid, 'view_purchasing') || hasCap(bid, 'manage_purchasing');
+        allow write: if hasCap(bid, 'manage_purchasing');
+      }
+
+      match /threads/{tid} {
+        // Staff with messaging caps, or the customer whose thread this is.
+        allow read: if hasCap(bid, 'view_messages') || hasCap(bid, 'manage_messages') ||
+          (request.auth != null && resource.data.customerUserId == request.auth.uid);
+        // Any active member may create/bump a thread — system messages ride on
+        // order/stay transitions handled by non-messaging staff. Customers only
+        // touch their own thread.
+        allow create: if isBizMember(bid) ||
+          (request.auth != null && request.resource.data.customerUserId == request.auth.uid);
+        allow update: if isBizMember(bid) ||
+          (request.auth != null && resource.data.customerUserId == request.auth.uid);
+        allow delete: if hasCap(bid, 'manage_messages');
+
+        function threadOwner(bid, tid) {
+          return get(/databases/$(database)/documents/businesses/$(bid)/threads/$(tid)).data.customerUserId;
+        }
+        match /messages/{mid} {
+          allow read: if hasCap(bid, 'view_messages') || hasCap(bid, 'manage_messages') ||
+            (request.auth != null && threadOwner(bid, tid) == request.auth.uid);
+          allow create: if isBizMember(bid) ||
+            (request.auth != null && threadOwner(bid, tid) == request.auth.uid);
+          allow update, delete: if false; // messages are immutable
+        }
+      }
+
+      match /reportCards/{id} {
+        // Customers may read cards that were sent to them.
+        allow read: if hasCap(bid, 'view_report_cards') || hasCap(bid, 'manage_report_cards') ||
+          (request.auth != null && resource.data.customerUserId == request.auth.uid
+            && resource.data.sentAt != null);
+        allow write: if hasCap(bid, 'manage_report_cards');
+      }
+
+      match /packages/{id} {
+        allow read:  if isBizMember(bid) || hasCap(bid, 'view_packages');
+        allow write: if hasCap(bid, 'manage_packages');
+      }
+
+      match /customerPackages/{id} {
+        allow read: if hasCap(bid, 'view_packages') || hasCap(bid, 'manage_packages') ||
+          (request.auth != null && resource.data.customerUserId == request.auth.uid);
+        // Staff sell, or a customer self-purchasing (record-only payment).
+        allow create: if hasCap(bid, 'manage_packages') ||
+          (request.auth != null
+            && request.resource.data.customerUserId == request.auth.uid
+            && request.resource.data.creditsRemaining == request.resource.data.creditsTotal);
+        // Staff manage; customers redeem credits against their own package.
+        allow update: if hasCap(bid, 'manage_packages') ||
+          (request.auth != null && resource.data.customerUserId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['creditsRemaining', 'status', 'updatedAt'])
+            && request.resource.data.creditsRemaining < resource.data.creditsRemaining);
+        allow delete: if hasCap(bid, 'manage_packages');
+      }
+
+      match /adoptionListings/{id} {
+        allow read:  if hasCap(bid, 'view_adoptions') || hasCap(bid, 'manage_adoptions');
+        allow write: if hasCap(bid, 'manage_adoptions');
+      }
+
+      match /adoptionApplications/{id} {
+        allow read: if hasCap(bid, 'view_adoptions') || hasCap(bid, 'manage_adoptions') ||
+          (request.auth != null && resource.data.customerUserId == request.auth.uid);
+        // Applicants apply themselves; staff review.
+        allow create: if hasCap(bid, 'manage_adoptions') ||
+          (request.auth != null
+            && request.resource.data.customerUserId == request.auth.uid
+            && request.resource.data.status == 'submitted');
+        allow update, delete: if hasCap(bid, 'manage_adoptions');
+      }
+
+      match /chartEntries/{id} {
+        allow read:  if hasCap(bid, 'view_patients') || hasCap(bid, 'manage_patients');
+        allow write: if hasCap(bid, 'manage_patients');
+      }
+
+      match /classes/{id} {
+        allow read:  if hasCap(bid, 'view_classes') || hasCap(bid, 'manage_classes');
+        allow write: if hasCap(bid, 'manage_classes');
+      }
+
+      match /enrollments/{id} {
+        allow read: if hasCap(bid, 'view_classes') || hasCap(bid, 'manage_classes') ||
+          (request.auth != null && resource.data.customerUserId == request.auth.uid);
+        // Customers enroll themselves (the class projection gates open classes);
+        // staff enroll walk-ins.
+        allow create: if hasCap(bid, 'manage_classes') ||
+          (request.auth != null
+            && request.resource.data.customerUserId == request.auth.uid
+            && (request.resource.data.status == 'enrolled' || request.resource.data.status == 'waitlisted'));
+        allow update: if hasCap(bid, 'manage_classes') ||
+          (request.auth != null && resource.data.customerUserId == request.auth.uid
+            && request.resource.data.status == 'cancelled'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']));
+        allow delete: if hasCap(bid, 'manage_classes');
+      }
+
+      match /litters/{id} {
+        allow read:  if hasCap(bid, 'view_breeding') || hasCap(bid, 'manage_breeding');
+        allow write: if hasCap(bid, 'manage_breeding');
+      }
+
+      match /waitlist/{id} {
+        allow read: if hasCap(bid, 'view_breeding') || hasCap(bid, 'manage_breeding') ||
+          (request.auth != null && resource.data.customerUserId == request.auth.uid);
+        // Customers join the waitlist themselves; staff manage it.
+        allow create: if hasCap(bid, 'manage_breeding') ||
+          (request.auth != null
+            && request.resource.data.customerUserId == request.auth.uid
+            && request.resource.data.status == 'waiting');
+        allow update, delete: if hasCap(bid, 'manage_breeding');
+      }
+    }
+
+    // Customers find their message threads across businesses with a single
+    // collection-group query. Staff access goes through the scoped rule above.
+    match /{path=**}/threads/{tid} {
+      allow read: if request.auth != null && resource.data.customerUserId == request.auth.uid;
     }
 
     match /publicDogCards/{dogId} {
