@@ -34,8 +34,10 @@ import {
   type MessageThread, type ThreadMessage,
   type ReportCard,
   type CustomerPackage, type PackageDef,
+  type ChartEntry, type MedicalRecord,
 } from '@/types';
 import { derivePackageStatus, packageExpiry } from '@/lib/packages';
+import { medicalCol } from '@/lib/firestore';
 import { fullDates, hasCapacityForRange, todayStr } from '@/lib/occupancy';
 
 // Build the public directory projection of a business and publish it (or remove
@@ -761,6 +763,66 @@ export function useThreadMessages(bid: string, tid: string | null) {
     return () => unsub();
   }, [bid, tid]);
   return { messages };
+}
+
+// ─── Vet patient charts ───────────────────────────────────────────────────────
+
+export function useChartEntries(bid: string, petId?: string) {
+  const { user } = useAuth();
+  const { items: allEntries, loading } = useCollection<ChartEntry>(
+    () => (bid ? bizChartEntriesCol(bid) : null), [bid], [orderBy('date', 'desc')],
+  );
+  const entries = petId ? allEntries.filter(e => e.petId === petId) : allEntries;
+
+  const createChartEntry = async (data: Omit<ChartEntry, 'id' | 'createdAt' | 'updatedAt' | 'createdBy'>) => {
+    const now = Date.now();
+    return addDoc(bizChartEntriesCol(bid), stripUndefined({
+      ...data, createdBy: user!.uid, createdAt: now, updatedAt: now,
+    } as ChartEntry));
+  };
+
+  const updateChartEntry = async (id: string, data: Partial<ChartEntry>) => {
+    await updateDoc(doc(bizChartEntriesCol(bid), id), stripUndefined({ ...data, updatedAt: Date.now() }));
+  };
+
+  // Push a chart entry into the linked PackOps dog's medical records, using the
+  // existing provider-attribution flow (the owner confirms it in their app).
+  // Works only when the pet is linked AND this staffer is on the dog's care
+  // team — otherwise the personal-app rules reject the write.
+  const shareChartEntry = async (entry: ChartEntry, dogId: string, businessName: string): Promise<{ ok: boolean; reason?: string }> => {
+    const category = entry.type === 'vaccination' ? 'vaccination'
+      : entry.type === 'prescription' ? 'medication'
+      : entry.type === 'diagnosis' ? 'diagnosis' : null;
+    if (!category) return { ok: false, reason: 'Only vaccinations, prescriptions and diagnoses can be shared.' };
+    const now = Date.now();
+    const base = {
+      dogId,
+      category,
+      title: entry.title,
+      date: new Date(`${entry.date}T12:00:00`).getTime(),
+      provider: businessName,
+      notes: entry.details,
+      createdBy: user!.uid,
+      createdByName: entry.staffName,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const extras =
+      category === 'vaccination' ? { vaccineName: entry.medicationName ?? entry.title, batchNumber: entry.batchNumber }
+      : category === 'medication' ? { medicationName: entry.medicationName ?? entry.title, dosage: entry.dosage, isActive: true }
+      : { condition: entry.title, isActive: true };
+    try {
+      const ref = await addDoc(medicalCol(dogId, category), stripUndefined({ ...base, ...extras } as Omit<MedicalRecord, 'id'>));
+      await updateChartEntry(entry.id, { sharedMedicalRecordId: ref.id });
+      return { ok: true };
+    } catch {
+      return { ok: false, reason: "No access to this dog's records — the owner must add your business to the dog's care team first." };
+    }
+  };
+
+  const deleteChartEntry = async (id: string) => { await deleteDoc(doc(bizChartEntriesCol(bid), id)); };
+
+  return { entries, loading, createChartEntry, updateChartEntry, shareChartEntry, deleteChartEntry };
 }
 
 // ─── Packages & memberships ───────────────────────────────────────────────────
