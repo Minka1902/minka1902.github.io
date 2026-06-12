@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, BedDouble, CalendarPlus, CheckCircle2, Globe, Mail, MapPin, Phone, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, BedDouble, CalendarPlus, CheckCircle2, Globe, Mail, MapPin, Phone, ShoppingCart, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useDirectoryEntry, useBooking, usePurchasePackage } from '@/hooks/useDirectory';
+import { useDirectoryEntry, useBooking, usePurchasePackage, useReviews } from '@/hooks/useDirectory';
 import { generateSlots, dayStartOffset } from '@/lib/availability';
 import { BUSINESS_TYPES, DEFAULT_SLOT_MINUTES } from '@/types';
 
@@ -33,6 +33,10 @@ export default function BusinessBookingPage() {
   const { book } = useBooking();
   const { purchasePackage } = usePurchasePackage();
   const [boughtPackageId, setBoughtPackageId] = useState<string | null>(null);
+  const { reviews, myReview, submitReview } = useReviews(bid);
+  const [myRating, setMyRating] = useState(0);
+  const [myReviewText, setMyReviewText] = useState('');
+  const [reviewSaved, setReviewSaved] = useState(false);
 
   const [service, setService] = useState('');
   const [customService, setCustomService] = useState('');
@@ -111,7 +115,15 @@ export default function BusinessBookingPage() {
 
       <div>
         <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{entry.name}</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">{TYPE_LABELS[entry.type] ?? entry.type}</p>
+        <p className="mt-0.5 flex items-center gap-2 text-sm text-muted-foreground">
+          <span>{TYPE_LABELS[entry.type] ?? entry.type}</span>
+          {reviews.length > 0 && (
+            <span className="inline-flex items-center gap-1">
+              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+              {(reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)} ({reviews.length})
+            </span>
+          )}
+        </p>
       </div>
 
       {entry.description && <p className="text-sm text-muted-foreground">{entry.description}</p>}
@@ -319,6 +331,58 @@ export default function BusinessBookingPage() {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Star className="h-4 w-4" /> Reviews
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {reviews.length === 0 && <p className="text-sm text-muted-foreground">No reviews yet — be the first.</p>}
+
+          {reviews.slice(0, 5).map(r => (
+            <div key={r.id} className="space-y-0.5 text-sm">
+              <p className="flex items-center gap-1.5 font-medium">
+                {r.authorName}
+                <span className="inline-flex">
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <Star key={i} className={`h-3 w-3 ${i < r.rating ? 'fill-amber-400 text-amber-400' : 'text-muted'}`} />
+                  ))}
+                </span>
+              </p>
+              {r.text && <p className="text-muted-foreground">{r.text}</p>}
+            </div>
+          ))}
+
+          <div className="space-y-2 rounded-lg border border-dashed p-3">
+            <p className="text-sm font-medium">{myReview ? 'Update your review' : 'Leave a review'}</p>
+            <div className="flex gap-1">
+              {Array.from({ length: 5 }, (_, i) => i + 1).map(n => (
+                <button key={n} type="button" onClick={() => { setMyRating(n); setReviewSaved(false); }} aria-label={`${n} star${n !== 1 ? 's' : ''}`}>
+                  <Star className={`h-6 w-6 ${n <= (myRating || myReview?.rating || 0) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/40'}`} />
+                </button>
+              ))}
+            </div>
+            <Textarea
+              value={myReviewText || myReview?.text || ''}
+              onChange={e => { setMyReviewText(e.target.value); setReviewSaved(false); }}
+              rows={2}
+              placeholder="How was your experience?"
+            />
+            <Button
+              size="sm"
+              disabled={!(myRating || myReview?.rating)}
+              onClick={async () => {
+                await submitReview(myRating || myReview!.rating, myReviewText || myReview?.text);
+                setReviewSaved(true);
+              }}
+            >
+              {reviewSaved ? 'Saved!' : 'Submit review'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

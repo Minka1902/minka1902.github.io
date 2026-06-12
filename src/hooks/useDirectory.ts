@@ -6,15 +6,15 @@ import {
 import { db } from '@/lib/firebase';
 import {
   businessDirectoryCol, bizAppointmentsCol, bizCustomerPackagesCol, bizOrdersCol,
-  bizStaysCol, bizThreadsCol, bizThreadMessagesCol, directoryCatalogCol,
+  bizStaysCol, bizThreadsCol, bizThreadMessagesCol, directoryCatalogCol, directoryReviewsCol,
 } from '@/lib/firestore';
 import { useAuth } from '@/hooks/useAuth';
 import { stripUndefined } from '@/lib/utils';
 import { distanceKm } from '@/lib/geo';
 import { computeOrderTotals } from '@/types';
 import type {
-  BusinessAddress, BusinessDirectoryEntry, CustomerPackage, FulfillmentMethod, GeoPoint,
-  MessageThread, OrderItem, OrderPaymentMethod, PublicCatalogItem, PublicPackageItem,
+  BusinessAddress, BusinessDirectoryEntry, BusinessReview, CustomerPackage, FulfillmentMethod,
+  GeoPoint, MessageThread, OrderItem, OrderPaymentMethod, PublicCatalogItem, PublicPackageItem,
   StayFoodPlan, StayMedication, ThreadMessage,
 } from '@/types';
 
@@ -312,6 +312,52 @@ export function usePurchasePackage() {
   };
 
   return { purchasePackage };
+}
+
+// ─── Reviews ──────────────────────────────────────────────────────────────────
+// One review per user (doc id == reviewer uid). The aggregate on the directory
+// entry is best-effort, merge-written by the reviewing client; the detail page
+// always computes the exact numbers from the subcollection it just read.
+
+export function useReviews(bid: string | undefined) {
+  const { user } = useAuth();
+  const [reviews, setReviews] = useState<(BusinessReview & { id: string })[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!bid) { setReviews([]); setLoading(false); return; }
+    const unsub = onSnapshot(
+      query(directoryReviewsCol(bid), orderBy('updatedAt', 'desc')),
+      snap => {
+        setReviews(snap.docs.map(d => ({ id: d.id, ...d.data() } as BusinessReview & { id: string })));
+        setLoading(false);
+      },
+      () => setLoading(false),
+    );
+    return () => unsub();
+  }, [bid]);
+
+  const myReview = user ? reviews.find(r => r.id === user.uid) ?? null : null;
+
+  const submitReview = async (rating: number, text?: string) => {
+    if (!bid || !user) return;
+    await setDoc(doc(directoryReviewsCol(bid), user.uid), stripUndefined({
+      rating,
+      text: text?.trim() || undefined,
+      authorName: user.displayName ?? 'PackOps user',
+      updatedAt: Date.now(),
+    } satisfies BusinessReview));
+    // Refresh the aggregate from what this client can see (including its own
+    // write, which the local listener already applied).
+    const others = reviews.filter(r => r.id !== user.uid);
+    const all = [...others, { id: user.uid, rating, text, authorName: '', updatedAt: Date.now() }];
+    const ratingAvg = Math.round((all.reduce((s, r) => s + r.rating, 0) / all.length) * 10) / 10;
+    await setDoc(doc(businessDirectoryCol(), bid),
+      { ratingAvg, ratingCount: all.length, updatedAt: Date.now() }, { merge: true })
+      .catch(() => undefined);
+  };
+
+  return { reviews, loading, myReview, submitReview };
 }
 
 export interface StayRequestInput {
