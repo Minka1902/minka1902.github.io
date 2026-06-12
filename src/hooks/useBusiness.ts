@@ -32,6 +32,7 @@ import {
   computePurchaseOrderTotal, type PurchaseOrder, type Supplier,
   type Shift, type TimeOffRequest, type TimeOffStatus,
   type MessageThread, type ThreadMessage,
+  type ReportCard,
 } from '@/types';
 import { fullDates, hasCapacityForRange, todayStr } from '@/lib/occupancy';
 
@@ -758,6 +759,40 @@ export function useThreadMessages(bid: string, tid: string | null) {
     return () => unsub();
   }, [bid, tid]);
   return { messages };
+}
+
+// ─── Pet report cards ─────────────────────────────────────────────────────────
+
+export function useReportCards(bid: string) {
+  const { user } = useAuth();
+  const { items: reportCards, loading } = useCollection<ReportCard>(
+    () => (bid ? bizReportCardsCol(bid) : null), [bid], [orderBy('createdAt', 'desc')],
+  );
+
+  const createReportCard = async (data: Omit<ReportCard, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'sentAt'>) => {
+    const now = Date.now();
+    return addDoc(bizReportCardsCol(bid), stripUndefined({
+      ...data, createdBy: user!.uid, createdAt: now, updatedAt: now,
+    } as ReportCard));
+  };
+
+  const updateReportCard = async (id: string, data: Partial<ReportCard>) => {
+    await updateDoc(doc(bizReportCardsCol(bid), id), stripUndefined({ ...data, updatedAt: Date.now() }));
+  };
+
+  // Sending stamps sentAt (which unlocks the customer's read access by rules)
+  // and delivers the content into the customer's message thread.
+  const sendReportCard = async (card: ReportCard) => {
+    await updateDoc(doc(bizReportCardsCol(bid), card.id), { sentAt: Date.now(), updatedAt: Date.now() });
+    const moodLine = card.mood ? ` Mood: ${card.mood}.` : '';
+    const activities = card.activities.length ? ` Activities: ${card.activities.join(', ')}.` : '';
+    void postSystemMessage(bid, { userId: card.customerUserId, name: card.customerName },
+      `Report card for ${card.petName} (${card.date}):${moodLine}${activities} ${card.summary}`);
+  };
+
+  const deleteReportCard = async (id: string) => { await deleteDoc(doc(bizReportCardsCol(bid), id)); };
+
+  return { reportCards, loading, createReportCard, updateReportCard, sendReportCard, deleteReportCard };
 }
 
 // ─── Staff shifts & time off ──────────────────────────────────────────────────
