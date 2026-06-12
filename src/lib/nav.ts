@@ -1,6 +1,7 @@
 import {
   Home, Activity, Dumbbell, Stethoscope, Users, Cpu, QrCode, Settings,
   Calendar, Receipt, Package, Truck, UserCog, ShieldCheck, Lock, MapPin,
+  ShoppingCart,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Capability, BusinessModule } from '@/types';
@@ -40,6 +41,7 @@ export interface BusinessNavItem extends NavItem {
 export const BUSINESS_NAV_ITEMS: BusinessNavItem[] = [
   { to: '/business',              label: 'Dashboard',    icon: Home },
   { to: '/business/appointments', label: 'Appointments', icon: Calendar, cap: 'view_appointments', module: 'appointments' },
+  { to: '/business/orders',       label: 'Orders',       icon: ShoppingCart, cap: 'view_orders',   module: 'orders' },
   { to: '/business/customers',    label: 'Customers',    icon: Users,    cap: 'view_customers',    module: 'customers' },
   { to: '/business/invoices',     label: 'Invoices',     icon: Receipt,  cap: 'view_invoices',     module: 'invoices' },
   { to: '/business/inventory',    label: 'Inventory',    icon: Package,  cap: 'view_inventory',    module: 'inventory' },

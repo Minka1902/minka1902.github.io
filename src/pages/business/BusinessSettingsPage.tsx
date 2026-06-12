@@ -9,7 +9,14 @@ import { useBusiness, useBusinessActions } from '@/hooks/useBusiness';
 import { usePermissions } from '@/hooks/usePermissions';
 import BusinessProfileForm, { type BusinessProfileFormData } from '@/components/business/BusinessProfileForm';
 import AvailabilityEditor from '@/components/business/AvailabilityEditor';
-import { ALL_MODULES, MODULE_CATALOG, isModuleEnabled, type BusinessModule, type WeeklyAvailability } from '@/types';
+import CommerceSettingsCard from '@/components/business/CommerceSettingsCard';
+import { resyncCatalog } from '@/hooks/useBusiness';
+import {
+  ALL_MODULES, MODULE_CATALOG, isModuleEnabled,
+  type BusinessModule, type CommerceSettings, type ModuleGroup, type WeeklyAvailability,
+} from '@/types';
+
+const MODULE_GROUPS: ModuleGroup[] = ['Operations', 'Customer', 'Specialty'];
 
 export default function BusinessSettingsPage() {
   const { activeBusiness } = useBusiness();
@@ -60,6 +67,17 @@ export default function BusinessSettingsPage() {
         </CardContent>
       </Card>
 
+      {isModuleEnabled(activeBusiness, 'orders') && (
+        <CommerceSettingsCard
+          business={activeBusiness}
+          onSave={async (commerce: CommerceSettings) => {
+            await updateBusiness({ commerce });
+            // Publish or retract the public product catalog to match the toggle.
+            await resyncCatalog(bid, commerce.ordersOpen).catch(() => undefined);
+          }}
+        />
+      )}
+
       {isModuleEnabled(activeBusiness, 'appointments') && (
         <Card>
           <CardHeader>
@@ -90,20 +108,25 @@ export default function BusinessSettingsPage() {
             Turn off the features your business doesn't use. Disabled pages disappear from the
             sidebar — for example a trainer who only sells their time can hide Inventory and Shipments.
           </p>
-          <div className="divide-y rounded-lg border">
-            {MODULE_CATALOG.map(({ module, label, description }) => (
-              <div key={module} className="flex items-center justify-between px-4 py-3">
-                <div className="pr-4">
-                  <p className="text-sm font-medium">{label}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
-                </div>
-                <Switch
-                  checked={isModuleEnabled(activeBusiness, module)}
-                  onCheckedChange={(v) => toggleModule(module, v)}
-                />
+          {MODULE_GROUPS.map(group => (
+            <div key={group} className="space-y-1.5">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{group}</p>
+              <div className="divide-y rounded-lg border">
+                {MODULE_CATALOG.filter(m => m.group === group).map(({ module, label, description }) => (
+                  <div key={module} className="flex items-center justify-between px-4 py-3">
+                    <div className="pr-4">
+                      <p className="text-sm font-medium">{label}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+                    </div>
+                    <Switch
+                      checked={isModuleEnabled(activeBusiness, module)}
+                      onCheckedChange={(v) => toggleModule(module, v)}
+                    />
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </CardContent>
       </Card>
 

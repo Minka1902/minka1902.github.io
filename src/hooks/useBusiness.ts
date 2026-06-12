@@ -3,7 +3,8 @@ export { useBusiness } from '@/contexts/BusinessContext';
 import { useEffect, useState } from 'react';
 import {
   addDoc, arrayRemove, arrayUnion, deleteDoc, doc, getDoc, getDocs,
-  onSnapshot, orderBy, query, setDoc, updateDoc, where, writeBatch, type QueryConstraint,
+  onSnapshot, orderBy, query, runTransaction, setDoc, updateDoc, where, writeBatch,
+  type QueryConstraint,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
@@ -21,9 +22,11 @@ import {
   directoryLittersCol, directoryReviewsCol,
 } from '@/lib/firestore';
 import {
-  ALL_CAPABILITIES, DEFAULT_ROLE_TEMPLATES, computeInvoiceTotals,
+  ALL_CAPABILITIES, DEFAULT_ROLE_TEMPLATES, computeInvoiceTotals, computeOrderTotals,
+  findStockShortages, isModuleEnabled,
   type Business, type BusinessRole, type BusinessStaff, type BusinessCustomer,
   type BusinessPet, type Appointment, type Invoice, type Product, type Shipment,
+  type Order, type OrderItem, type OrderStatus,
 } from '@/types';
 
 // Build the public directory projection of a business and publish it (or remove
@@ -43,6 +46,20 @@ function buildDirectoryEntry(b: Business) {
     services: b.services,
     availability: b.availability,
     slotMinutes: b.slotMinutes,
+    currency: b.currency,
+    // Commerce summary — customers need the fulfilment/payment options to order.
+    orderable: (b.commerce?.ordersOpen ?? false) && isModuleEnabled(b, 'orders'),
+    fulfillment: b.commerce?.fulfillment,
+    deliveryFee: b.commerce?.deliveryFee,
+    paymentMethods: b.commerce?.paymentMethods,
+    // Boarding summary — fullDates is maintained separately by
+    // refreshBoardingAvailability and survives via the recursive merge.
+    boarding: b.boarding
+      ? stripUndefined({
+          requestsOpen: b.boarding.requestsOpen && isModuleEnabled(b, 'boarding'),
+          pricePerNight: b.boarding.pricePerNight,
+        })
+      : undefined,
     updatedAt: Date.now(),
   });
 }
@@ -71,6 +88,65 @@ async function refreshBusySlots(bid: string) {
       .map(a => ({ start: a.startAt, end: a.endAt }));
     await setDoc(doc(businessDirectoryCol(), bid), { busySlots: busy, updatedAt: now }, { merge: true });
   } catch { /* directory may not exist for unlisted businesses — ignore */ }
+}
+
+// ─── Public catalog sync ──────────────────────────────────────────────────────
+// The order page reads businessDirectory/{bid}/catalog — a projection that only
+// exposes name / category / price / inStock (never raw stock numbers). Synced on
+// product mutations while online ordering is on; fully rebuilt on toggle.
+
+function toCatalogDoc(p: Product) {
+  return stripUndefined({
+    name: p.name,
+    category: p.category,
+    unitPrice: p.unitPrice,
+    inStock: p.active && p.stockQty > 0,
+    updatedAt: Date.now(),
+  });
+}
+
+async function isOrderable(bid: string): Promise<boolean> {
+  const snap = await getDoc(doc(businessDirectoryCol(), bid)).catch(() => null);
+  return snap?.exists() === true && snap.data()?.orderable === true;
+}
+
+// Upsert (or, for inactive products, remove) one catalog projection. Best-effort.
+async function syncCatalogItem(bid: string, productId: string, product: Product | null) {
+  try {
+    if (!(await isOrderable(bid))) return;
+    const ref = doc(directoryCatalogCol(bid), productId);
+    if (!product || !product.active) await deleteDoc(ref);
+    else await setDoc(ref, toCatalogDoc(product));
+  } catch { /* projection is best-effort; the accept transaction is the truth */ }
+}
+
+// Rebuild the whole catalog projection (Settings toggle, module changes).
+export async function resyncCatalog(bid: string, ordersOpen: boolean) {
+  const existing = await getDocs(directoryCatalogCol(bid)).catch(() => null);
+  const batch = writeBatch(db);
+  existing?.docs.forEach(d => batch.delete(d.ref));
+  if (ordersOpen) {
+    const products = await getDocs(bizProductsCol(bid));
+    products.docs.forEach(d => {
+      const p = d.data() as Product;
+      if (p.active) batch.set(doc(directoryCatalogCol(bid), d.id), toCatalogDoc(p));
+    });
+  }
+  await batch.commit();
+}
+
+// Refresh inStock for the products an order touched (post-transaction).
+async function refreshCatalogStock(bid: string, productIds: string[]) {
+  try {
+    if (!(await isOrderable(bid))) return;
+    for (const pid of productIds) {
+      const snap = await getDoc(doc(bizProductsCol(bid), pid));
+      if (!snap.exists()) continue;
+      const p = snap.data() as Product;
+      await setDoc(doc(directoryCatalogCol(bid), pid),
+        { inStock: p.active && p.stockQty > 0, updatedAt: Date.now() }, { merge: true });
+    }
+  } catch { /* best-effort */ }
 }
 
 // Generic realtime subscription helper.
@@ -365,12 +441,19 @@ export function useProducts(bid: string) {
   );
   const createProduct = async (data: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => {
     const now = Date.now();
-    return addDoc(bizProductsCol(bid), stripUndefined({ ...data, createdAt: now, updatedAt: now }));
+    const ref = await addDoc(bizProductsCol(bid), stripUndefined({ ...data, createdAt: now, updatedAt: now }));
+    void syncCatalogItem(bid, ref.id, { ...data, id: ref.id, createdAt: now, updatedAt: now });
+    return ref;
   };
   const updateProduct = async (id: string, data: Partial<Product>) => {
     await updateDoc(doc(bizProductsCol(bid), id), stripUndefined({ ...data, updatedAt: Date.now() }));
+    const snap = await getDoc(doc(bizProductsCol(bid), id));
+    if (snap.exists()) void syncCatalogItem(bid, id, { id, ...snap.data() } as Product);
   };
-  const deleteProduct = async (id: string) => { await deleteDoc(doc(bizProductsCol(bid), id)); };
+  const deleteProduct = async (id: string) => {
+    await deleteDoc(doc(bizProductsCol(bid), id));
+    void syncCatalogItem(bid, id, null);
+  };
   return { products, loading, createProduct, updateProduct, deleteProduct };
 }
 
@@ -390,6 +473,156 @@ export function useShipments(bid: string) {
   };
   const deleteShipment = async (id: string) => { await deleteDoc(doc(bizShipmentsCol(bid), id)); };
   return { shipments, loading, createShipment, updateShipment, deleteShipment };
+}
+
+// ─── Orders ───────────────────────────────────────────────────────────────────
+
+// Thrown by acceptOrder when stock can't cover the order; the UI lists the
+// short items so staff can reject or restock.
+export class OrderStockError extends Error {
+  shortages: ReturnType<typeof findStockShortages>;
+  constructor(shortages: ReturnType<typeof findStockShortages>) {
+    super(`Insufficient stock: ${shortages.map(s => `${s.name} (${s.available}/${s.requested})`).join(', ')}`);
+    this.name = 'OrderStockError';
+    this.shortages = shortages;
+  }
+}
+
+// Quantity per product, with duplicate lines folded together so the stock
+// transaction touches each product doc exactly once.
+function quantitiesByProduct(items: OrderItem[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const i of items) map.set(i.productId, (map.get(i.productId) ?? 0) + i.quantity);
+  return map;
+}
+
+export function useOrders(bid: string) {
+  const { user } = useAuth();
+  const { items: orders, loading } = useCollection<Order>(
+    () => (bid ? bizOrdersCol(bid) : null), [bid], [orderBy('createdAt', 'desc')],
+  );
+
+  const createOrder = async (
+    data: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'subtotal' | 'total' | 'status' | 'source' | 'paymentStatus'>,
+  ) => {
+    const now = Date.now();
+    const { subtotal, total } = computeOrderTotals(data.items, data.deliveryFee ?? 0);
+    return addDoc(bizOrdersCol(bid), stripUndefined({
+      ...data,
+      subtotal, total,
+      status: 'placed',
+      source: 'staff',
+      // 'online' is record-only today: the payment is considered collected at
+      // placement. In-person / on-delivery orders start unpaid.
+      paymentStatus: data.paymentMethod === 'online' ? 'paid' : 'unpaid',
+      createdBy: user!.uid, createdAt: now, updatedAt: now,
+    } as Order));
+  };
+
+  // Accept = the single point where stock moves out. Transactional so two
+  // staffers accepting concurrently can't oversell.
+  const acceptOrder = async (order: Order) => {
+    const wanted = quantitiesByProduct(order.items);
+    await runTransaction(db, async tx => {
+      const refs = [...wanted.keys()].map(pid => doc(bizProductsCol(bid), pid));
+      const snaps = await Promise.all(refs.map(r => tx.get(r)));
+      const stockById: Record<string, number | undefined> = {};
+      snaps.forEach((s, i) => { stockById[refs[i].id] = s.exists() ? (s.data() as Product).stockQty : undefined; });
+      const shortages = findStockShortages(
+        [...wanted.entries()].map(([productId, quantity]) => ({
+          productId, quantity,
+          name: order.items.find(it => it.productId === productId)!.name,
+          unitPrice: 0,
+        })),
+        stockById,
+      );
+      if (shortages.length) throw new OrderStockError(shortages);
+      const now = Date.now();
+      refs.forEach(r => {
+        tx.update(r, { stockQty: stockById[r.id]! - wanted.get(r.id)!, updatedAt: now });
+      });
+      tx.update(doc(bizOrdersCol(bid), order.id), { status: 'accepted', stockAdjusted: true, updatedAt: now });
+    });
+    void refreshCatalogStock(bid, [...wanted.keys()]);
+  };
+
+  // Cancel / reject. Returns held stock when the order had already been accepted.
+  const closeOrder = async (order: Order, status: 'cancelled' | 'rejected') => {
+    if (!order.stockAdjusted) {
+      await updateDoc(doc(bizOrdersCol(bid), order.id), { status, updatedAt: Date.now() });
+      return;
+    }
+    const held = quantitiesByProduct(order.items);
+    await runTransaction(db, async tx => {
+      const refs = [...held.keys()].map(pid => doc(bizProductsCol(bid), pid));
+      const snaps = await Promise.all(refs.map(r => tx.get(r)));
+      const now = Date.now();
+      snaps.forEach((s, i) => {
+        if (!s.exists()) return; // product deleted meanwhile — nothing to restock
+        tx.update(refs[i], { stockQty: (s.data() as Product).stockQty + held.get(refs[i].id)!, updatedAt: now });
+      });
+      tx.update(doc(bizOrdersCol(bid), order.id), { status, stockAdjusted: false, updatedAt: now });
+    });
+    void refreshCatalogStock(bid, [...held.keys()]);
+  };
+
+  const updateOrderStatus = async (id: string, status: OrderStatus) => {
+    await updateDoc(doc(bizOrdersCol(bid), id), { status, updatedAt: Date.now() });
+  };
+
+  const setOrderPaid = async (id: string, paymentStatus: Order['paymentStatus']) => {
+    await updateDoc(doc(bizOrdersCol(bid), id), { paymentStatus, updatedAt: Date.now() });
+  };
+
+  // Raise an invoice mirroring the order (items + delivery fee line). Marks the
+  // invoice paid right away when the order's payment was already collected.
+  const createInvoiceFromOrder = async (order: Order) => {
+    const now = Date.now();
+    const lineItems = [
+      ...order.items.map(i => ({ description: i.name, quantity: i.quantity, unitPrice: i.unitPrice, productId: i.productId })),
+      ...(order.deliveryFee ? [{ description: 'Delivery', quantity: 1, unitPrice: order.deliveryFee }] : []),
+    ];
+    const { subtotal, total } = computeInvoiceTotals(lineItems);
+    const paid = order.paymentStatus === 'paid';
+    const ref = await addDoc(bizInvoicesCol(bid), stripUndefined({
+      number: `INV-${now}`,
+      customerId: order.customerId ?? '',
+      customerName: order.customerName,
+      lineItems, subtotal, total,
+      amountPaid: paid ? total : 0,
+      status: paid ? 'paid' : 'sent',
+      payments: paid ? [{ amount: total, method: 'other', paidAt: now, recordedBy: user!.uid }] : [],
+      issuedAt: now,
+      notes: `Order ${order.id}`,
+      createdBy: user!.uid, createdAt: now, updatedAt: now,
+    } as Omit<Invoice, 'id'>));
+    await updateDoc(doc(bizOrdersCol(bid), order.id), { invoiceId: ref.id, updatedAt: now });
+    return ref;
+  };
+
+  // Hand a carrier delivery over to the shipments module.
+  const createShipmentFromOrder = async (order: Order) => {
+    const now = Date.now();
+    const ref = await addDoc(bizShipmentsCol(bid), stripUndefined({
+      customerId: order.customerId,
+      customerName: order.customerName,
+      invoiceId: order.invoiceId,
+      items: order.items.map(i => ({ productId: i.productId, productName: i.name, quantity: i.quantity })),
+      destinationAddress: order.deliveryAddress,
+      status: 'pending',
+      notes: `Order ${order.id}`,
+      createdBy: user!.uid, createdAt: now, updatedAt: now,
+    } as Omit<Shipment, 'id'>));
+    await updateDoc(doc(bizOrdersCol(bid), order.id), { shipmentId: ref.id, updatedAt: now });
+    return ref;
+  };
+
+  const deleteOrder = async (id: string) => { await deleteDoc(doc(bizOrdersCol(bid), id)); };
+
+  return {
+    orders, loading, createOrder, acceptOrder, closeOrder, updateOrderStatus,
+    setOrderPaid, createInvoiceFromOrder, createShipmentFromOrder, deleteOrder,
+  };
 }
 
 // ─── small local helpers ──────────────────────────────────────────────────────
