@@ -107,6 +107,14 @@ interface SeedBusiness {
   modules?: string[];                 // omitted ⇒ all enabled
   services?: string[];
   location: { lat: number; lng: number; label: string };
+  commerce?: {                        // orders module configuration
+    ordersOpen: boolean;
+    fulfillment: 'pickup' | 'delivery' | 'both';
+    deliveryHandler?: 'business' | 'carrier';
+    deliveryFee?: number;
+    paymentMethods: string[];
+  };
+  boarding?: { capacity: number; requestsOpen: boolean; pricePerNight?: number };
 }
 
 async function seedBusinesses(): Promise<void> {
@@ -122,7 +130,7 @@ async function seedBusinesses(): Promise<void> {
       id: 'pawsh-grooming', name: 'Pawsh Grooming', type: 'grooming_salon',
       description: 'Full-service dog grooming salon', email: 'hello@pawsh.example', domain: 'pawsh.example',
       bookable: true,
-      modules: ['customers', 'appointments', 'invoices'], // grooming: no inventory/shipping
+      modules: ['customers', 'appointments', 'invoices', 'services', 'messages', 'reports', 'shifts', 'packages', 'report_cards'],
       services: ['Full groom', 'Bath & brush', 'Nail trim', 'De-shedding'],
       location: { lat: 32.0809, lng: 34.7806, label: 'Tel Aviv' },
       roles: [
@@ -142,7 +150,7 @@ async function seedBusinesses(): Promise<void> {
       id: 'the-vet-clinic', name: 'The Vet Clinic', type: 'vet',
       description: 'Professional veterinary care', email: 'info@thevet.example', domain: 'thevet.example',
       bookable: true,
-      modules: ['customers', 'appointments', 'invoices', 'inventory'],
+      modules: ['customers', 'appointments', 'invoices', 'inventory', 'services', 'messages', 'reports', 'shifts', 'packages', 'patients', 'report_cards'],
       services: ['Check-up', 'Vaccination', 'Consultation', 'Dental'],
       location: { lat: 32.0921, lng: 34.7754, label: 'Tel Aviv' },
       roles: [
@@ -162,7 +170,11 @@ async function seedBusinesses(): Promise<void> {
       id: 'the-food-store', name: 'The Food Store', type: 'pet_shop',
       description: 'Premium pet food and supplies', email: 'orders@foodstore.example', domain: 'foodstore.example',
       bookable: false,
-      modules: ['customers', 'invoices', 'inventory', 'shipments'], // shop: no appointments
+      modules: ['customers', 'invoices', 'inventory', 'shipments', 'orders', 'purchasing', 'messages', 'reports', 'shifts', 'packages'],
+      commerce: {
+        ordersOpen: true, fulfillment: 'both', deliveryHandler: 'business',
+        deliveryFee: 20, paymentMethods: ['online', 'in_person', 'on_delivery'],
+      },
       services: [],
       location: { lat: 32.0684, lng: 34.7745, label: 'Tel Aviv' },
       roles: [
@@ -176,6 +188,24 @@ async function seedBusinesses(): Promise<void> {
         { name: 'Ido Shmueli', roleName: 'role-clerk' },
         { name: 'Nir Friedman', roleName: 'role-driver' },
         { name: 'Orit Levi', roleName: 'role-driver' },
+      ],
+    },
+    {
+      id: 'happy-tails-boarding', name: 'Happy Tails Boarding', type: 'boarding',
+      description: 'Overnight boarding and daycare with daily report cards', email: 'stay@happytails.example', domain: 'happytails.example',
+      bookable: true,
+      modules: ['customers', 'boarding', 'appointments', 'invoices', 'services', 'messages', 'reports', 'shifts', 'packages', 'report_cards'],
+      services: ['Daycare day', 'Overnight stay'],
+      location: { lat: 32.1093, lng: 34.8555, label: 'Ramat Gan' },
+      boarding: { capacity: 10, requestsOpen: true, pricePerNight: 120 },
+      roles: [
+        { id: 'role-manager', name: 'Manager', capabilities: managerCaps },
+        { id: 'role-carer', name: 'Carer', capabilities: ['view_business', 'view_customers', 'view_boarding', 'manage_boarding', 'manage_report_cards', 'view_shifts'] },
+      ],
+      staff: [
+        { name: 'Shira Adler', roleName: 'role-manager' },
+        { name: 'Omer Navon', roleName: 'role-carer' },
+        { name: 'Gal Sharon', roleName: 'role-carer' },
       ],
     },
   ];
@@ -215,6 +245,8 @@ async function seedBusinesses(): Promise<void> {
       requireMfa: false, listed: true, bookable: biz.bookable,
       modules: biz.modules, services: biz.services, location: biz.location,
       availability: weekHours, slotMinutes,
+      ...(biz.commerce ? { commerce: biz.commerce } : {}),
+      ...(biz.boarding ? { boarding: biz.boarding } : {}),
       createdAt: now, updatedAt: now,
     });
 
@@ -222,7 +254,18 @@ async function seedBusinesses(): Promise<void> {
     await ab.set(db.collection('businessDirectory').doc(biz.id), {
       name: biz.name, type: biz.type, description: biz.description, email: biz.email,
       city: biz.location.label, location: biz.location, bookable: biz.bookable,
-      services: biz.services, availability: weekHours, slotMinutes, updatedAt: now,
+      services: biz.services, availability: weekHours, slotMinutes,
+      currency: 'ILS',
+      ...(biz.commerce ? {
+        orderable: biz.commerce.ordersOpen,
+        fulfillment: biz.commerce.fulfillment,
+        deliveryFee: biz.commerce.deliveryFee,
+        paymentMethods: biz.commerce.paymentMethods,
+      } : {}),
+      ...(biz.boarding ? {
+        boarding: { requestsOpen: biz.boarding.requestsOpen, pricePerNight: biz.boarding.pricePerNight, fullDates: [] },
+      } : {}),
+      updatedAt: now,
     });
 
     // Roles — system owner role + custom roles.
@@ -305,6 +348,76 @@ async function seedBusinesses(): Promise<void> {
         createdAt: now, updatedAt: now,
       });
     });
+
+    // Priced service menu (services module) mirroring the plain services list.
+    biz.services?.forEach((name, i) => {
+      void ab.set(db.collection('businesses').doc(biz.id).collection('services').doc(`${biz.id}-svc-${i + 1}`), {
+        name, price: 80 + i * 40, durationMinutes: 30 + (i % 3) * 30, active: true,
+        createdAt: now, updatedAt: now,
+      });
+    });
+
+    // Online-ordering extras: public catalog projection + orders across statuses.
+    if (biz.commerce?.ordersOpen) {
+      productCatalog.forEach((p, i) => {
+        void ab.set(db.collection('businessDirectory').doc(biz.id).collection('catalog').doc(`${biz.id}-prod-${i + 1}`), {
+          name: p.name, category: 'Supplies', unitPrice: p.price, inStock: p.stock > 0, updatedAt: now,
+        });
+      });
+      const orderStatuses = ['placed', 'placed', 'accepted', 'preparing', 'ready_for_pickup', 'out_for_delivery', 'completed', 'cancelled'];
+      for (let i = 0; i < orderStatuses.length; i++) {
+        const cust = customerIds[i % customerIds.length];
+        const prod = productCatalog[i % productCatalog.length];
+        const qty = 1 + (i % 2);
+        const delivery = i % 2 === 0;
+        const fee = delivery ? (biz.commerce.deliveryFee ?? 0) : 0;
+        const subtotal = qty * prod.price;
+        await ab.set(db.collection('businesses').doc(biz.id).collection('orders').doc(`${biz.id}-order-${i + 1}`), {
+          items: [{ productId: `${biz.id}-prod-${(i % productCatalog.length) + 1}`, name: prod.name, quantity: qty, unitPrice: prod.price }],
+          customerId: cust.id, customerName: cust.name,
+          fulfillment: delivery ? 'delivery' : 'pickup',
+          ...(delivery ? {
+            deliveryAddress: { street: telAvivAddresses[i % telAvivAddresses.length], city: 'Tel Aviv' },
+            deliveryHandler: biz.commerce.deliveryHandler, deliveryFee: fee,
+          } : {}),
+          paymentMethod: biz.commerce.paymentMethods[i % biz.commerce.paymentMethods.length],
+          paymentStatus: i % 3 === 0 ? 'paid' : 'unpaid',
+          subtotal, total: subtotal + fee,
+          status: orderStatuses[i], source: i % 2 === 0 ? 'customer' : 'staff',
+          stockAdjusted: !['placed', 'cancelled', 'rejected', 'completed'].includes(orderStatuses[i]),
+          createdBy: MINKA_UID, createdAt: now - i * dayMs, updatedAt: now,
+        });
+      }
+    }
+
+    // Boarding extras: stays in every state, with food plans and daily notes.
+    if (biz.boarding) {
+      const isoDay = (offset: number) => new Date(now + offset * dayMs).toISOString().slice(0, 10);
+      const stays = [
+        { status: 'requested', start: 5, end: 8 },
+        { status: 'requested', start: 10, end: 12 },
+        { status: 'approved', start: 2, end: 6 },
+        { status: 'checked_in', start: -1, end: 3 },
+        { status: 'checked_in', start: -2, end: 1 },
+        { status: 'checked_out', start: -10, end: -7 },
+        { status: 'declined', start: 4, end: 5 },
+      ];
+      for (let i = 0; i < stays.length; i++) {
+        const s = stays[i];
+        const cust = customerIds[i % customerIds.length];
+        await ab.set(db.collection('businesses').doc(biz.id).collection('stays').doc(`${biz.id}-stay-${i + 1}`), {
+          customerId: cust.id, customerName: cust.name,
+          petId: cust.petId, petName: cust.petName, petSpecies: 'dog',
+          startDate: isoDay(s.start), endDate: isoDay(s.end),
+          status: s.status, source: i % 2 === 0 ? 'customer' : 'staff',
+          foodPlan: { providedBy: i % 2 === 0 ? 'owner' : 'business', feedingTimes: ['08:00', '18:00'], amount: '1 cup kibble' },
+          ...(s.status === 'checked_in' ? {
+            dailyNotes: [{ at: now - 3600_000, byUserId: MINKA_UID, byName: MINKA_NAME, text: 'Settled in great, ate everything.' }],
+          } : {}),
+          createdBy: MINKA_UID, createdAt: now - i * dayMs, updatedAt: now,
+        });
+      }
+    }
 
     // Shipments — 10 across statuses.
     const shipStatuses = ['pending', 'packed', 'shipped', 'out_for_delivery', 'delivered', 'delivered', 'returned'];
