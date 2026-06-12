@@ -50,6 +50,8 @@ const ReportCardsPage       = lazy(() => import('@/pages/business/ReportCardsPag
 const PackagesPage          = lazy(() => import('@/pages/business/PackagesPage'));
 const PatientsPage          = lazy(() => import('@/pages/business/PatientsPage'));
 const PatientChartPage      = lazy(() => import('@/pages/business/PatientChartPage'));
+const ClassesPage           = lazy(() => import('@/pages/business/ClassesPage'));
+const BusinessClassesPage   = lazy(() => import('@/pages/discover/BusinessClassesPage'));
 const MyMessagesPage        = lazy(() => import('@/pages/messages/MyMessagesPage'));
 const ShipmentsPage         = lazy(() => import('@/pages/business/ShipmentsPage'));
 const StaffPage             = lazy(() => import('@/pages/business/StaffPage'));
@@ -106,6 +108,7 @@ export const router = createBrowserRouter([
               { path: '/discover/:bid',        element: <BusinessBookingPage /> },
               { path: '/discover/:bid/order',  element: <BusinessOrderPage /> },
               { path: '/discover/:bid/boarding', element: <BusinessStayRequestPage /> },
+              { path: '/discover/:bid/classes', element: <BusinessClassesPage /> },
               { path: '/messages',             element: <MyMessagesPage /> },
               { path: '/devices',              element: <DevicesPage /> },
               { path: '/qr',                   element: <QRPage /> },
@@ -142,6 +145,7 @@ export const router = createBrowserRouter([
               { path: '/business/packages',    element: <PackagesPage /> },
               { path: '/business/patients',    element: <PatientsPage /> },
               { path: '/business/patients/:petId', element: <PatientChartPage /> },
+              { path: '/business/classes',     element: <ClassesPage /> },
               { path: '/business/shipments',    element: <ShipmentsPage /> },
               { path: '/business/staff',        element: <StaffPage /> },
               { path: '/business/roles',        element: <RolesPage /> },

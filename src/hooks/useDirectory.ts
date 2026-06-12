@@ -6,7 +6,8 @@ import {
 import { db } from '@/lib/firebase';
 import {
   businessDirectoryCol, bizAppointmentsCol, bizCustomerPackagesCol, bizOrdersCol,
-  bizStaysCol, bizThreadsCol, bizThreadMessagesCol, directoryCatalogCol, directoryReviewsCol,
+  bizEnrollmentsCol, bizStaysCol, bizThreadsCol, bizThreadMessagesCol,
+  directoryCatalogCol, directoryClassesCol, directoryReviewsCol,
 } from '@/lib/firestore';
 import { useAuth } from '@/hooks/useAuth';
 import { stripUndefined } from '@/lib/utils';
@@ -14,8 +15,8 @@ import { distanceKm } from '@/lib/geo';
 import { computeOrderTotals } from '@/types';
 import type {
   BusinessAddress, BusinessDirectoryEntry, BusinessReview, CustomerPackage, FulfillmentMethod,
-  GeoPoint, MessageThread, OrderItem, OrderPaymentMethod, PublicCatalogItem, PublicPackageItem,
-  StayFoodPlan, StayMedication, ThreadMessage,
+  ClassEnrollment, GeoPoint, MessageThread, OrderItem, OrderPaymentMethod, PublicCatalogItem,
+  PublicClassItem, PublicPackageItem, StayFoodPlan, StayMedication, ThreadMessage,
 } from '@/types';
 
 export interface DirectoryResult extends BusinessDirectoryEntry {
@@ -312,6 +313,63 @@ export function usePurchasePackage() {
   };
 
   return { purchasePackage };
+}
+
+// ─── Group classes (customer side) ────────────────────────────────────────────
+
+/** Open classes a business publishes for enrollment, soonest first. */
+export function usePublicClasses(bid: string | undefined) {
+  const [classes, setClasses] = useState<PublicClassItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!bid) { setClasses([]); setLoading(false); return; }
+    const unsub = onSnapshot(
+      directoryClassesCol(bid),
+      snap => {
+        const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as PublicClassItem));
+        items.sort((a, b) => (a.sessions[0]?.date ?? '').localeCompare(b.sessions[0]?.date ?? ''));
+        setClasses(items);
+        setLoading(false);
+      },
+      () => setLoading(false),
+    );
+    return () => unsub();
+  }, [bid]);
+
+  return { classes, loading };
+}
+
+/**
+ * Customer self-enrollment. Enrolled while spots remain, waitlisted otherwise;
+ * the client best-effort bumps the public spotsLeft (rules limit it to that
+ * field) — the trainer's roster recomputes the real number.
+ */
+export function useEnrollInClass() {
+  const { user } = useAuth();
+
+  const enroll = async (bid: string, entry: BusinessDirectoryEntry, cls: PublicClassItem, petName: string) => {
+    const status: ClassEnrollment['status'] = cls.spotsLeft > 0 ? 'enrolled' : 'waitlisted';
+    const now = Date.now();
+    await addDoc(bizEnrollmentsCol(bid), stripUndefined({
+      classId: cls.id,
+      customerUserId: user!.uid,
+      customerName: user!.displayName ?? 'Customer',
+      petName,
+      status,
+      createdAt: now, updatedAt: now,
+    } as ClassEnrollment));
+    if (status === 'enrolled') {
+      await setDoc(doc(directoryClassesCol(bid), cls.id),
+        { spotsLeft: Math.max(0, cls.spotsLeft - 1), updatedAt: now }, { merge: true })
+        .catch(() => undefined);
+    }
+    void openThread(bid, entry.name, user!,
+      `${status === 'enrolled' ? 'Enrolled in' : 'Joined the waitlist for'} "${cls.name}" with ${petName}.`);
+    return status;
+  };
+
+  return { enroll };
 }
 
 // ─── Reviews ──────────────────────────────────────────────────────────────────

@@ -35,6 +35,7 @@ import {
   type ReportCard,
   type CustomerPackage, type PackageDef,
   type ChartEntry, type MedicalRecord,
+  classSpotsLeft, type ClassEnrollment, type GroupClass,
 } from '@/types';
 import { derivePackageStatus, packageExpiry } from '@/lib/packages';
 import { medicalCol } from '@/lib/firestore';
@@ -763,6 +764,93 @@ export function useThreadMessages(bid: string, tid: string | null) {
     return () => unsub();
   }, [bid, tid]);
   return { messages };
+}
+
+// ─── Trainer group classes ────────────────────────────────────────────────────
+
+// Publish open classes (with live spotsLeft) so customers can enroll from the
+// directory. Recomputed from enrollments after every class/enrollment change.
+async function refreshClassCatalog(bid: string) {
+  try {
+    const [classSnap, enrollSnap] = await Promise.all([
+      getDocs(bizClassesCol(bid)),
+      getDocs(bizEnrollmentsCol(bid)),
+    ]);
+    const enrollments = enrollSnap.docs.map(d => d.data() as ClassEnrollment);
+    const batch = writeBatch(db);
+    classSnap.docs.forEach(d => {
+      const cls = { id: d.id, ...d.data() } as GroupClass;
+      const ref = doc(directoryClassesCol(bid), d.id);
+      if (cls.status !== 'open') { batch.delete(ref); return; }
+      const spotsLeft = classSpotsLeft(cls, enrollments.filter(e => e.classId === d.id));
+      batch.set(ref, stripUndefined({
+        name: cls.name, description: cls.description, price: cls.price,
+        sessions: cls.sessions, spotsLeft, updatedAt: Date.now(),
+      }));
+    });
+    await batch.commit();
+  } catch { /* best-effort */ }
+}
+
+export function useClasses(bid: string) {
+  const { items: classes, loading } = useCollection<GroupClass>(
+    () => (bid ? bizClassesCol(bid) : null), [bid], [orderBy('createdAt', 'desc')],
+  );
+  const createClass = async (data: Omit<GroupClass, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = Date.now();
+    const ref = await addDoc(bizClassesCol(bid), stripUndefined({ ...data, createdAt: now, updatedAt: now }));
+    void refreshClassCatalog(bid);
+    return ref;
+  };
+  const updateClass = async (id: string, data: Partial<GroupClass>) => {
+    await updateDoc(doc(bizClassesCol(bid), id), stripUndefined({ ...data, updatedAt: Date.now() }));
+    void refreshClassCatalog(bid);
+  };
+  const deleteClass = async (id: string) => {
+    await deleteDoc(doc(bizClassesCol(bid), id));
+    await deleteDoc(doc(directoryClassesCol(bid), id)).catch(() => undefined);
+  };
+  return { classes, loading, createClass, updateClass, deleteClass };
+}
+
+export function useEnrollments(bid: string, classId?: string) {
+  const { items: allEnrollments, loading } = useCollection<ClassEnrollment>(
+    () => (bid ? bizEnrollmentsCol(bid) : null), [bid], [orderBy('createdAt', 'asc')],
+  );
+  const enrollments = classId ? allEnrollments.filter(e => e.classId === classId) : allEnrollments;
+
+  const enrollCustomer = async (
+    cls: GroupClass,
+    customer: { customerId?: string; customerName: string; customerUserId?: string; petName: string },
+  ) => {
+    const taken = allEnrollments.filter(e => e.classId === cls.id);
+    const status = classSpotsLeft(cls, taken) > 0 ? 'enrolled' : 'waitlisted';
+    const now = Date.now();
+    const ref = await addDoc(bizEnrollmentsCol(bid), stripUndefined({
+      classId: cls.id, ...customer, status, createdAt: now, updatedAt: now,
+    } as ClassEnrollment));
+    void refreshClassCatalog(bid);
+    return { ref, status };
+  };
+
+  const setEnrollmentStatus = async (id: string, status: ClassEnrollment['status']) => {
+    await updateDoc(doc(bizEnrollmentsCol(bid), id), { status, updatedAt: Date.now() });
+    void refreshClassCatalog(bid);
+  };
+
+  const setAttendance = async (enrollment: ClassEnrollment, sessionDate: string, attended: boolean) => {
+    await updateDoc(doc(bizEnrollmentsCol(bid), enrollment.id), {
+      attendance: { ...(enrollment.attendance ?? {}), [sessionDate]: attended },
+      updatedAt: Date.now(),
+    });
+  };
+
+  const deleteEnrollment = async (id: string) => {
+    await deleteDoc(doc(bizEnrollmentsCol(bid), id));
+    void refreshClassCatalog(bid);
+  };
+
+  return { enrollments, loading, enrollCustomer, setEnrollmentStatus, setAttendance, deleteEnrollment };
 }
 
 // ─── Vet patient charts ───────────────────────────────────────────────────────

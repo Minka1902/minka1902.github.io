@@ -2,7 +2,7 @@ import {
   Home, Activity, Dumbbell, Stethoscope, Users, Cpu, QrCode, Settings,
   Calendar, Receipt, Package, Truck, UserCog, ShieldCheck, Lock, MapPin,
   ShoppingCart, BedDouble, Tags, PackagePlus, CalendarClock, BarChart3, MessageSquare,
-  FileHeart, Ticket,
+  FileHeart, Ticket, GraduationCap,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Capability, BusinessModule } from '@/types';
@@ -50,6 +50,7 @@ export const BUSINESS_NAV_ITEMS: BusinessNavItem[] = [
   { to: '/business/report-cards', label: 'Report cards', icon: FileHeart, cap: 'view_report_cards', module: 'report_cards' },
   { to: '/business/packages',     label: 'Packages',     icon: Ticket,   cap: 'view_packages',     module: 'packages' },
   { to: '/business/patients',     label: 'Patients',     icon: Stethoscope, cap: 'view_patients',  module: 'patients' },
+  { to: '/business/classes',      label: 'Classes',      icon: GraduationCap, cap: 'view_classes', module: 'classes' },
   { to: '/business/invoices',     label: 'Invoices',     icon: Receipt,  cap: 'view_invoices',     module: 'invoices' },
   { to: '/business/services',     label: 'Services',     icon: Tags,     cap: 'view_services',     module: 'services' },
   { to: '/business/inventory',    label: 'Stock',        icon: Package,  cap: 'view_inventory',    module: 'inventory' },
