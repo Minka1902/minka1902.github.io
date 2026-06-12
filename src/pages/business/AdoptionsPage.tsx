@@ -13,7 +13,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { storage } from '@/lib/firebase';
 import { useAdoptionApplications, useAdoptionListings, useBusiness } from '@/hooks/useBusiness';
 import { usePermissions } from '@/hooks/usePermissions';
-import type { AdoptionListing } from '@/types';
 
 const STATUS_LABELS = {
   available: 'Available', pending: 'Pending', adopted: 'Adopted',

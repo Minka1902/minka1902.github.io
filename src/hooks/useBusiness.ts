@@ -37,6 +37,7 @@ import {
   type ChartEntry, type MedicalRecord,
   classSpotsLeft, type ClassEnrollment, type GroupClass,
   type AdoptionApplication, type AdoptionListing,
+  type Litter, type WaitlistEntry,
 } from '@/types';
 import { derivePackageStatus, packageExpiry } from '@/lib/packages';
 import { medicalCol } from '@/lib/firestore';
@@ -765,6 +766,83 @@ export function useThreadMessages(bid: string, tid: string | null) {
     return () => unsub();
   }, [bid, tid]);
   return { messages };
+}
+
+// ─── Breeder litters & waitlist ───────────────────────────────────────────────
+
+async function syncLitterCatalog(bid: string, litterId: string, litter: Litter | null) {
+  try {
+    const ref = doc(directoryLittersCol(bid), litterId);
+    const availableCount = litter?.puppies.filter(p => p.status === 'available').length ?? 0;
+    if (!litter || availableCount === 0) await deleteDoc(ref);
+    else {
+      await setDoc(ref, stripUndefined({
+        breed: litter.breed, bornAt: litter.bornAt, expectedAt: litter.expectedAt,
+        availableCount, updatedAt: Date.now(),
+      }));
+    }
+  } catch { /* best-effort */ }
+}
+
+export function useLitters(bid: string) {
+  const { user } = useAuth();
+  const { items: litters, loading } = useCollection<Litter>(
+    () => (bid ? bizLittersCol(bid) : null), [bid], [orderBy('createdAt', 'desc')],
+  );
+  const createLitter = async (data: Omit<Litter, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = Date.now();
+    const ref = await addDoc(bizLittersCol(bid), stripUndefined({ ...data, createdAt: now, updatedAt: now }));
+    void syncLitterCatalog(bid, ref.id, { ...data, id: ref.id, createdAt: now, updatedAt: now });
+    return ref;
+  };
+  const updateLitter = async (id: string, data: Partial<Litter>) => {
+    await updateDoc(doc(bizLittersCol(bid), id), stripUndefined({ ...data, updatedAt: Date.now() }));
+    const snap = await getDoc(doc(bizLittersCol(bid), id));
+    if (snap.exists()) void syncLitterCatalog(bid, id, { id, ...snap.data() } as Litter);
+  };
+  const deleteLitter = async (id: string) => {
+    await deleteDoc(doc(bizLittersCol(bid), id));
+    void syncLitterCatalog(bid, id, null);
+  };
+
+  // Reservation = puppy goes 'reserved' + a deposit invoice (the existing
+  // 'partial' invoice status carries deposits natively).
+  const reservePuppy = async (litter: Litter, puppyId: string, customerName: string, depositAmount?: number) => {
+    const puppies = litter.puppies.map(p => p.id === puppyId ? { ...p, status: 'reserved' as const } : p);
+    await updateLitter(litter.id, { puppies });
+    if (depositAmount && depositAmount > 0) {
+      const now = Date.now();
+      await addDoc(bizInvoicesCol(bid), stripUndefined({
+        number: `INV-${now}`,
+        customerId: '',
+        customerName,
+        lineItems: [{ description: `Deposit — ${litter.breed} puppy`, quantity: 1, unitPrice: depositAmount }],
+        subtotal: depositAmount, total: depositAmount,
+        amountPaid: 0, status: 'sent', payments: [], issuedAt: now,
+        createdBy: user!.uid, createdAt: now, updatedAt: now,
+      } as Omit<Invoice, 'id'>));
+    }
+  };
+
+  return { litters, loading, createLitter, updateLitter, deleteLitter, reservePuppy };
+}
+
+export function useWaitlist(bid: string) {
+  const { items: waitlist, loading } = useCollection<WaitlistEntry>(
+    () => (bid ? bizWaitlistCol(bid) : null), [bid], [orderBy('createdAt', 'asc')],
+  );
+  const setWaitlistStatus = async (entry: WaitlistEntry, status: WaitlistEntry['status']) => {
+    await updateDoc(doc(bizWaitlistCol(bid), entry.id), { status, updatedAt: Date.now() });
+    const texts: Partial<Record<WaitlistEntry['status'], string>> = {
+      offered: 'A puppy is available for you — the breeder will be in touch!',
+      reserved: 'Your puppy reservation is confirmed.',
+      fulfilled: 'Congratulations on your new puppy!',
+    };
+    const text = texts[status];
+    if (text) void postSystemMessage(bid, { userId: entry.customerUserId, name: entry.customerName }, text);
+  };
+  const deleteWaitlistEntry = async (id: string) => { await deleteDoc(doc(bizWaitlistCol(bid), id)); };
+  return { waitlist, loading, setWaitlistStatus, deleteWaitlistEntry };
 }
 
 // ─── Shelter adoptions ────────────────────────────────────────────────────────

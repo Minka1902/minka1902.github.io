@@ -7,14 +7,15 @@ import { db } from '@/lib/firebase';
 import {
   businessDirectoryCol, bizAppointmentsCol, bizCustomerPackagesCol, bizOrdersCol,
   bizAdoptionApplicationsCol, bizEnrollmentsCol, bizStaysCol, bizThreadsCol, bizThreadMessagesCol,
-  directoryAdoptablesCol, directoryCatalogCol, directoryClassesCol, directoryReviewsCol,
+  bizWaitlistCol, directoryAdoptablesCol, directoryCatalogCol, directoryClassesCol,
+  directoryLittersCol, directoryReviewsCol,
 } from '@/lib/firestore';
 import { useAuth } from '@/hooks/useAuth';
 import { stripUndefined } from '@/lib/utils';
 import { distanceKm } from '@/lib/geo';
 import { computeOrderTotals } from '@/types';
 import type {
-  AdoptionApplication, PublicAdoptable,
+  AdoptionApplication, PublicAdoptable, PublicLitterItem, WaitlistEntry,
   BusinessAddress, BusinessDirectoryEntry, BusinessReview, CustomerPackage, FulfillmentMethod,
   ClassEnrollment, GeoPoint, MessageThread, OrderItem, OrderPaymentMethod, PublicCatalogItem,
   PublicClassItem, PublicPackageItem, StayFoodPlan, StayMedication, ThreadMessage,
@@ -424,6 +425,55 @@ export function useEnrollInClass() {
   };
 
   return { enroll };
+}
+
+// ─── Breeder litters (customer side) ──────────────────────────────────────────
+
+/** Litters with available puppies a breeder publishes. */
+export function usePublicLitters(bid: string | undefined) {
+  const [litters, setLitters] = useState<PublicLitterItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!bid) { setLitters([]); setLoading(false); return; }
+    const unsub = onSnapshot(
+      directoryLittersCol(bid),
+      snap => {
+        setLitters(snap.docs.map(d => ({ id: d.id, ...d.data() } as PublicLitterItem)));
+        setLoading(false);
+      },
+      () => setLoading(false),
+    );
+    return () => unsub();
+  }, [bid]);
+
+  return { litters, loading };
+}
+
+export interface WaitlistJoinInput {
+  preferences?: WaitlistEntry['preferences'];
+  phone?: string;
+}
+
+/** Customer joins the breeder's waitlist (createdAt order == position). */
+export function useJoinWaitlist() {
+  const { user } = useAuth();
+
+  const joinWaitlist = async (bid: string, entry: BusinessDirectoryEntry, input: WaitlistJoinInput) => {
+    const now = Date.now();
+    void openThread(bid, entry.name, user!, 'Joined the puppy waitlist.');
+    return addDoc(bizWaitlistCol(bid), stripUndefined({
+      customerUserId: user!.uid,
+      customerName: user!.displayName ?? 'Customer',
+      customerEmail: user!.email ?? undefined,
+      customerPhone: input.phone,
+      preferences: input.preferences,
+      status: 'waiting',
+      createdAt: now, updatedAt: now,
+    } as Omit<WaitlistEntry, 'id'>));
+  };
+
+  return { joinWaitlist };
 }
 
 // ─── Reviews ──────────────────────────────────────────────────────────────────
